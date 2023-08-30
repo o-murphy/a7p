@@ -14,8 +14,8 @@ data = b'73e771793eefa7138da2ad842f97ffb5\n\xe2\x02\n\x0212\x12\x011\x1a\x011"\x
        b'\x8c\xea\x05\x80\xee\x05\xf4\xf1\x05\xe8\xf5\x05\xdc\xf9\x05\xd0\xfd\x05\xc4\x81\x06\xb8\x85' \
        b'\x06\xac\x89\x06\xa0\x8d\x06\xda\x01\x03\x08\x90N\xe2\x01\x0522 LR'
 
-from a7p import A7PFile
-from a7p.profedit_pb2 import Payload, Profile, DType, GType, TwistDir, SwPos, CoefRow
+from a7p import *
+
 
 with open('test2.a7p', 'rb') as fp:
     print(A7PFile.load(fp))
