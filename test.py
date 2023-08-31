@@ -1,3 +1,5 @@
+from a7p.factory import A7PFactory
+
 data = b'73e771793eefa7138da2ad842f97ffb5\n\xe2\x02\n\x0212\x12\x011\x1a\x011"\x011*\x0118\xe8\x07@' \
        b'\xe8\x07H\x01PdXn`\x01h\xe8\x07x\x0f\x80\x01\x90N\x88\x01(\x98\x01\x0f\xa0\x01\xe0+\xa8\x01' \
        b'\n\xb0\x01\xe8\x07\xca\x01\x08\x08\xff\x01\x18\x01 \x90N\xca\x01\t\x08\xff\x01\x18\x02 \xa0' \
@@ -17,7 +19,7 @@ data = b'73e771793eefa7138da2ad842f97ffb5\n\xe2\x02\n\x0212\x12\x011\x1a\x011"\x
 from a7p import *
 
 
-with open('test2.a7p', 'rb') as fp:
+with open(r"C:\Users\Sergey\PycharmProjects\pya7p\5.45x39_PS_52GR.a7p", 'rb') as fp:
     print(A7PFile.load(fp))
 
 payload = Payload(profile=Profile(
@@ -77,8 +79,19 @@ payload = Payload(profile=Profile(
 
 ))
 
-with open('test1.a7p', 'wb') as fp:
-    A7PFile.dump(payload, fp)
+#
+# with open('APR_308WIN_UKROP_175GR.json', 'r', encoding='utf-8') as fp:
+#     prof = A7PFile.from_json(fp.read())
+#
+#     with open('APR_308WIN_UKROP_175GR.a7p', 'wb') as fp:
+#         A7PFile.dump(prof, fp)
+#
+# # with open('test1.a7p', 'wb') as fp:
+# #     # A7PFile.dump(payload, fp)
+# #     with open('test1.json', 'w') as jfp:
+#         jfp.write(A7PFile.to_json(payload))
 
 
-print()
+
+with open('test_factory.a7p', 'wb') as fp:
+    A7PFile.dump(A7PFactory()(), fp)
