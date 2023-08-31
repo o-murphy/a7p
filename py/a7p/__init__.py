@@ -3,10 +3,11 @@ __author__ = "o-murphy"
 __credits__ = ["Dmytro Yaroshenko"]
 __copyright__ = ("",)
 
-from a7p import profedit_pb2
+from a7p import profedit_pb2, factory
 from a7p.a7p import A7PFile, A7PDataError
 from a7p.profedit_pb2 import *
+from a7p.factory import *
 
 __all__ = ['A7PFile', 'A7PDataError',
-           'profedit_pb2',
+           'profedit_pb2', 'factory',
            'Payload', 'Profile', 'DType', 'GType', 'TwistDir', 'SwPos', 'CoefRow']
