@@ -1,3 +1,4 @@
 include requirements.txt
+include a7p/profedit.proto
 include README.MD
 include LICENSE
