@@ -4,7 +4,7 @@ from typing import NamedTuple
 
 from a7p import profedit_pb2
 
-__all__ = ['Meta', 'Zeroing', 'Atmosphere', 'Barrel', 'Cartridge', 'DragPoint', 'Bullet', 'Switches', 'A7PFactory']
+__all__ = ['A7PFactory']
 
 
 class DistanceTable(Enum):
@@ -103,17 +103,17 @@ class Switches(NamedTuple):
 
 class A7PFactory:
 
-    def __call__(self,
-                 meta: Meta = Meta(),
-                 barrel: Barrel = Barrel(),
-                 cartridge: Cartridge = Cartridge(),
-                 bullet: Bullet = Bullet(),
-                 zeroing: Zeroing = Zeroing(),
-                 zero_atmo: Atmosphere = Atmosphere(),
-                 zero_powder_temp: int = 15,
-                 distances: DistanceTable = DistanceTable.LONG_RANGE,
-                 switches: Switches = Switches()
-                 ) -> profedit_pb2.Payload:
+    def __new__(cls,
+                meta: Meta = Meta(),
+                barrel: Barrel = Barrel(),
+                cartridge: Cartridge = Cartridge(),
+                bullet: Bullet = Bullet(),
+                zeroing: Zeroing = Zeroing(),
+                zero_atmo: Atmosphere = Atmosphere(),
+                zero_powder_temp: int = 15,
+                distances: [DistanceTable, tuple[float]] = DistanceTable.LONG_RANGE,
+                switches: Switches = Switches()
+                ) -> profedit_pb2.Payload:
         def fmt_bottom():
             if meta.short_name_bot:
                 return meta.short_name_bot
@@ -127,7 +127,14 @@ class A7PFactory:
                 ) for point in bullet.drag_model
             ]
 
-        _distances = distances.value
+        if isinstance(distances, DistanceTable):
+            _distances = distances.value
+        elif isinstance(distances, tuple):
+            _distances = distances
+        else:
+            raise ValueError("Distances have to be an instance of DistanceTable or tuple[float]")
+        if len(_distances) < 1:
+            raise ValueError("List of distances can't be empty")
         zero_dist_idx = _distances.index(zeroing.distance)
 
         return profedit_pb2.Payload(
@@ -169,3 +176,13 @@ class A7PFactory:
                 caliber=barrel.caliber
             )
         )
+
+    Meta = Meta
+    Barrel = Barrel
+    Cartridge = Cartridge
+    Bullet = Bullet
+    Zeroing = Zeroing
+    Atmosphere = Atmosphere
+    DistanceTable = DistanceTable
+    Switches = Switches
+    DragPoint = DragPoint

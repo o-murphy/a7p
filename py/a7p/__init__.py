@@ -6,8 +6,8 @@ __copyright__ = ("",)
 from a7p import profedit_pb2, factory
 from a7p.a7p import A7PFile, A7PDataError
 from a7p.profedit_pb2 import *
-from a7p.factory import *
+from a7p.factory import A7PFactory
 
-__all__ = ['A7PFile', 'A7PDataError',
-           'profedit_pb2', 'factory',
+__all__ = ['A7PFile', 'A7PDataError', 'A7PFactory', 'factory',
+           'profedit_pb2',
            'Payload', 'Profile', 'DType', 'GType', 'TwistDir', 'SwPos', 'CoefRow']
