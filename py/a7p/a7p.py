@@ -5,7 +5,7 @@ from typing import BinaryIO
 from a7p import profedit_pb2
 from google.protobuf.json_format import MessageToJson, MessageToDict, Parse
 
-__all_ = ['A7PFile', 'A7PDataError']
+__all__ = ['A7PFile', 'A7PDataError']
 
 
 class A7PDataError(Exception):
