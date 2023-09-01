@@ -28,7 +28,7 @@ setup(
     version=__version__,
     python_requires='>=3.9',
 
-    description='pure python fork of dfu_util library',
+    description='Simple python3 wrapper for .a7p files',
     long_description=long_description,
     long_description_content_type="text/markdown",
 
