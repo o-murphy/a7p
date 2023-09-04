@@ -135,7 +135,7 @@ class A7PFactory:
             raise ValueError("Distances have to be an instance of DistanceTable or tuple[float]")
         if len(_distances) < 1:
             raise ValueError("List of distances can't be empty")
-        zero_dist_idx = _distances.index(zeroing.distance)
+        zero_dist_idx = _distances.index(round(zeroing.distance))
 
         return profedit_pb2.Payload(
             profile=profedit_pb2.Profile(
@@ -170,7 +170,7 @@ class A7PFactory:
 
                 switches=list(switches),
                 distances=[round(d * 100) for d in _distances],
-                c_zero_distance_idx=zero_dist_idx if zero_dist_idx else 100,
+                c_zero_distance_idx=zero_dist_idx if zero_dist_idx else 0,
                 coef_rows=drag_model(),
 
                 caliber=barrel.caliber
