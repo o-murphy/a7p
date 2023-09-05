@@ -17,7 +17,7 @@ with open('requirements.txt', 'r') as fp:
     setup_requires = fp.readlines()
 
 
-with open('README.md', 'r') as fp:
+with open('README.MD', 'r') as fp:
     long_description = fp.read()
 
 
