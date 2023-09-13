@@ -1,7 +1,14 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
 [project]
 name = "a7p"
-version = "0.0.5b2"
-authors = [{name = "o-murphy"}]
+authors = [
+    { name="o-murphy" },
+]
+
 description = "Simple python3 wrapper for .a7p files"
 readme = "REANME.MD"
 requires-python = ">=3.9"
@@ -12,16 +19,17 @@ classifiers = [
     "Natural Language :: English",
     "Programming Language :: Python",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = ["google", "protobuf"]
+dynamic = ["version"]
 
-#[project.optional-dependencies] # Optional
-#dev = ["check-manifest"]
-#test = ["coverage"]
 
 [project.urls]
 "Homepage" = "https://github.com/o-murphy/a7p_transfer_example"
@@ -31,24 +39,9 @@ dependencies = ["google", "protobuf"]
 "Source" = "https://github.com/o-murphy/a7p_transfer_example"
 
 
-## The following would provide a command line executable called `sample`
-## which executes the function `main` from this package when invoked.
-#[project.scripts]  # Optional
-#sample = "sample:main"
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["a7p*"]  # alternatively: `exclude = ["additional*"]`
 
-## This is configuration specific to the `setuptools` build backend.
-## If you are using a different build backend, you will need to change this.
-#[tool.setuptools]
-## If there are data files included in your packages that need to be
-## installed, specify them here.
-#package-data = {"sample" = ["*.dat"]}
-
-[tool.setuptools]
-packages = ["a7p"]
-
-[build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
-
-
-
+[tool.setuptools.dynamic]
+version = {attr = "a7p.__version__"}
