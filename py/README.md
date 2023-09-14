@@ -1,6 +1,6 @@
 # Table of Contents
 
-- [Description](#project-overview)
+- [Description](#description)
 - [Instalation](#instalation)
 - [Usage](#usage)
 
@@ -65,6 +65,6 @@ payload = A7PFactory(
     ),
     distances=A7PFactory.DistanceTable.LONG_RANGE
 )
-with open('data/test.a7p', 'rb') as fp:
+with open('data/test.a7p', 'wb') as fp:
     A7PFile.dump(payload, fp)
 ```
