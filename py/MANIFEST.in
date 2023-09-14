@@ -1,5 +1,6 @@
 include requirements.txt
 include a7p/profedit.proto
+include a7p/*.pyi
 include README.MD
 include LICENSE
 include py.typed
