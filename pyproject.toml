@@ -10,7 +10,7 @@ authors = [
 ]
 
 description = "Simple python3 wrapper for .a7p files"
-readme = "REANME.MD"
+readme = "README.md"
 requires-python = ">=3.9"
 keywords = ["protobuf", "archer", "a7p"]
 license = {file = "LICENSE"}
