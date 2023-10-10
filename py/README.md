@@ -3,6 +3,7 @@
 - [Description](#description)
 - [Instalation](#instalation)
 - [Usage](#usage)
+- [Gallery](#gallery)
 
 ## Description
 
@@ -68,3 +69,6 @@ payload = A7PFactory(
 with open('data/test.a7p', 'wb') as fp:
     A7PFile.dump(payload, fp)
 ```
+
+## Gallery
+Latest updates available at **[JsDelivr CDN](https://cdn.jsdelivr.net/gh/o-murphy/a7p/gallery/)**
