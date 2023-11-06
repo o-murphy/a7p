@@ -4,6 +4,7 @@ from typing import BinaryIO
 
 from a7p import profedit_pb2
 from google.protobuf.json_format import MessageToJson, MessageToDict, Parse
+from a7p import protovalidate as validator
 
 __all__ = ['A7PFile', 'A7PDataError']
 
@@ -21,6 +22,7 @@ class A7PFile:
         if md5_hash == string[:32].decode():
             profile = profedit_pb2.Payload()
             profile.ParseFromString(data)
+            validator.validate(profile)
             return profile
         else:
             raise A7PDataError("Input data is missing for MD5 hashing")
@@ -32,6 +34,7 @@ class A7PFile:
 
     @staticmethod
     def dumps(profile: profedit_pb2.Payload) -> bytes:
+        validator.validate(profile)
         data = profile.SerializeToString()
         md5_hash = hashlib.md5(data).hexdigest().encode()
         return md5_hash + data
