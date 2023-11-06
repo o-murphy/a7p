@@ -7,7 +7,7 @@
 
 ## Description
 
-Simple python3 wrapper for .a7p files
+Simple python3 wrapper for .a7p files \
 
 ## Instalation
 
@@ -18,7 +18,7 @@ pip install a7p
 
 #### or latest from repository:
 ```bash
-git clone https://github.com/o-murphy/a7p_transfer_example
+git clone https://github.com/o-murphy/a7p
 cd a7p_transfer_example/a7p_py
 python setup.py install
 ```
