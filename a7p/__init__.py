@@ -1,4 +1,4 @@
-__version__ = '0.0.6a1'
+__version__ = '0.0.6'
 __author__ = "o-murphy"
 __credits__ = ["Dmytro Yaroshenko"]
 __copyright__ = ("",)
