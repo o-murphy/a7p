@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from py_a7p import A7PFile, A7PDataError
+from a7p import A7PFile, A7PDataError
 
 
 class TestA7P(TestCase):
