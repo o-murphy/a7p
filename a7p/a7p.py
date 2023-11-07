@@ -16,32 +16,34 @@ class A7PDataError(Exception):
 class A7PFile:
 
     @staticmethod
-    def loads(string: bytes):
+    def loads(string: bytes, validate: bool = True):
         data = string[32:]
         md5_hash = hashlib.md5(data).hexdigest()
         if md5_hash == string[:32].decode():
             profile = profedit_pb2.Payload()
             profile.ParseFromString(data)
-            validator.validate(profile)
+            if validate:
+                validator.validate(profile)
             return profile
         else:
             raise A7PDataError("Input data is missing for MD5 hashing")
 
     @staticmethod
-    def load(file: BinaryIO) -> profedit_pb2.Payload:
+    def load(file: BinaryIO, validate: bool = True) -> profedit_pb2.Payload:
         string = file.read()
-        return A7PFile.loads(string)
+        return A7PFile.loads(string, validate)
 
     @staticmethod
-    def dumps(profile: profedit_pb2.Payload) -> bytes:
-        validator.validate(profile)
+    def dumps(profile: profedit_pb2.Payload, validate: bool = True) -> bytes:
+        if validate:
+            validator.validate(profile)
         data = profile.SerializeToString()
         md5_hash = hashlib.md5(data).hexdigest().encode()
         return md5_hash + data
 
     @staticmethod
-    def dump(profile: profedit_pb2.Payload, file: BinaryIO) -> None:
-        data = A7PFile.dumps(profile)
+    def dump(profile: profedit_pb2.Payload, file: BinaryIO, validate: bool = True) -> None:
+        data = A7PFile.dumps(profile, validate)
         file.write(data)
 
     @staticmethod
