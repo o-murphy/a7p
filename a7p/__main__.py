@@ -2,20 +2,18 @@ import asyncio
 import pathlib
 import sys
 from argparse import ArgumentParser
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from importlib import metadata
 from asyncio import Semaphore
-from pprint import pprint
 
 from a7p.a7p import A7PFile, A7PDataError
 from a7p import protovalidate
 from a7p.protovalidate import ValidationError, Violations
 
 try:
-    __version__ = metadata.version("archerdfu")
+    __version__ = metadata.version("a7p")
 except metadata.PackageNotFoundError:
-    with open("VERSION") as f:
-        __version__ = f.read().strip()
+    __version__ = "undefined version"
 
 # Define a global Semaphore with a maximum number of threads
 MAX_THREADS = 5  # Set the maximum number of threads
