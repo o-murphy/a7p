@@ -34,14 +34,15 @@ dynamic = ["version"]
 [project.urls]
 "Homepage" = "https://github.com/o-murphy/a7p"
 "Bug Reports" = "https://github.com/o-murphy/a7p/issues"
-#"Funding" = "https://donate.pypi.org"
-#"Say Thanks!" = ""
 "Source" = "https://github.com/o-murphy/a7p"
 
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["a7p*"]  # alternatively: `exclude = ["additional*"]`
+include = ["a7p*"]
 
 [tool.setuptools.dynamic]
-version = {attr = "a7p.__version__"}
+version = {file = "VERSION"}
+
+[project.scripts]
+a7p = "a7p.__main__:main"
