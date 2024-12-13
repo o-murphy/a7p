@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from asyncio import Semaphore
 from dataclasses import dataclass
 from importlib import metadata
+import logging
 
 from a7p import A7PFile, A7PDataError
 from a7p import protovalidate
@@ -15,6 +16,9 @@ try:
     __version__ = metadata.version("a7p")
 except metadata.PackageNotFoundError:
     __version__ = "undefined version"
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 # Define a global Semaphore with a maximum number of threads
 MAX_THREADS = 5  # Set the maximum number of threads
@@ -238,7 +242,7 @@ async def process_files(
         zero_sync: pathlib.Path = None
 ):
     if unsafe:
-        print("Unsafe mode")
+        logger.warning("Unsafe mode")
     validate = unsafe is False
     tasks = []
 
