@@ -1,11 +1,11 @@
 import asyncio
+import logging
 import pathlib
 import sys
 from argparse import ArgumentParser
 from asyncio import Semaphore
 from dataclasses import dataclass
 from importlib import metadata
-import logging
 
 from a7p import A7PFile, A7PDataError
 from a7p import protovalidate
@@ -17,13 +17,37 @@ try:
 except metadata.PackageNotFoundError:
     __version__ = "undefined version"
 
-logger = logging.getLogger(__name__)
+# ANSI escape codes for colors
+RESET = "\033[0m"
+COLORS = {
+    "DEBUG": "\033[34m",  # Blue
+    "INFO": "\033[32m",  # Green
+    "WARNING": "\033[33m",  # Yellow
+    "ERROR": "\033[31m",  # Red
+    "CRITICAL": "\033[35m",  # Magenta
+}
+
+
+class ANSILoggerFormatter(logging.Formatter):
+    def format(self, record):
+        log_color = COLORS.get(record.levelname, RESET)
+        formatted_message = f"{record.levelname.ljust(len('CRITICAL'))}: {super().format(record)}"
+        return f"{log_color}{formatted_message}{RESET}"
+
+
+# formatter = logging.Formatter("%(levelname)s:%(message)s")
+formatter = ANSILoggerFormatter()
+stream_handler = logging.StreamHandler(sys.stdout)  # Use sys.stdout here
+stream_handler.setFormatter(formatter)
+
+logger = logging.getLogger("a7p")
 logger.setLevel(logging.INFO)
+logger.addHandler(stream_handler)  # Only add this handler
+logger.propagate = False
 
 # Define a global Semaphore with a maximum number of threads
 MAX_THREADS = 5  # Set the maximum number of threads
 semaphore = Semaphore(MAX_THREADS)
-
 
 DISTANCES = {
     'subsonic': DistanceTable.SUBSONIC.value,
@@ -44,7 +68,15 @@ class CustomArgumentParser(ArgumentParser):
     def error(self, message):
         """Override error method to show help message on argument errors."""
         self.print_help(sys.stderr)
-        sys.stderr.write(f"\nError: {message}\n")
+        # sys.stderr.write(f"\nError: {message}\n")
+        logger.error(f"Error: {message}")
+        sys.exit(2)
+
+    def warning(self, message):
+        """Override error method to show help message on argument errors."""
+        self.print_help(sys.stderr)
+        # sys.stderr.write(f"\nError: {message}\n")
+        logger.warning(f"Error: {message}")
         sys.exit(2)
 
 
@@ -135,17 +167,18 @@ class Result:
             if not force:
                 yes_no = input("Are you sure you want to save changes? Y/N: ")
                 if yes_no.lower() != "y":
-                    print("Changes would not be saved")
+                    logger.info("Changes would not be saved")
                     return
             try:
                 with open(self.path.absolute(), 'wb') as fp:
                     try:
                         A7PFile.dump(self.payload, fp, validate=True)
-                        print("Changes saved successfully")
+                        logger.info("Changes saved successfully")
                     except ValidationError:
-                        print("Invalid data, changes would not be saved")
+                        logger.warning("Invalid data, changes would not be saved")
             except IOError as e:
-                print("Error while saving")
+                logger.warning("Error while saving")
+
 
 def update_distances(payload, distances, zero_distance):
     if not zero_distance:
@@ -242,7 +275,9 @@ async def process_files(
         zero_sync: pathlib.Path = None
 ):
     if unsafe:
-        logger.warning("Unsafe mode")
+        logger.warning("Unsafe mode is restricted, it can corrupt your files")
+    if force:
+        logger.warning('Use the "force" option only if you are sure of what you are doing')
     validate = unsafe is False
     tasks = []
 
@@ -253,16 +288,18 @@ async def process_files(
         tasks.append(asyncio.to_thread(process_file, path, validate, distances, zero_distance, zero_offset, zero_sync))
     else:
         if json is not None:
-            parser.error("--json conversion available only for a single file")
+            parser.warning("--json conversion available only for a single file")
         if recursive:
             item: pathlib.Path
             for item in path.rglob("*"):  # '*' matches all files and directories
                 if item.is_file():
-                    tasks.append(limited_to_thread(process_file, item, validate, distances, zero_distance, zero_offset, zero_sync))
+                    tasks.append(limited_to_thread(process_file, item, validate, distances, zero_distance, zero_offset,
+                                                   zero_sync))
         else:
             for item in path.iterdir():
                 if item.is_file():
-                    tasks.append(limited_to_thread(process_file, item, validate, distances, zero_distance, zero_offset, zero_sync))
+                    tasks.append(limited_to_thread(process_file, item, validate, distances, zero_distance, zero_offset,
+                                                   zero_sync))
 
     results: tuple[Result] = await asyncio.gather(*tasks)
 
@@ -275,8 +312,11 @@ async def process_files(
 
 
 def main():
-    args = parser.parse_args()
-    asyncio.run(process_files(**args.__dict__))
+    try:
+        args = parser.parse_args()
+        asyncio.run(process_files(**args.__dict__))
+    except Exception as e:
+        logger.critical(e)
 
 
 if __name__ == '__main__':
