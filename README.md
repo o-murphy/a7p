@@ -35,17 +35,30 @@ This command builds the Docker image and tags it as `go-server`.
 #### CLI-tool
 ```bash
 a7p -h
-usage: a7p 0.0.10 [-h] [-V] [-r] [-v] [--verbose] path
+usage: a7p 0.0.10 [-h] [-V] [-r] [--unsafe] [--verbose] [-F] [-zd ZERO_DISTANCE] [-d {subsonic,low,medium,long,ultra}] [-zs ZERO_SYNC | -zo X_OFFSET Y_OFFSET] path
 
 positional arguments:
-  path             Path to the directory or file
+  path                  Path to the directory or file
 
 options:
-  -h, --help       show this help message and exit
-  -V, --version    show program's version number and exit
-  -r, --recursive  Recursively walk files
-  -v, --validate   Validate files
-  --verbose        Verbose
+  -h, --help            show this help message and exit
+  -V, --version         show program`s version number and exit
+  -r, --recursive       Recursively walk files
+  --unsafe              Skip validation
+  --verbose             Verbose
+  -F, --force           Force changes saving
+
+Distances:
+  -zd ZERO_DISTANCE, --zero-distance ZERO_DISTANCE
+                        Set zero distance in meters
+  -d {subsonic,low,medium,long,ultra}, --distances {subsonic,low,medium,long,ultra}
+                        Set distances range
+
+Zeroing:
+  -zs ZERO_SYNC, --zero-sync ZERO_SYNC
+                        Synchronize zero
+  -zo X_OFFSET Y_OFFSET, --zero-offset X_OFFSET Y_OFFSET
+                        Set clicks offset
 
 ```
 
