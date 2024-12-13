@@ -11,6 +11,11 @@ Simple python3 wrapper for .a7p files \
 
 ## Instalation
 
+#### with pypx
+```bash
+pipx install a7p
+```
+
 #### As common from PyPi:
 ```bash
 pip install a7p
@@ -26,6 +31,25 @@ python setup.py install
 This command builds the Docker image and tags it as `go-server`.
 
 ## Usage
+
+#### CLI-tool
+```bash
+a7p -h
+usage: a7p 0.0.10 [-h] [-V] [-r] [-v] [--verbose] path
+
+positional arguments:
+  path             Path to the directory or file
+
+options:
+  -h, --help       show this help message and exit
+  -V, --version    show program's version number and exit
+  -r, --recursive  Recursively walk files
+  -v, --validate   Validate files
+  --verbose        Verbose
+
+```
+
+#### Direct
 
 ```python
 import logging
