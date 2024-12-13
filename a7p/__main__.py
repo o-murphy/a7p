@@ -139,10 +139,11 @@ async def process_files(
     results: list[Result] = await asyncio.gather(*tasks)
 
     for result in results:
-        result.print()
-        if verbose:
-            result.details()
-        print()
+        if result:
+            result.print()
+            if verbose:
+                result.details()
+            print()
 
 
 def main():
