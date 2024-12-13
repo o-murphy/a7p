@@ -105,12 +105,18 @@ class Result:
                 except Exception:
                     print(violation)
 
-    def save_changes(self):
+    def save_changes(self, force=False):
         if self.zero_distance or self.distances:
+            if not force:
+                yes_no = input("Are you sure you want to save changes? Y/N: ")
+                if yes_no.lower() != "y":
+                    print("Changes would not be saved")
+                    return
             try:
                 with open(self.path.absolute(), 'wb') as fp:
                     try:
                         A7PFile.dump(self.payload, fp, validate=True)
+                        print("Changes saved successfully")
                     except ValidationError:
                         print("Invalid data, changes would not be saved")
             except IOError as e:
@@ -216,14 +222,8 @@ async def process_files(
             result.print()
             if verbose:
                 result.details()
-            if force:
-                result.save_changes()
-            else:
-                yes_no = input("Are you sure you want to save changes? Y/N: ")
-                if yes_no.lower() == "y":
-                    result.save_changes()
-                else:
-                    print("Changes would not be saved")
+            result.save_changes(force)
+
 
 
 def main():
