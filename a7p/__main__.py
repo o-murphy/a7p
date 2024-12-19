@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import pathlib
 import sys
 from argparse import ArgumentParser
@@ -10,40 +9,13 @@ from importlib import metadata
 from a7p import A7PFile, A7PDataError
 from a7p import protovalidate
 from a7p.factory import DistanceTable
-from a7p.protovalidate import ValidationError, Violations
+from a7p.protovalidate import ValidationError, Violations as ProtoValidateViolations
+from a7p.logger import logger, COLORS, RESET, color_print, color_fmt
 
 try:
     __version__ = metadata.version("a7p")
 except metadata.PackageNotFoundError:
     __version__ = "undefined version"
-
-# ANSI escape codes for colors
-RESET = "\033[0m"
-COLORS = {
-    "DEBUG": "\033[34m",  # Blue
-    "INFO": "\033[32m",  # Green
-    "WARNING": "\033[33m",  # Yellow
-    "ERROR": "\033[31m",  # Red
-    "CRITICAL": "\033[35m",  # Magenta
-}
-
-
-class ANSILoggerFormatter(logging.Formatter):
-    def format(self, record):
-        log_color = COLORS.get(record.levelname, RESET)
-        formatted_message = f"{record.levelname.ljust(len('CRITICAL'))}: {super().format(record)}"
-        return f"{log_color}{formatted_message}{RESET}"
-
-
-# formatter = logging.Formatter("%(levelname)s:%(message)s")
-formatter = ANSILoggerFormatter()
-stream_handler = logging.StreamHandler(sys.stdout)  # Use sys.stdout here
-stream_handler.setFormatter(formatter)
-
-logger = logging.getLogger("a7p")
-logger.setLevel(logging.INFO)
-logger.addHandler(stream_handler)  # Only add this handler
-logger.propagate = False
 
 # Define a global Semaphore with a maximum number of threads
 MAX_THREADS = 5  # Set the maximum number of threads
@@ -116,11 +88,12 @@ zeroing_exclusive_group.add_argument('-zo', '--zero-offset', action='store', nar
 # parser.add_argument('--max-threads', action='store', type=int, default=5)
 
 
+
 @dataclass
 class Result:
     path: pathlib.Path
     error = None
-    violations: Violations = None
+    proto_violations: ProtoValidateViolations = None
     zero: tuple[float, float] = None
     new_zero: tuple[float, float] = None
     zero_update: bool = False
@@ -128,32 +101,34 @@ class Result:
     zero_distance: str = None
     payload: object = None
 
-    def print(self):
-        print(f"File: {self.path.absolute()}")
+    def print(self, verbose=False):
+        valid = color_fmt("Invalid", levelname='ERROR') \
+            if self.error \
+            else color_fmt("Valid", levelname='INFO')
 
+        print(f"{valid} File: {self.path.absolute()}")
         if self.zero:
-            print("Zero:\tX: {},\tY: {}".format(*self.zero))
+            print("\tZero:\tX: {},\tY: {}".format(*self.zero))
         if self.zero_update:
-            print("New zero:\tX: {},\tY: {}".format(*self.new_zero))
-
-        if self.error:
-            print(f"Error: {self.error}")
-
+            color_print("\tNew zero:\tX: {},\tY: {}".format(*self.new_zero), levelname='LIGHT_BLUE')
         if self.distances:
-            print("New range: {}".format(self.distances))
-
+            color_print("\tNew range: {}".format(self.distances), levelname='LIGHT_BLUE')
         if self.zero_distance:
-            print("New zero distance: {}".format(self.zero_distance))
+            color_print("\tNew zero distance: {}".format(self.zero_distance), levelname='LIGHT_BLUE')
+        if self.error:
+            color_print(f"{self.error}", levelname='ERROR')
+            if verbose:
+                self.print_violations()
 
-    def details(self):
+    def print_violations(self):
 
-        if self.violations:
-            for violation in self.violations.ListFields():
+        if self.proto_violations:
+            for violation in self.proto_violations.ListFields():
                 try:
                     violation_msg = []
                     for details in violation[1]:
                         violation_msg.extend([
-                            "\tViolation:"
+                            color_fmt("\tViolation:", levelname="WARNING"),
                             f"\t\t{details.field_path}",
                             f"\t\t{details.constraint_id}",
                             f"\t\t{details.message}"
@@ -247,7 +222,7 @@ def process_file(
                 protovalidate.validate(payload)
         except ValidationError as e:
             result.error = "Validation error"
-            result.violations = e.violations
+            result.proto_violations = e.violations
     except (IOError, A7PDataError) as e:
         result.error = e
         return result
@@ -305,18 +280,17 @@ async def process_files(
 
     for result in results:
         if result:
-            result.print()
-            if verbose:
-                result.details()
+            result.print(verbose)
+            print()
             result.save_changes(force)
 
 
 def main():
-    try:
+    # try:
         args = parser.parse_args()
         asyncio.run(process_files(**args.__dict__))
-    except Exception as e:
-        logger.critical(e)
+    # except Exception as e:
+    #     logger.critical(e)
 
 
 if __name__ == '__main__':
