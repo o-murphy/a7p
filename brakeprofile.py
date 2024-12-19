@@ -1,6 +1,6 @@
 from a7p import A7PFile
 
-with open("test.a7p", "rb") as fp:
+with open("a7p/test.a7p", "rb") as fp:
 
     payload = A7PFile.load(fp, validate=True)
     print(payload.profile.c_zero_air_pressure)

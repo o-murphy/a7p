@@ -6,11 +6,24 @@ from a7p import profedit_pb2
 from google.protobuf.json_format import MessageToJson, MessageToDict, Parse
 from a7p import protovalidate as validator
 
-__all__ = ['A7PFile', 'A7PDataError']
+__all__ = ['A7PFile', 'A7PDataError', 'A7PChecksumError', 'A7PValidationError']
+
+from a7p.buf.validate import expression_pb2
 
 
-class A7PDataError(Exception):
+class A7PError(Exception):
     pass
+
+class A7PDataError(A7PError):
+    pass
+
+class A7PChecksumError(A7PDataError):
+    pass
+
+class A7PValidationError(A7PDataError):
+    def __init__(self, msg: str, violations: expression_pb2.Violations):
+        super().__init__(msg)
+        self.violations = violations
 
 
 class A7PFile:
@@ -23,10 +36,10 @@ class A7PFile:
             profile = profedit_pb2.Payload()
             profile.ParseFromString(data)
             if validate:
-                validator.validate(profile)
+                A7PFile.validate(profile)
             return profile
         else:
-            raise A7PDataError("Input data is missing for MD5 hashing")
+            raise A7PChecksumError("Input data is missing for MD5 hashing")
 
     @staticmethod
     def load(file: BinaryIO, validate: bool = True) -> profedit_pb2.Payload:
@@ -36,7 +49,7 @@ class A7PFile:
     @staticmethod
     def dumps(profile: profedit_pb2.Payload, validate: bool = True) -> bytes:
         if validate:
-            validator.validate(profile)
+            A7PFile.validate(profile)
         data = profile.SerializeToString()
         md5_hash = hashlib.md5(data).hexdigest().encode()
         return md5_hash + data
@@ -62,6 +75,12 @@ class A7PFile:
     def from_dict(data: dict) -> profedit_pb2.Payload:
         return Parse(json.dumps(data), profedit_pb2.Payload())
 
+    @staticmethod
+    def validate(profile: profedit_pb2.Payload):
+        try:
+            validator.validate(profile)
+        except validator.ValidationError as e:
+            raise A7PValidationError("Validation error", violations=e.violations) from e
 
 if __name__ == '__main__':
     with open('test.a7p', 'rb') as a7p:

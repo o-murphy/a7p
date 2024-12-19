@@ -2,14 +2,14 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Callable, Any, Tuple
 
-from a7p import profedit_pb2, A7PFile, A7PDataError
+from a7p.a7p import profedit_pb2, A7PFile, A7PDataError
 from a7p.logger import logger
 
-__all__ = ['Validator', 'Criterion', 'A7PValidationError']
+__all__ = ['SpecValidator', 'SpecCriterion', 'A7PSpecValidationError']
 
 
 @dataclass
-class Violation:
+class SpecViolation:
     path: Path | str
     value: any
     reason: str
@@ -20,45 +20,45 @@ class Violation:
         value = f"{self.value if is_stringer else '<object>'}"
         return f"Violation:\n\t{path}:\t{value}\n\tReason:\t{self.reason}"
 
-def is_list_of_violations(violations: str | list[Violation]):
+def is_list_of_violations(violations: str | list[SpecViolation]):
     """Check if a variable is a list of Violation objects."""
-    return isinstance(violations, list) and all(isinstance(item, Violation) for item in violations)
+    return isinstance(violations, list) and all(isinstance(item, SpecViolation) for item in violations)
 
 
 # Define a custom type for the return value
-ValidationResult = Tuple[bool, str | list[Violation]]
+SpecValidationResult = Tuple[bool, str | list[SpecViolation]]
 
 # Define the type annotation for the callable
-ValidatorFunction = Callable[[Any, Path, list], ValidationResult]
-FlexibleValidatorFunction = Callable[..., ValidationResult]
+SpecValidatorFunction = Callable[[Any, Path, list], SpecValidationResult]
+SpecFlexibleValidatorFunction = Callable[..., SpecValidationResult]
 
 
 @dataclass
-class Criterion:
+class SpecCriterion:
     path: Path
-    validate: FlexibleValidatorFunction
+    validate: SpecFlexibleValidatorFunction
 
 
-class A7PValidationError(A7PDataError):
-    def __init__(self, violations: list[Violation]):
+class A7PSpecValidationError(A7PDataError):
+    def __init__(self, violations: list[SpecViolation]):
         self.violations = violations
 
 
-class Validator:
+class SpecValidator:
     def __init__(self):
         self.criteria = {}
 
         self.register("~", lambda x, *args, **kwargs: (True, ""))
 
-    def register(self, path: Path | str, criteria: FlexibleValidatorFunction):
+    def register(self, path: Path | str, criteria: SpecFlexibleValidatorFunction):
         if path in self.criteria:
             raise KeyError(f"criterion for {path} already exists")
-        self.criteria[path] = Criterion(Path(path), criteria)
+        self.criteria[path] = SpecCriterion(Path(path), criteria)
 
     def unregister(self, key: str):
         self.criteria.pop(key, None)
 
-    def get_criteria(self, path: Path) -> Criterion:
+    def get_criteria(self, path: Path) -> SpecCriterion:
         key = path.name
         criterion = self.criteria.get(key, None)
         if criterion is None:
@@ -71,7 +71,7 @@ class Validator:
         return criterion
 
     def validate(self, data: any, path: Path = Path("~/"),
-                 violations: list[Violation] = None) -> (bool, list[Violation]):
+                 violations: list[SpecViolation] = None) -> (bool, list[SpecViolation]):
 
         if violations is None:
             violations = []
@@ -90,10 +90,10 @@ class Validator:
                 self.validate(item, item_path, violations)
 
         criterion = self.get_criteria(path)
-        if isinstance(criterion, Criterion):
+        if isinstance(criterion, SpecCriterion):
             is_valid, reason = criterion.validate(data, path, violations)
             if not is_valid:
-                violations.append(Violation(path, data, str(reason)))
+                violations.append(SpecViolation(path, data, str(reason)))
                 # raise A7PValidationError(f"{path.as_posix()} has not valid value: {data}. Reason: {reason}")
         return len(violations) == 0, violations
 
@@ -157,11 +157,11 @@ def _check_distances(distances: list[int], path: Path, *args, **kwargs):
 
 
 def _check_dependency_distances(zero_distance_index: int, distances: list[int]):
-    return zero_distance_index >= len(distances) + 1, "zero distance index > len(distances)"
+    return 0 <= zero_distance_index < len(distances), "zero distance index > len(distances)"
 
 
-def _check_profile(profile: dict, path: Path, violations: list[Violation], *args, **kwargs):
-    v = Validator()
+def _check_profile(profile: dict, path: Path, violations: list[SpecViolation], *args, **kwargs):
+    v = SpecValidator()
     v.register("~/profile/distances", _check_distances)
     v.register("~/profile/cZeroDistanceIdx", _check_c_zero_distance_idx)
 
@@ -171,16 +171,15 @@ def _check_profile(profile: dict, path: Path, violations: list[Violation], *args
     v.validate(profile, path, violations)
 
     is_valid, reason = _check_dependency_distances(profile["cZeroDistanceIdx"], profile["distances"])
-    print(is_valid)
     if not is_valid:
-        violations.append(Violation("Distances", "Distance dependency error", reason))
+        violations.append(SpecViolation("Distances", "Distance dependency error", reason))
 
     return is_valid, "Found problems in profile"
 
 
 def validate(payload: profedit_pb2.Payload):
     data = A7PFile.to_dict(payload)
-    v = Validator()
+    v = SpecValidator()
     v.register("profileName", _check_profile_name)
     v.register("cartridgeName", _check_cartridge_name)
     v.register("caliber", _check_caliber)
@@ -210,15 +209,16 @@ def validate(payload: profedit_pb2.Payload):
 
     is_valid, violations = v.validate(data)
     if not is_valid:
-        raise A7PValidationError(violations)
+        raise A7PSpecValidationError(violations)
 
 
 if __name__ == '__main__':
+
     # with open("a7p/test.a7p", "rb") as fp:
     with open("broken.a7p", "rb") as fp:
         payload = A7PFile.load(fp, False)
     try:
         validate(payload)
-    except A7PValidationError as e:
-        for v in e.violations:
-            logger.warning(v.format())
+    except A7PSpecValidationError as e:
+        for vio in e.violations:
+            logger.warning(vio.format())

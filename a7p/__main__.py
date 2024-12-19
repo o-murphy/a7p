@@ -6,11 +6,11 @@ from asyncio import Semaphore
 from dataclasses import dataclass
 from importlib import metadata
 
-from a7p import A7PFile, A7PDataError
+from a7p import A7PFile, A7PDataError, A7PError, A7PValidationError
 from a7p import protovalidate
 from a7p.factory import DistanceTable
-from a7p.protovalidate import ValidationError, Violations as ProtoValidateViolations
-from a7p.logger import logger, COLORS, RESET, color_print, color_fmt
+from a7p import validator
+from a7p.logger import logger, color_print, color_fmt
 
 try:
     __version__ = metadata.version("a7p")
@@ -93,7 +93,7 @@ zeroing_exclusive_group.add_argument('-zo', '--zero-offset', action='store', nar
 class Result:
     path: pathlib.Path
     error = None
-    proto_violations: ProtoValidateViolations = None
+    proto_violations: validator.Violations = None
     zero: tuple[float, float] = None
     new_zero: tuple[float, float] = None
     zero_update: bool = False
@@ -149,7 +149,7 @@ class Result:
                     try:
                         A7PFile.dump(self.payload, fp, validate=True)
                         logger.info("Changes saved successfully")
-                    except ValidationError:
+                    except A7PDataError:
                         logger.warning("Invalid data, changes would not be saved")
             except IOError as e:
                 logger.warning("Error while saving")
@@ -192,7 +192,7 @@ def get_zero_to_sync(path, validate):
         with open(path, 'rb') as f:
             payload = A7PFile.load(f, validate)
         return payload.profile.zero_x, payload.profile.zero_y
-    except (IOError, A7PDataError, ValidationError) as e:
+    except (IOError, A7PDataError) as e:
         parser.error(e)
 
 
@@ -219,8 +219,8 @@ def process_file(
 
         try:
             if validate:
-                protovalidate.validate(payload)
-        except ValidationError as e:
+                A7PFile.validate(payload)
+        except A7PValidationError as e:
             result.error = "Validation error"
             result.proto_violations = e.violations
     except (IOError, A7PDataError) as e:
