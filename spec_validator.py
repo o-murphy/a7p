@@ -99,40 +99,44 @@ class SpecValidator:
         return len(violations) == 0, violations
 
 
-_check_profile_name = lambda x, *args, **kwargs: (len(x) < 50, "expected string shorter than 50 characters")
-_check_cartridge_name = lambda x, *args, **kwargs: (len(x) < 50, "expected string shorter than 50 characters")
-_check_caliber = lambda x, *args, **kwargs: (len(x) < 50, "expected string shorter than 50 characters")
-_check_bullet_name = lambda x, *args, **kwargs: (len(x) < 50, "expected string shorter than 50 characters")
-_check_device_uuid = lambda x, *args, **kwargs: (len(x) < 50, "expected string shorter than 50 characters")
-_check_short_name_top = lambda x, *args, **kwargs: (len(x) < 8, "expected string shorter than 8 characters")
-_check_short_name_bot = lambda x, *args, **kwargs: (len(x) < 8, "expected string shorter than 8 characters")
-_check_user_note = lambda x, *args, **kwargs: (len(x) < 1024, "expected string shorter 1024 characters")
-_check_zero_x = lambda x, *args, **kwargs: (-200.0 <= x / 1000 <= 200.0, "expected value in range [-200.0, 200.0]")
-_check_zero_y = lambda x, *args, **kwargs: (-200.0 <= x / 1000 <= 200.0, "expected value in range [-200.0, 200.0]")
-_check_sc_height = lambda x, *args, **kwargs: (
-    -5000.0 <= x / 1000 <= 5000.0, "expected value in range [-5000.0, 5000.0]")
-_check_r_twist = lambda x, *args, **kwargs: (0.0 <= x / 10 <= 100.0, "expected value in range [0.0, 100.0]")
-_check_c_muzzle_velocity = lambda x, *args, **kwargs: (
-    10.0 <= x / 10 <= 3000.0, "expected value in range [10.0, 3000.0]")
-_check_c_zero_temperature = lambda x, *args, **kwargs: (-100.0 <= x <= 100.0, "expected value in range [-100.0, 100.0]")
-_check_c_t_coeff = lambda x, *args, **kwargs: (0.0 <= x / 1000 <= 5.0, "expected value in range [0.0, 5.0]")
-_check_c_zero_air_temperature = lambda x, *args, **kwargs: (
-    -100.0 <= x <= 100.0, "expected value in range [-100.0, 100.0]")
-_check_c_zero_air_pressure = lambda x, *args, **kwargs: (
-    300.0 <= x / 10 <= 1500.0, "expected value in range [300.0, 1500.0]")
-_check_c_zero_air_humidity = lambda x, *args, **kwargs: (0.0 <= x <= 100.0, "expected value in range [0.0, 100.0]")
-_check_c_zero_w_pitch = lambda x, *args, **kwargs: (-90.0 <= x <= 90, "expected value in range [-90.0, 90.0]")
-_check_c_zero_p_temperature = lambda x, *args, **kwargs: (
-    -100.0 <= x <= 100.0, "expected value in range [-100.0, 100.0]")
-_check_c_zero_b_diameter = lambda x, *args, **kwargs: (
-    0.001 <= x / 1000 <= 50.0, "expected value in range [0.001, 50.0]")
-_check_c_zero_b_weight = lambda x, *args, **kwargs: (1.0 <= x / 10 <= 6553.5, "expected value in range [1.0, 6553.5]")
-_check_c_zero_b_length = lambda x, *args, **kwargs: (0.01 <= x / 1000 <= 200.0, "expected value in range [0.01, 200.5]")
-_check_bc_type = lambda x, *args, **kwargs: (x in ['G7', 'G1', 'CUSTOM'], "expected one of ['G7', 'G1', 'CUSTOM']")
-_check_twist_fir = lambda x, *args, **kwargs: (x in ['RIGHT', 'LEFT'], "expected one of ['RIGHT', 'LEFT']")
+def assert_shorter(string: str, max_len: int):
+    return len(string) < max_len, f"expected string shorter than {max_len} characters"
+
+def assert_range(value: float, min_value: float, max_value: float, divisor: float = 1):
+    return -200.0 <= value / divisor <= 200.0, f"expected value in range [{min_value*divisor:.1f}, {max_value*divisor:.1f}]"
+
+def assert_choice(value, keys: list):
+    return value in keys, f"expected one of {keys}"
+
+_check_profile_name = lambda x, *args, **kwargs: assert_shorter(x, 50)
+_check_cartridge_name = lambda x, *args, **kwargs: assert_shorter(x, 50)
+_check_caliber = lambda x, *args, **kwargs: assert_shorter(x, 50)
+_check_bullet_name = lambda x, *args, **kwargs: assert_shorter(x, 50)
+_check_device_uuid = lambda x, *args, **kwargs: assert_shorter(x, 50)
+_check_short_name_top = lambda x, *args, **kwargs: assert_shorter(x, 8)
+_check_short_name_bot = lambda x, *args, **kwargs: assert_shorter(x, 8)
+_check_user_note = lambda x, *args, **kwargs: assert_shorter(x, 1024)
+_check_zero_x = lambda x, *args, **kwargs: assert_range(x, -200.0, 200.0, 1000)
+_check_zero_y = lambda x, *args, **kwargs: assert_range(x, -200.0, 200.0, 1000)
+_check_sc_height = lambda x, *args, **kwargs: assert_range(x, -5000.0, 5000.0, 1000)
+_check_r_twist = lambda x, *args, **kwargs: assert_range(x, 0.0, 100.0, 10)
+_check_c_muzzle_velocity = lambda x, *args, **kwargs: assert_range(x, 10.0, 3000.0, 10)
+_check_c_zero_temperature = lambda x, *args, **kwargs: assert_range(x, -100.0, 100.0)
+_check_c_t_coeff = lambda x, *args, **kwargs: assert_range(x, 0.0, 5.0, 1000)
+_check_c_zero_air_temperature = lambda x, *args, **kwargs: assert_range(x, -100.0, 100.0)
+_check_c_zero_air_pressure = lambda x, *args, **kwargs: assert_range(x, 300.0, 1500.0, 10)
+_check_c_zero_air_humidity = lambda x, *args, **kwargs: assert_range(x, 0.0, 100.0)
+_check_c_zero_w_pitch = lambda x, *args, **kwargs: assert_range(x, -90.0, 90.0)
+_check_c_zero_p_temperature = lambda x, *args, **kwargs: assert_range(x, -100.0, 100.0)
+_check_c_zero_b_diameter = lambda x, *args, **kwargs: assert_range(x, 0.001, 50.0, 1000)
+_check_c_zero_b_weight = lambda x, *args, **kwargs: assert_range(x, 1.0, 6553.5, 10)
+_check_c_zero_b_length = lambda x, *args, **kwargs: assert_range(x, 0.01, 200.0, 1000)
+_check_bc_type = lambda x, *args, **kwargs: assert_choice(x, ['G7', 'G1', 'CUSTOM'])
+_check_twist_fir = lambda x, *args, **kwargs: assert_choice(x, ['RIGHT', 'LEFT'])
 
 _check_c_zero_distance_idx = lambda x, *args, **kwargs: (0 <= x <= 200, "expected integer value in range [0, 200]")
 
+_check_one_distance = lambda x, *args, **kwargs: assert_range(x, 1.0, 3000.0, 100)
 
 def _check_switches(profile: list, path: Path, *args, **kwargs):
     return True, "NOT IMPLEMENTED"
@@ -149,9 +153,8 @@ def _check_distances(distances: list[int], path: Path, *args, **kwargs):
         reasons.append("distances count have been between 0 and 200 values")
     for i, d in enumerate(distances):
         path / f"[{i}]"
-        if 1.0 <= d / 100 <= 3000.0:
-            continue
-        else:
+        is_valid_d, reason = _check_one_distance
+        if not is_valid_d:
             invalid_distances.append(d)
     if len(invalid_distances) > 0:
         reasons.append(f"Invalid distances: {invalid_distances}")
