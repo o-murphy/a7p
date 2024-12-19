@@ -56,7 +56,7 @@ class A7PFile:
 
     @staticmethod
     def to_dict(profile: profedit_pb2.Payload) -> dict:
-        return MessageToDict(profile)
+        return MessageToDict(profile, including_default_value_fields=True)
 
     @staticmethod
     def from_dict(data: dict) -> profedit_pb2.Payload:
