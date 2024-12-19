@@ -20,6 +20,7 @@ class SpecViolation:
         value = f"{self.value if is_stringer else '<object>'}"
         return f"Violation:\n\t{path}:\t{value}\n\tReason:\t{self.reason}"
 
+
 def is_list_of_violations(violations: str | list[SpecViolation]):
     """Check if a variable is a list of Violation objects."""
     return isinstance(violations, list) and all(isinstance(item, SpecViolation) for item in violations)
@@ -129,6 +130,7 @@ _check_c_zero_b_weight = lambda x, *args, **kwargs: (1.0 <= x / 10 <= 6553.5, "e
 _check_c_zero_b_length = lambda x, *args, **kwargs: (0.01 <= x / 1000 <= 200.0, "expected value in range [0.01, 200.5]")
 _check_bc_type = lambda x, *args, **kwargs: (x in ['G7', 'G1', 'CUSTOM'], "expected one of ['G7', 'G1', 'CUSTOM']")
 _check_twist_fir = lambda x, *args, **kwargs: (x in ['RIGHT', 'LEFT'], "expected one of ['RIGHT', 'LEFT']")
+
 _check_c_zero_distance_idx = lambda x, *args, **kwargs: (0 <= x <= 200, "expected integer value in range [0, 200]")
 
 
@@ -174,47 +176,60 @@ def _check_profile(profile: dict, path: Path, violations: list[SpecViolation], *
     if not is_valid:
         violations.append(SpecViolation("Distances", "Distance dependency error", reason))
 
-    return is_valid, "Found problems in profile"
+    return is_valid, "Found problems in 'profile' section"
+
+
+_default_validation_funcs = validation_functions = {
+    "profileName": _check_profile_name,
+    "cartridgeName": _check_cartridge_name,
+    "caliber": _check_caliber,
+    "bulletName": _check_bullet_name,
+    "deviceUuid": _check_device_uuid,
+    "shortNameTop": _check_short_name_top,
+    "shortNameBot": _check_short_name_bot,
+    "userNote": _check_user_note,
+    "zeroX": _check_zero_x,
+    "zeroY": _check_zero_y,
+    "scHeight": _check_sc_height,
+    "rTwist": _check_r_twist,
+    "cMuzzleVelocity": _check_c_muzzle_velocity,
+    "cZeroTemperature": _check_c_zero_temperature,
+    "cTCoeff": _check_c_t_coeff,
+    "cZeroAirTemperature": _check_c_zero_air_temperature,
+    "cZeroAirPressure": _check_c_zero_air_pressure,
+    "cZeroAirHumidity": _check_c_zero_air_humidity,
+    "cZeroPTemperature": _check_c_zero_p_temperature,
+    "cZeroWPitch": _check_c_zero_w_pitch,
+    "bLength": _check_c_zero_b_length,
+    "bWeight": _check_c_zero_b_weight,
+    "bDiameter": _check_c_zero_b_diameter,
+    "bcType": _check_bc_type,
+    "twistDir": _check_twist_fir,
+
+    "~/profile": _check_profile
+}
+
+
+class _DefaultValidator(SpecValidator):
+    def __init__(self):
+        super().__init__()
+        for key, func in validation_functions.items():
+            self.register(key, func)
+
+
+_default_validator = _DefaultValidator()
 
 
 def validate(payload: profedit_pb2.Payload):
     data = A7PFile.to_dict(payload)
-    v = SpecValidator()
-    v.register("profileName", _check_profile_name)
-    v.register("cartridgeName", _check_cartridge_name)
-    v.register("caliber", _check_caliber)
-    v.register("bulletName", _check_bullet_name)
-    v.register("deviceUuid", _check_device_uuid)
-    v.register("shortNameTop", _check_short_name_top)
-    v.register("shortNameBot", _check_short_name_bot)
-    v.register("userNote", _check_user_note)
-    v.register("zeroX", _check_zero_x)
-    v.register("zeroY", _check_zero_y)
-    v.register("scHeight", _check_sc_height)
-    v.register("rTwist", _check_r_twist)
-    v.register("cMuzzleVelocity", _check_c_muzzle_velocity)
-    v.register("cZeroTemperature", _check_c_zero_temperature)
-    v.register("cTCoeff", _check_c_t_coeff)
-    v.register("cZeroAirTemperature", _check_c_zero_air_temperature)
-    v.register("cZeroAirPressure", _check_c_zero_air_pressure)
-    v.register("cZeroAirHumidity", _check_c_zero_air_humidity)
-    v.register("cZeroPTemperature", _check_c_zero_p_temperature)
-    v.register("cZeroWPitch", _check_c_zero_w_pitch)
-    v.register("bLength", _check_c_zero_b_length)
-    v.register("bWeight", _check_c_zero_b_weight)
-    v.register("bDiameter", _check_c_zero_b_diameter)
-    v.register("bcType", _check_bc_type)
-    v.register("twistDir", _check_twist_fir)
-    v.register("~/profile", _check_profile)
 
-    is_valid, violations = v.validate(data)
+    is_valid, violations = _default_validator.validate(data)
     if not is_valid:
         raise A7PSpecValidationError(violations)
 
 
 if __name__ == '__main__':
 
-    # with open("a7p/test.a7p", "rb") as fp:
     with open("broken.a7p", "rb") as fp:
         payload = A7PFile.load(fp, False)
     try:
