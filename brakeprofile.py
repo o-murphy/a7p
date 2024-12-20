@@ -1,6 +1,6 @@
 from a7p import A7PFile
 
-with open("a7p/test.a7p", "rb") as fp:
+with open("bc_ok.a7p", "rb") as fp:
 
     payload = A7PFile.load(fp, validate=True)
 

@@ -1,6 +1,8 @@
-from pathlib import Path
+import pathlib
 from dataclasses import dataclass
-from typing import Callable, Any, Tuple
+from functools import wraps
+from pathlib import Path
+from typing import Callable, Any, Tuple, Type
 
 from a7p.a7p import profedit_pb2, A7PFile, A7PDataError
 from a7p.logger import logger
@@ -34,15 +36,55 @@ SpecValidatorFunction = Callable[[Any, Path, list], SpecValidationResult]
 SpecFlexibleValidatorFunction = Callable[..., SpecValidationResult]
 
 
-@dataclass
-class SpecCriterion:
-    path: Path
-    validate: SpecFlexibleValidatorFunction
-
-
 class A7PSpecValidationError(A7PDataError):
     def __init__(self, violations: list[SpecViolation]):
         self.violations = violations
+
+
+class A7PSpecTypeError(A7PDataError):
+    def __init__(self, expected_types: tuple[Type, ...] = None, actual_type: Type = None):
+        self.expected_types = expected_types or "UNKNOWN"
+        self.actual_type = actual_type or "UNKNOWN"
+        self.message = f"expected value to be one of types: {[t.__name__ for t in expected_types]}, "
+        f"but got {actual_type.__name__} instead."
+        super().__init__(self.message, self.expected_types, self.actual_type)
+
+
+@dataclass
+class SpecCriterion:
+    path: Path
+    validation_func: SpecFlexibleValidatorFunction
+
+    def validate(self, data: any, path: pathlib.Path, violations: list[SpecViolation]) -> SpecValidationResult:
+        try:
+            is_valid, reason = self.validation_func(data, path, violations)
+            if not is_valid:
+                violations.append(SpecViolation(path, data, str(reason)))
+        except TypeError as err:
+            violations.append(SpecViolation(path, data, f"Type error: {str(err)}"))
+            return False, f"Type error: {str(err)}"
+        except A7PSpecTypeError as err:
+            violations.append(SpecViolation(path, data, f"Type error: {err.message}"))
+            return False, f"Type error: {err.message}"
+
+
+def assert_spec_type(*expected_types: Type):
+    if not all(isinstance(t, type) for t in expected_types):
+        raise ValueError("all expected_types must be valid types.")
+
+    def decorator(func: SpecFlexibleValidatorFunction):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if args:
+                first_arg = args[0]
+                if not isinstance(first_arg, tuple(expected_types)):
+                    raise A7PSpecTypeError(
+                        tuple(expected_types),
+                        type(first_arg)
+                    )
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
 
 class SpecValidator:
@@ -92,21 +134,29 @@ class SpecValidator:
 
         criterion = self.get_criteria(path)
         if isinstance(criterion, SpecCriterion):
-            is_valid, reason = criterion.validate(data, path, violations)
-            if not is_valid:
-                violations.append(SpecViolation(path, data, str(reason)))
-                # raise A7PValidationError(f"{path.as_posix()} has not valid value: {data}. Reason: {reason}")
+            criterion.validate(data, path, violations)
         return len(violations) == 0, violations
 
 
+@assert_spec_type(str)
 def assert_shorter(string: str, max_len: int):
     return len(string) < max_len, f"expected string shorter than {max_len} characters"
 
-def assert_range(value: float, min_value: float, max_value: float, divisor: float = 1):
-    return -200.0 <= value / divisor <= 200.0, f"expected value in range [{min_value*divisor:.1f}, {max_value*divisor:.1f}]"
+
+@assert_spec_type(float, int)
+def assert_float_range(value: float, min_value: float, max_value: float, divisor: float = 1):
+    return (min_value <= value / divisor <= max_value,
+            f"expected value in range [{(min_value * divisor):.1f}, {(max_value * divisor):.1f}]")
+
+
+@assert_spec_type(int)
+def assert_int_range(value: int, min_value: int, max_value: int):
+    return min_value <= value <= max_value, f"expected integer value in range [{min_value}, {max_value}]"
+
 
 def assert_choice(value, keys: list):
     return value in keys, f"expected one of {keys}"
+
 
 _check_profile_name = lambda x, *args, **kwargs: assert_shorter(x, 50)
 _check_cartridge_name = lambda x, *args, **kwargs: assert_shorter(x, 50)
@@ -116,33 +166,62 @@ _check_device_uuid = lambda x, *args, **kwargs: assert_shorter(x, 50)
 _check_short_name_top = lambda x, *args, **kwargs: assert_shorter(x, 8)
 _check_short_name_bot = lambda x, *args, **kwargs: assert_shorter(x, 8)
 _check_user_note = lambda x, *args, **kwargs: assert_shorter(x, 1024)
-_check_zero_x = lambda x, *args, **kwargs: assert_range(x, -200.0, 200.0, 1000)
-_check_zero_y = lambda x, *args, **kwargs: assert_range(x, -200.0, 200.0, 1000)
-_check_sc_height = lambda x, *args, **kwargs: assert_range(x, -5000.0, 5000.0, 1000)
-_check_r_twist = lambda x, *args, **kwargs: assert_range(x, 0.0, 100.0, 10)
-_check_c_muzzle_velocity = lambda x, *args, **kwargs: assert_range(x, 10.0, 3000.0, 10)
-_check_c_zero_temperature = lambda x, *args, **kwargs: assert_range(x, -100.0, 100.0)
-_check_c_t_coeff = lambda x, *args, **kwargs: assert_range(x, 0.0, 5.0, 1000)
-_check_c_zero_air_temperature = lambda x, *args, **kwargs: assert_range(x, -100.0, 100.0)
-_check_c_zero_air_pressure = lambda x, *args, **kwargs: assert_range(x, 300.0, 1500.0, 10)
-_check_c_zero_air_humidity = lambda x, *args, **kwargs: assert_range(x, 0.0, 100.0)
-_check_c_zero_w_pitch = lambda x, *args, **kwargs: assert_range(x, -90.0, 90.0)
-_check_c_zero_p_temperature = lambda x, *args, **kwargs: assert_range(x, -100.0, 100.0)
-_check_c_zero_b_diameter = lambda x, *args, **kwargs: assert_range(x, 0.001, 50.0, 1000)
-_check_c_zero_b_weight = lambda x, *args, **kwargs: assert_range(x, 1.0, 6553.5, 10)
-_check_c_zero_b_length = lambda x, *args, **kwargs: assert_range(x, 0.01, 200.0, 1000)
+_check_zero_x = lambda x, *args, **kwargs: assert_float_range(x, -200.0, 200.0, 1000)
+_check_zero_y = lambda x, *args, **kwargs: assert_float_range(x, -200.0, 200.0, 1000)
+_check_sc_height = lambda x, *args, **kwargs: assert_float_range(x, -5000.0, 5000.0)
+_check_r_twist = lambda x, *args, **kwargs: assert_float_range(x, 0.0, 100.0, 100)
+_check_c_muzzle_velocity = lambda x, *args, **kwargs: assert_float_range(x, 10.0, 3000.0, 10)
+_check_c_zero_temperature = lambda x, *args, **kwargs: assert_float_range(x, -100.0, 100.0)
+_check_c_t_coeff = lambda x, *args, **kwargs: assert_float_range(x, 0.0, 5.0, 1000)
+_check_c_zero_air_temperature = lambda x, *args, **kwargs: assert_float_range(x, -100.0, 100.0)
+_check_c_zero_air_pressure = lambda x, *args, **kwargs: assert_float_range(x, 300.0, 1500.0, 10)
+_check_c_zero_air_humidity = lambda x, *args, **kwargs: assert_float_range(x, 0.0, 100.0)
+_check_c_zero_w_pitch = lambda x, *args, **kwargs: assert_float_range(x, -90.0, 90.0, 10)
+_check_c_zero_p_temperature = lambda x, *args, **kwargs: assert_float_range(x, -100.0, 100.0)
+_check_c_zero_b_diameter = lambda x, *args, **kwargs: assert_float_range(x, 0.001, 50.0, 1000)
+_check_c_zero_b_weight = lambda x, *args, **kwargs: assert_float_range(x, 1.0, 6553.5, 10)
+_check_c_zero_b_length = lambda x, *args, **kwargs: assert_float_range(x, 0.01, 200.0, 1000)
 _check_bc_type = lambda x, *args, **kwargs: assert_choice(x, ['G7', 'G1', 'CUSTOM'])
 _check_twist_fir = lambda x, *args, **kwargs: assert_choice(x, ['RIGHT', 'LEFT'])
 
 _check_c_zero_distance_idx = lambda x, *args, **kwargs: (0 <= x <= 200, "expected integer value in range [0, 200]")
 
-_check_one_distance = lambda x, *args, **kwargs: assert_range(x, 1.0, 3000.0, 100)
+_check_one_distance = lambda x, *args, **kwargs: assert_float_range(x, 1.0, 3000.0, 100)
 
-def _check_switches(profile: list, path: Path, *args, **kwargs):
+
+# switches spec checks
+def _check_cidx(idx: int, *args, **kwargs) -> SpecValidationResult:
+    if idx == 255:
+        return False, "unuses special unused value '255'"
+    return assert_int_range(idx, 0, 200)
+
+
+_check_reticle_idx = lambda x, *args, **kwargs: assert_int_range(x, 0, 255)
+_check_zoom = lambda x, *args, **kwargs: assert_int_range(x, 0, 4)
+
+
+def _check_switches(switches: list, path: Path, violations: list[SpecViolation], *args, **kwargs):
+    switches.pop(0)
+    switchesLen = len(switches)
+    if switchesLen < 4:
+        violations.append(SpecViolation(
+            path=path,
+            value=f"{switchesLen} < 4",
+            reason=f"expected minimum 4 items but got {switchesLen}",
+        ))
+
+    v = SpecValidator()
+    v.register("cIdx", _check_cidx)
+    v.register("reticleIdx", _check_reticle_idx)
+    v.register("zoom", _check_zoom)
+    v.register("distanceFrom", _check_one_distance)
+
+    v.validate(switches, path, violations)
+
     return True, "NOT IMPLEMENTED"
 
 
-def _check_coef_rows(profile: dict, path: Path, *args, **kwargs):
+def _check_coef_rows(profile: dict, path: Path, violations: list[SpecViolation], *args, **kwargs):
     return True, "NOT IMPLEMENTED"
 
 
