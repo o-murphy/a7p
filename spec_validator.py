@@ -69,6 +69,10 @@ class SpecCriterion:
             violations.append(SpecViolation(path, data, f"Type error: {err.message}"))
             return False, f"Type error: {err.message}"
 
+    def formatted_value(self):
+        # TODO: not implemented
+        raise NotImplementedError
+
 
 def assert_spec_type(*expected_types: Type):
     if not all(isinstance(t, type) for t in expected_types):
