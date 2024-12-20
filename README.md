@@ -71,7 +71,6 @@ from a7p.factory import A7PFactory
 
 # open file in binary mode
 with open('data/test.a7p', 'rb') as fp:
-
     # read data from file
     try:
         profile_opj = A7PFile.load(fp)
@@ -79,7 +78,7 @@ with open('data/test.a7p', 'rb') as fp:
         logging.error(exc)
 
 # accessing attributes as for default protobuf payload
-profile_name = profile_opj.profile.profile_name    
+profile_name = profile_opj.profile.profile_name
 
 # data conversion to common types
 as_json = A7PFile.to_json(profile_opj)
@@ -91,7 +90,6 @@ from_dict = A7PFile.from_dict(profile_opj)
 with open('data/test.a7p', 'rb') as fp:
     A7PFile.dump(profile_opj, fp)
 
-    
 # creating a new a7p Payload
 payload = A7PFactory(
     meta=A7PFactory.Meta(

@@ -4,30 +4,17 @@ from functools import wraps
 from pathlib import Path
 from typing import Callable, Any, Tuple, Type
 
-from a7p.a7p import profedit_pb2, A7PFile, A7PDataError
+from a7p import profedit_pb2, to_dict, load
 from a7p.logger import logger
+from a7p.exceptions import SpecViolation, A7PSpecTypeError, A7PSpecValidationError
 
-__all__ = ['SpecValidator', 'SpecCriterion', 'A7PSpecValidationError']
-
-
-@dataclass
-class SpecViolation:
-    path: Path | str
-    value: any
-    reason: str
-
-    def format(self) -> str:
-        is_stringer = isinstance(self.value, (str, int, float, bool))
-        path__ = f"Path    :  {self.path}" if isinstance(self.path, Path) else self.path
-        value_ = f"Value   :  {self.value if is_stringer else '<object>'}"
-        reason = f"Reason  :  {self.reason}"
-        return "\n\t".join(["Violation:", path__, value_, reason])
-        # return f"Violation:\n\t{path_}\n\t{value}\n\tReason:\t{self.reason}"
+__all__ = ['SpecValidator', 'SpecCriterion']
 
 
-def is_list_of_violations(violations: str | list[SpecViolation]):
-    """Check if a variable is a list of Violation objects."""
-    return isinstance(violations, list) and all(isinstance(item, SpecViolation) for item in violations)
+
+# def is_list_of_violations(violations: str | list[SpecViolation]):
+#     """Check if a variable is a list of Violation objects."""
+#     return isinstance(violations, list) and all(isinstance(item, SpecViolation) for item in violations)
 
 
 # Define a custom type for the return value
@@ -36,20 +23,6 @@ SpecValidationResult = Tuple[bool, str | list[SpecViolation]]
 # Define the type annotation for the callable
 SpecValidatorFunction = Callable[[Any, Path, list], SpecValidationResult]
 SpecFlexibleValidatorFunction = Callable[..., SpecValidationResult]
-
-
-class A7PSpecValidationError(A7PDataError):
-    def __init__(self, violations: list[SpecViolation]):
-        self.violations = violations
-
-
-class A7PSpecTypeError(A7PDataError):
-    def __init__(self, expected_types: tuple[Type, ...] = None, actual_type: Type = None):
-        self.expected_types = expected_types or "UNKNOWN"
-        self.actual_type = actual_type or "UNKNOWN"
-        self.message = f"expected value to be one of types: {[t.__name__ for t in expected_types]}, "
-        f"but got {actual_type.__name__} instead."
-        super().__init__(self.message, self.expected_types, self.actual_type)
 
 
 @dataclass
@@ -328,7 +301,7 @@ _default_validator = _DefaultValidator()
 
 
 def validate(payload: profedit_pb2.Payload):
-    data = A7PFile.to_dict(payload)
+    data = to_dict(payload)
 
     is_valid, violations = _default_validator.validate(data)
     if not is_valid:
@@ -338,7 +311,7 @@ def validate(payload: profedit_pb2.Payload):
 if __name__ == '__main__':
 
     with open("broken.a7p", "rb") as fp:
-        payload = A7PFile.load(fp, False)
+        payload = load(fp, False)
     try:
         validate(payload)
     except A7PSpecValidationError as e:

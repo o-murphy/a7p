@@ -4,8 +4,6 @@ from typing import NamedTuple
 
 from a7p import profedit_pb2
 
-__all__ = ['A7PFactory']
-
 
 class DistanceTable(Enum):
     SUBSONIC = (  # 25-400
@@ -199,3 +197,6 @@ class A7PFactory:
     DistanceTable = DistanceTable
     Switches = Switches
     DragPoint = DragPoint
+
+
+__all__ = ('A7PFactory',)

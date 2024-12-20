@@ -10,15 +10,15 @@ COLORS = {
     "ERROR": "\033[31m",  # Red
     "CRITICAL": "\033[35m",  # Magenta
 
-    "ORANGE": "\033[38;5;214m", # Approximation of Orange using 256-color mode
-    "CYAN": "\033[36m",    # Cyan
+    "ORANGE": "\033[38;5;214m",  # Approximation of Orange using 256-color mode
+    "CYAN": "\033[36m",  # Cyan
     "LIGHT_GRAY": "\033[37m",  # Light Gray
-    "DARK_GRAY": "\033[90m",   # Dark Gray
+    "DARK_GRAY": "\033[90m",  # Dark Gray
     "LIGHT_BLUE": "\033[94m",  # Light Blue
-    "LIGHT_GREEN": "\033[92m", # Light Green
-    "LIGHT_YELLOW": "\033[93m",# Light Yellow
-    "LIGHT_RED": "\033[91m",   # Light Red
-    "RESET": "\033[0m"         # Reset
+    "LIGHT_GREEN": "\033[92m",  # Light Green
+    "LIGHT_YELLOW": "\033[93m",  # Light Yellow
+    "LIGHT_RED": "\033[91m",  # Light Red
+    "RESET": "\033[0m"  # Reset
 }
 
 
@@ -39,11 +39,19 @@ logger.setLevel(logging.INFO)
 logger.addHandler(stream_handler)  # Only add this handler
 logger.propagate = False
 
+
 def color_fmt(*args, levelname: str = "", sep=" "):
     return f"{COLORS.get(levelname.upper(), RESET)}{sep.join(args)}{RESET}"
+
 
 def color_print(*args, levelname: str = "", sep=" ", end="\n"):
     print(color_fmt(*args, levelname=levelname, sep=sep), end=end, flush=True)
 
 
-__all__ = (logger, COLORS, RESET, color_fmt, color_print)
+__all__ = (
+    'logger',
+    'COLORS',
+    'RESET',
+    'color_fmt',
+    'color_print',
+)

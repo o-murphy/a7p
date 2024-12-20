@@ -1,6 +1,7 @@
 from unittest import TestCase
 
-from a7p import A7PFile, A7PDataError
+from a7p import *
+from a7p.exceptions import A7PError
 
 
 class TestA7P(TestCase):
@@ -23,23 +24,23 @@ class TestA7P(TestCase):
                     b'\x06\xac\x89\x06\xa0\x8d\x06\xda\x01\x03\x08\x90N\xe2\x01\x0522 LR'
 
     def testValidate(self):
-        profile = A7PFile.loads(self.test_data)
-        build = A7PFile.dumps(profile)
+        profile = loads(self.test_data)
+        build = dumps(profile)
         self.assertEqual(self.test_data, build)
 
-        json_ = A7PFile.to_json(profile)
+        json_ = to_json(profile)
         print(json_)
-        print(A7PFile.from_json(json_))
+        print(from_json(json_))
 
-        dict_ = A7PFile.to_dict(profile)
+        dict_ = to_dict(profile)
         print(dict_)
-        print(A7PFile.from_dict(dict_))
+        print(from_dict(dict_))
 
     def testException(self):
         is_raise_exception = False
         try:
-            A7PFile.loads(b'')
-        except A7PDataError:
+            loads(b'')
+        except A7PError:
             is_raise_exception = True
         self.assertTrue(is_raise_exception, "A7PDataError exception didn't raised")
 

@@ -1,7 +1,7 @@
-from a7p import A7PFile
+import a7p
 
 with open("bc_ok.a7p", "rb") as fp:
-    payload = A7PFile.load(fp, validate=True)
+    payload = a7p.load(fp, validate=True)
 
 del payload.profile.distances[:]
 payload.profile.distances[:] = [10000000, ]
@@ -12,4 +12,4 @@ payload.profile.short_name_top = "abcdefghij"
 # payload.profile.coef_rows.append([])
 
 with open("broken.a7p", "wb") as fp:
-    A7PFile.dump(payload, fp, False)
+    a7p.dump(payload, fp, False)
