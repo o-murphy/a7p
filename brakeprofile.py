@@ -4,7 +4,7 @@ with open("bc_ok.a7p", "rb") as fp:
     payload = A7PFile.load(fp, validate=True)
 
 del payload.profile.distances[:]
-# payload.profile.distances[:] = [10000000, ]
+payload.profile.distances[:] = [10000000, ]
 del payload.profile.switches[3:]
 payload.profile.b_weight = 2000000
 payload.profile.c_muzzle_velocity = 100000

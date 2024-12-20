@@ -203,14 +203,13 @@ _check_zoom = lambda x, *args, **kwargs: assert_int_range(x, 0, 4)
 
 
 def _check_switches(switches: list, path: Path, violations: list[SpecViolation], *args, **kwargs):
-    switches.pop(0)
-    switchesLen = len(switches)
-    if switchesLen < 4:
-        violations.append(SpecViolation(
-            path=path,
-            value=f"{switchesLen} < 4",
-            reason=f"expected minimum 4 items but got {switchesLen}",
-        ))
+
+    criterion = SpecCriterion(
+        path,
+        lambda x, *args, **kwargs: (x >= 4, f"expected minimum 4 items but got {x}")
+    )
+
+    criterion.validate(len(switches), path, violations)
 
     v = SpecValidator()
     v.register("cIdx", _check_cidx)
@@ -220,7 +219,7 @@ def _check_switches(switches: list, path: Path, violations: list[SpecViolation],
 
     v.validate(switches, path, violations)
 
-    return True, "NOT IMPLEMENTED"
+    return True, "No reasons"
 
 
 def _check_coef_rows(profile: dict, path: Path, violations: list[SpecViolation], *args, **kwargs):
@@ -230,20 +229,32 @@ def _check_coef_rows(profile: dict, path: Path, violations: list[SpecViolation],
 
 def _check_distances(distances: list[int], path: Path, violations, *args, **kwargs):
     reasons = []
-    invalid_distances = []
     if len(distances) < 1:
         reasons.append(f"expected minimum 1 item(s) but got {len(distances)}")
     elif len(distances) > 200:
         reasons.append(f"expected maximum 200 item(s) but got {len(distances)}")
 
+    criterion = SpecCriterion(
+        path / "[:]",
+        _check_one_distance
+    )
+    criteria_violations = []
+    invalid_distances = []
+
     for i, d in enumerate(distances):
-        d_path = path / f"[{i}]"
-        is_valid_d, reason = _check_one_distance(d, d_path, violations)
-        if not is_valid_d:
+        is_valid, reason = criterion.validate(d, path / f"[{i}]", criteria_violations)
+        if not is_valid:
             invalid_distances.append(d)
-    if len(invalid_distances) > 0:
+
+    if len(criteria_violations) > 0:
+        # TODO: maybe collapse if to many violations
+        # if len(invalid_distances) <= 10:
+        #     violations.extend(criteria_violations)
+        # else:
+        #     reasons.append(f"Invalid distances: {invalid_distances}")
+
         reasons.append(f"Invalid distances: {invalid_distances}")
-    print(reasons)
+
     return len(reasons) == 0, f"[ {', '.join(reasons)} ]"
 
 
