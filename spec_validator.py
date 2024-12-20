@@ -192,7 +192,7 @@ _check_one_distance = lambda x, *args, **kwargs: assert_float_range(x, 1.0, 3000
 # switches spec checks
 def _check_cidx(idx: int, *args, **kwargs) -> SpecValidationResult:
     if idx == 255:
-        return False, "unuses special unused value '255'"
+        return False, "uses special 'unused value '255'"
     return assert_int_range(idx, 0, 200)
 
 
@@ -222,6 +222,7 @@ def _check_switches(switches: list, path: Path, violations: list[SpecViolation],
 
 
 def _check_coef_rows(profile: dict, path: Path, violations: list[SpecViolation], *args, **kwargs):
+    # TODO: coefRows / bc / custom
     return True, "NOT IMPLEMENTED"
 
 
@@ -250,7 +251,8 @@ def _check_profile(profile: dict, path: Path, violations: list[SpecViolation], *
     v.register("~/profile/cZeroDistanceIdx", _check_c_zero_distance_idx)
 
     v.register("~/profile/switches", _check_switches)
-    v.register("~/profile/coefRows", _check_coef_rows)
+    # TODO: coefRows / bc / custom
+    # v.register("~/profile/coefRows", _check_coef_rows)
 
     v.validate(profile, path, violations)
 
