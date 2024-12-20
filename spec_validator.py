@@ -18,9 +18,11 @@ class SpecViolation:
 
     def format(self) -> str:
         is_stringer = isinstance(self.value, (str, int, float, bool))
-        path = f"Path:    :{self.path}" if isinstance(self.path, Path) else self.path
-        value = f"{self.value if is_stringer else '<object>'}"
-        return f"Violation:\n\t{path}:\t{value}\n\tReason:\t{self.reason}"
+        path__ = f"Path    :  {self.path}" if isinstance(self.path, Path) else self.path
+        value_ = f"Value   :  {self.value if is_stringer else '<object>'}"
+        reason = f"Reason  :  {self.reason}"
+        return "\n\t".join(["Violation:", path__, value_, reason])
+        # return f"Violation:\n\t{path_}\n\t{value}\n\tReason:\t{self.reason}"
 
 
 def is_list_of_violations(violations: str | list[SpecViolation]):
