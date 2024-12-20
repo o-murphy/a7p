@@ -108,9 +108,11 @@ class Result:
 
         print(f"{valid} File: {self.path.absolute()}")
         if self.zero:
-            print("\tZero:\tX: {},\tY: {}".format(*self.zero))
+            x, y = self.zero
+            print("\tZero:\tX: {},\tY: {}".format(-x, y))
         if self.zero_update:
-            color_print("\tNew zero:\tX: {},\tY: {}".format(*self.new_zero), levelname='LIGHT_BLUE')
+            x, y = self.new_zero
+            color_print("\tNew zero:\tX: {},\tY: {}".format(-x, y), levelname='LIGHT_BLUE')
         if self.distances:
             color_print("\tNew range: {}".format(self.distances), levelname='LIGHT_BLUE')
         if self.zero_distance:
@@ -172,6 +174,7 @@ def update_distances(payload, distances, zero_distance):
 
 
 def update_zeroing(payload, zero_offset=None, zero_sync=None):
+    print(zero_sync, zero_offset)
     if zero_offset:
         x_offset, y_offset = zero_offset
         payload.profile.zero_x = payload.profile.zero_x + round(x_offset * -1000)
