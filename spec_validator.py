@@ -18,7 +18,7 @@ class SpecViolation:
 
     def format(self) -> str:
         is_stringer = isinstance(self.value, (str, int, float, bool))
-        path = f"Path: {self.path}" if isinstance(self.path, Path) else self.path
+        path = f"Path:    :{self.path}" if isinstance(self.path, Path) else self.path
         value = f"{self.value if is_stringer else '<object>'}"
         return f"Violation:\n\t{path}:\t{value}\n\tReason:\t{self.reason}"
 
@@ -83,7 +83,9 @@ def assert_spec_type(*expected_types: Type):
                         type(first_arg)
                     )
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -226,18 +228,22 @@ def _check_coef_rows(profile: dict, path: Path, violations: list[SpecViolation],
     return True, "NOT IMPLEMENTED"
 
 
-def _check_distances(distances: list[int], path: Path, *args, **kwargs):
+def _check_distances(distances: list[int], path: Path, violations, *args, **kwargs):
     reasons = []
     invalid_distances = []
-    if not (0 < len(distances) < 200):
-        reasons.append("distances count have been between 0 and 200 values")
+    if len(distances) < 1:
+        reasons.append(f"expected minimum 1 item(s) but got {len(distances)}")
+    elif len(distances) > 200:
+        reasons.append(f"expected maximum 200 item(s) but got {len(distances)}")
+
     for i, d in enumerate(distances):
-        path / f"[{i}]"
-        is_valid_d, reason = _check_one_distance
+        d_path = path / f"[{i}]"
+        is_valid_d, reason = _check_one_distance(d, d_path, violations)
         if not is_valid_d:
             invalid_distances.append(d)
     if len(invalid_distances) > 0:
         reasons.append(f"Invalid distances: {invalid_distances}")
+    print(reasons)
     return len(reasons) == 0, f"[ {', '.join(reasons)} ]"
 
 
