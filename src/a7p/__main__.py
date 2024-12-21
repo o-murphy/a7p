@@ -273,13 +273,11 @@ async def process_files(
 
 
 def main():
-    # try:
-    args = parser.parse_args()
-    asyncio.run(process_files(**args.__dict__))
-
-
-# except Exception as e:
-#     logger.critical(e)
+    try:
+        args = parser.parse_args()
+        asyncio.run(process_files(**args.__dict__))
+    except Exception as e:
+        logger.critical(e)
 
 
 if __name__ == '__main__':
