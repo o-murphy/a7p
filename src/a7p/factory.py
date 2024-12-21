@@ -1,3 +1,52 @@
+"""
+This module provides a set of data structures and a factory class for constructing a Payload
+for ballistic profiling. The data structures represent various components, such as metadata,
+cartridge information, zeroing data, atmosphere conditions, barrel specifications, and bullet
+properties, which are used to generate a payload for ballistic calculations.
+
+It includes the following components:
+
+1. **DistanceTable Enum**:
+   A collection of predefined distance ranges for various ballistic profiles, such as subsonic,
+   low range, medium range, long range, and ultra range.
+
+2. **Meta Class**:
+   Stores metadata related to the profile, including the profile name, short names, and user notes.
+
+3. **Zeroing Class**:
+   Represents zeroing data, such as the X, Y coordinates, pitch, and distance for the zeroing process.
+
+4. **Atmosphere Class**:
+   Contains data about the atmospheric conditions, such as temperature, pressure, and humidity.
+
+5. **Barrel Class**:
+   Describes the barrel characteristics, including caliber, sight height, twist, and twist direction.
+
+6. **Cartridge Class**:
+   Defines a cartridge with properties like name, muzzle velocity, temperature, and powder sensitivity.
+
+7. **DragPoint NamedTuple**:
+   A named tuple for representing drag coefficient and velocity data used in ballistic calculations.
+
+8. **Bullet Class**:
+   Describes the bullet's properties, including its name, diameter, weight, length, and drag model.
+
+9. **Switches NamedTuple**:
+   Defines the switch positions, each containing a position with parameters for zoom, distance, and c_idx.
+
+10. **A7PFactory Class**:
+    A factory class that generates a Payload for ballistic calculations based on various data inputs.
+    It takes the input parameters for the profile and generates a `profedit_pb2.Payload` instance,
+    validating and formatting the input data as necessary.
+
+Usage:
+    The `A7PFactory` can be used to generate a `profedit_pb2.Payload` by passing instances of the
+    data classes (e.g., `Meta`, `Barrel`, `Bullet`, etc.) to its constructor.
+
+Dependencies:
+    - `a7p.profedit_pb2`: Protobuf definitions for the payload and ballistic parameters.
+"""
+
 from dataclasses import dataclass
 from enum import Enum
 from typing import NamedTuple
@@ -6,6 +55,11 @@ from a7p import profedit_pb2
 
 
 class DistanceTable(Enum):
+    """
+    Enum representing predefined distance ranges for ballistic profiling.
+    The ranges represent typical distances for different ballistic scenarios
+    (subsonic, low range, medium range, long range, and ultra range).
+    """
     SUBSONIC = (  # 25-400
         25, 50, 75, 100, 110, 120, 130, 140, 150, 155, 160, 165, 170, 175, 180, 185, 190, 195, 200, 205, 210, 215, 220,
         225, 230, 235, 240, 245, 250, 255, 260, 265, 270, 275, 280, 285, 290, 295, 300, 305, 310, 315, 320, 325, 330,
@@ -53,6 +107,10 @@ class DistanceTable(Enum):
 
 @dataclass
 class Meta:
+    """
+    Class representing the metadata for the ballistic profile, including profile name, short
+    names, and user notes.
+    """
     name: str = 'New profile'
     short_name_top: str = ''
     short_name_bot: str = ''
@@ -61,6 +119,9 @@ class Meta:
 
 @dataclass
 class Zeroing:
+    """
+    Class representing zeroing data, including X, Y coordinates, pitch, and zero distance.
+    """
     x: float = 0
     y: float = 0
     pitch: float = 0
@@ -69,6 +130,9 @@ class Zeroing:
 
 @dataclass
 class Atmosphere:
+    """
+    Class representing atmospheric data, including temperature, pressure, and humidity.
+    """
     temperature: int = 15
     pressure: int = 1000
     humidity: int = 50
@@ -76,6 +140,10 @@ class Atmosphere:
 
 @dataclass
 class Barrel:
+    """
+    Class representing the barrel specifications, including caliber, sight height, twist, and
+    twist direction.
+    """
     caliber: str = 'New caliber'
     sight_height: int = 90
     twist: float = 9.
@@ -84,6 +152,10 @@ class Barrel:
 
 @dataclass
 class Cartridge:
+    """
+    Class representing a cartridge with properties such as name, muzzle velocity, temperature,
+    and powder sensitivity.
+    """
     name: str = "New cartridge"
     muzzle_velocity: float = 800.
     temperature: int = 15
@@ -91,12 +163,18 @@ class Cartridge:
 
 
 class DragPoint(NamedTuple):
+    """
+    A named tuple representing drag coefficient and velocity data for ballistic calculations.
+    """
     coeff: float
     velocity: float
 
 
 @dataclass
 class Bullet:
+    """
+    Class representing bullet properties, including name, diameter, weight, length, and drag model.
+    """
     name: str = "New bullet"
     diameter: float = 0.308
     weight: float = 178.
@@ -106,6 +184,10 @@ class Bullet:
 
 
 class Switches(NamedTuple):
+    """
+    A named tuple representing the switch positions, each containing a position with parameters
+    for zoom, distance, and c_idx.
+    """
     s1: profedit_pb2.SwPos = profedit_pb2.SwPos(c_idx=255, zoom=1, distance=10000)
     s2: profedit_pb2.SwPos = profedit_pb2.SwPos(c_idx=255, zoom=2, distance=20000)
     s3: profedit_pb2.SwPos = profedit_pb2.SwPos(c_idx=255, zoom=3, distance=30000)
@@ -113,6 +195,10 @@ class Switches(NamedTuple):
 
 
 class A7PFactory:
+    """
+    A factory class for generating a Payload for ballistic calculations based on input data
+    such as metadata, zeroing, atmosphere, barrel, cartridge, bullet, and distance tables.
+    """
 
     def __new__(cls,
                 meta: Meta = Meta(),
@@ -125,6 +211,23 @@ class A7PFactory:
                 distances: [DistanceTable, tuple[float]] = DistanceTable.LONG_RANGE,
                 switches: Switches = Switches()
                 ) -> profedit_pb2.Payload:
+
+        """
+        Creates and returns a Payload for ballistic calculations based on the input data.
+
+        Args:
+            meta: Metadata for the profile.
+            zeroing: Zeroing data for the profile.
+            zero_atmo: Atmospheric conditions for the profile.
+            barrel: Barrel specifications for the profile.
+            cartridge: Cartridge information for the profile.
+            bullet: Bullet specifications for the profile.
+            distances: Predefined distance table for the profile.
+
+        Returns:
+            A `profedit_pb2.Payload` instance representing the ballistic profile.
+        """
+
         def fmt_bottom():
             if meta.short_name_bot:
                 return meta.short_name_bot

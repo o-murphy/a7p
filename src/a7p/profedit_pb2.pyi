@@ -5,6 +5,7 @@ Stubs for profedit_pb2
 from typing import List
 from google.protobuf.message import Message
 
+
 class Payload(Message):
     profile: 'Profile'
 
@@ -36,12 +37,11 @@ class Profile(Message):
     c_muzzle_velocity: int
     c_zero_temperature: int
     c_t_coeff: int
-    c_zero_distance_idx: int
     c_zero_air_temperature: int
     c_zero_air_pressure: int
     c_zero_air_humidity: int
-    c_zero_w_pitch: int
     c_zero_p_temperature: int
+    c_zero_w_pitch: int
     b_diameter: int
     b_weight: int
     b_length: int
@@ -49,22 +49,17 @@ class Profile(Message):
     bc_type: 'GType'
     switches: List['SwPos']
     distances: List[int]
+    c_zero_distance_idx: int
     coef_rows: List['CoefRow']
     caliber: str
-    device_uuid: str
-
-
-class DType:
-    VALUE: int
-    INDEX: int
-
-
-class GType:
-    G1: int
-    G7: int
-    CUSTOM: int
 
 
 class TwistDir:
-    RIGHT: int
-    LEFT: int
+    RIGHT = 0
+    LEFT = 1
+
+
+class GType:
+    G1 = 0
+    G7 = 1
+    CUSTOM = 2

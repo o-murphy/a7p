@@ -58,29 +58,31 @@ parser = CustomArgumentParser(
     f"a7p {__version__}",
     exit_on_error=True,
 )
-parser.add_argument("path", type=pathlib.Path, help="Path to the directory or file")
-parser.add_argument('-V', '--version', action='version', version=__version__)
-parser.add_argument('-r', '--recursive', action='store_true', help="Recursively walk files")
-parser.add_argument('--unsafe', action='store_true', help="Skip validation")
-parser.add_argument('--verbose', action='store_true', help="Verbose")
-parser.add_argument('-F', '--force', action='store_true', help="Force changes saving")
-# parser.add_argument('--json', action='store', type=pathlib.Path, help="Convert to/from JSON")
+parser.add_argument("path", type=pathlib.Path, help="Specify the path to the directory or file to process.")
+parser.add_argument('-V', '--version', action='version', version=__version__, help="Display the current version of the tool.")
+parser.add_argument('-r', '--recursive', action='store_true', help="Recursively process files in the specified directory.")
+parser.add_argument('--unsafe', action='store_true', help="Skip data validation (use with caution).")
+parser.add_argument('--verbose', action='store_true', help="Enable verbose output for detailed logs.")
+parser.add_argument('-F', '--force', action='store_true', help="Force saving changes without confirmation.")
+# parser.add_argument('--json', action='store', type=pathlib.Path, help="Convert data to/from JSON format.")
 
+# Distances group
 distances_group = parser.add_argument_group("Distances")
-distances_group.add_argument('-zd', '--zero-distance', action='store', help="Set zero distance in meters",
-                             type=int)
-distances_group.add_argument('-d', '--distances', action='store', help="Set distances range",
-                             choices=['subsonic', 'low', 'medium', 'long', 'ultra'])
+distances_group.add_argument('-zd', '--zero-distance', action='store', type=int,
+                             help="Set the zero distance in meters.")
+distances_group.add_argument('-d', '--distances', action='store',
+                             choices=['subsonic', 'low', 'medium', 'long', 'ultra'],
+                             help="Specify the distance range: 'subsonic', 'low', 'medium', 'long', or 'ultra'.")
 
+# Zeroing group
 zeroing_group = parser.add_argument_group("Zeroing")
 zeroing_exclusive_group = zeroing_group.add_mutually_exclusive_group()
-zeroing_exclusive_group.add_argument('-zs', '--zero-sync', action='store',
-                                     type=pathlib.Path,
-                                     help="Synchronize zero")
-zeroing_exclusive_group.add_argument('-zo', '--zero-offset', action='store', nargs=2,
-                                     type=float,
-                                     help="Set clicks offset",
-                                     metavar=("X_OFFSET", "Y_OFFSET"))
+zeroing_exclusive_group.add_argument('-zs', '--zero-sync', action='store', type=pathlib.Path,
+                                     help="Synchronize zero using a specified configuration file.")
+zeroing_exclusive_group.add_argument('-zo', '--zero-offset', action='store', nargs=2, type=float,
+                                     metavar=("X_OFFSET", "Y_OFFSET"),
+                                     help="Set the offset for zeroing in clicks (X_OFFSET and Y_OFFSET).")
+
 
 
 # zeroing_exclusive_group.add_argument('-cs', '--clicks-switch', action='store', nargs=4, help="Switch clicks sizes",
@@ -129,19 +131,19 @@ class Result:
     def save_changes(self, force=False):
         if self.zero_distance or self.distances or self.zero_update:
             if not force:
-                yes_no = input("Are you sure you want to save changes? Y/N: ")
+                yes_no = input("Do you want to save changes? (Y/N): ")
                 if yes_no.lower() != "y":
-                    logger.info("Changes would not be saved")
+                    logger.info("No changes have been saved.")
                     return
             try:
                 with open(self.path.absolute(), 'wb') as fp:
                     try:
                         a7p.dump(self.payload, fp, validate_=True)
-                        logger.info("Changes saved successfully")
+                        logger.info("Changes have been saved successfully.")
                     except exceptions.A7PDataError:
-                        logger.warning("Invalid data, changes would not be saved")
+                        logger.warning("The data is invalid. Changes have not been saved.")
             except IOError as e:
-                logger.warning("Error while saving")
+                logger.warning(f"An error occurred while saving: {e}")
 
 
 def update_distances(payload, distances, zero_distance):
@@ -257,9 +259,10 @@ async def process_files(
         zero_sync: pathlib.Path = None,
 ):
     if unsafe:
-        logger.warning("Unsafe mode is restricted, it can corrupt your files")
+        logger.warning("The 'unsafe' mode is restricted and may lead to file corruption.")
     if force:
-        logger.warning('Use the "force" option only if you are sure of what you are doing')
+        logger.warning("Use the 'force' option cautiously, only if you are certain about its effects.")
+
     validate = unsafe is False
     tasks = []
 
@@ -272,20 +275,22 @@ async def process_files(
                                            zero_distance, zero_offset, zero_sync, verbose
                                            )]
     else:
+        if verbose:
+            parser.warning("The --verbose option is only supported when processing a single file.")
         if json is not None:
-            parser.warning("--json conversion available only for a single file")
+            parser.warning("The --json conversion is only supported when processing a single file.")
         if recursive:
             item: pathlib.Path
             for item in path.rglob("*"):  # '*' matches all files and directories
                 if item.is_file():
                     tasks.append(limited_to_thread(
                         process_file, item, validate, distances,
-                        zero_distance, zero_offset, zero_sync, verbose))
+                        zero_distance, zero_offset, zero_sync))
         else:
             for item in path.iterdir():
                 if item.is_file():
                     tasks.append(limited_to_thread(process_file, item, validate, distances,
-                                                   zero_distance, zero_offset, zero_sync, verbose))
+                                                   zero_distance, zero_offset, zero_sync))
 
         results: tuple[Result] | list[Result] = await tqdm_asyncio.gather(*tasks)
 

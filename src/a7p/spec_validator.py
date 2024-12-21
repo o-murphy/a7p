@@ -1,36 +1,82 @@
+"""
+This module provides functionality for validating a payload based on specific validation criteria.
+
+It includes the following components:
+
+1. **Default Validation Functions**:
+   A set of default validation functions for various fields, such as profile name, cartridge name, and ballistic coefficients. These functions ensure that values in the payload meet specified constraints, such as being of the correct type, length, or within valid ranges.
+
+2. **SpecValidator Class**:
+   The `SpecValidator` class is responsible for managing the validation criteria. It allows registering validation functions for specific paths within the payload and provides a method to validate the entire payload based on these functions.
+
+3. **_DefaultSpecValidator Class**:
+   This subclass of `SpecValidator` automatically registers a predefined set of validation functions for the most common payload fields. It is used to simplify the validation process by providing out-of-the-box validation logic for a variety of fields.
+
+4. **validate_spec Function**:
+   The `validate_spec` function is the main entry point for validating a payload. It converts a protobuf message into a dictionary, then uses `_DefaultSpecValidator` to validate the data. If the data is invalid, an `A7PSpecValidationError` is raised, which includes details about the violations.
+
+Key Features:
+- **Flexible Validation**: The validation functions are designed to be flexible, allowing for different kinds of validation checks, such as length checks, range checks, and type checks.
+- **Customizable**: While a set of default validation functions is provided, additional validation functions can be added as needed for custom use cases.
+- **Error Handling**: In case of validation errors, detailed violation information is provided, making it easier to debug and fix issues with the payload data.
+
+Usage Example:
+    To validate a payload, simply call `validate_spec(payload)` where `payload` is a protobuf message.
+
+    If validation fails, an `A7PSpecValidationError` will be raised, which contains the details of the validation violations.
+
+Module Dependencies:
+    - profedit_pb2: Protobuf definition for the payload structure.
+    - MessageToDict: Function used to convert protobuf messages to dictionaries.
+    - A7PSpecValidationError: Custom exception raised on validation failure.
+
+"""
+
 from dataclasses import dataclass
 from functools import wraps
 from pathlib import Path
-from typing import Callable, Any, Tuple, Type
+from typing import Callable, Any, Tuple, Type, Dict, Optional, Union, List
 
 from google.protobuf.json_format import MessageToDict
 
 from . import profedit_pb2
 from .exceptions import SpecViolation, A7PSpecTypeError, A7PSpecValidationError
 
-__all__ = ['SpecValidator', 'SpecCriterion']
-
-from .protovalidate.validator import Validator
-
-# def is_list_of_violations(violations: str | list[SpecViolation]):
-#     """Check if a variable is a list of Violation objects."""
-#     return isinstance(violations, list) and all(isinstance(item, SpecViolation) for item in violations)
-
-
 # Define a custom type for the return value
-SpecValidationResult = Tuple[bool, str | list[SpecViolation]]
+SpecValidationResult = Tuple[bool, Union[str, List['SpecViolation']]]
 
 # Define the type annotation for the callable
-SpecValidatorFunction = Callable[[Any, Path, list], SpecValidationResult]
+SpecValidatorFunction = Callable[[Any, Path, List[Any]], SpecValidationResult]
 SpecFlexibleValidatorFunction = Callable[..., SpecValidationResult]
 
 
 @dataclass
 class SpecCriterion:
+    """
+    Represents a specification criterion for validation.
+
+    Attributes:
+        path (Path): The path to the data element being validated.
+        validation_func (SpecFlexibleValidatorFunction): The validation function used to check the data.
+
+    Methods:
+        validate(data, path, violations): Validates the data against the validation function and tracks violations.
+    """
     path: Path
     validation_func: SpecFlexibleValidatorFunction
 
-    def validate(self, data: any, path: Path | str, violations: list[SpecViolation]) -> SpecValidationResult:
+    def validate(self, data: Any, path: Union[Path, str], violations: List['SpecViolation']) -> SpecValidationResult:
+        """
+        Validates the given data and records violations if any.
+
+        Parameters:
+            data (Any): The data to validate.
+            path (Union[Path, str]): The path of the data element.
+            violations (List[SpecViolation]): The list of violations to append to.
+
+        Returns:
+            SpecValidationResult: A tuple containing the validity status and the associated message or violation details.
+        """
         try:
             is_valid, reason = self.validation_func(data, path, violations)
             if not is_valid:
@@ -44,11 +90,20 @@ class SpecCriterion:
             return False, f"Type error: {err.message}"
 
 
-def assert_spec_type(*expected_types: Type):
+def assert_spec_type(*expected_types: Type) -> Callable[[SpecFlexibleValidatorFunction], SpecFlexibleValidatorFunction]:
+    """
+    Decorator to validate the type of the first argument of the decorated function.
+
+    Parameters:
+        expected_types (Type): Expected types for the first argument.
+
+    Returns:
+        Callable: A wrapper function that validates the type of the first argument.
+    """
     if not all(isinstance(t, type) for t in expected_types):
         raise ValueError("all expected_types must be valid types.")
 
-    def decorator(func: SpecFlexibleValidatorFunction):
+    def decorator(func: SpecFlexibleValidatorFunction) -> SpecFlexibleValidatorFunction:
         @wraps(func)
         def wrapper(*args, **kwargs):
             if args:
@@ -65,108 +120,340 @@ def assert_spec_type(*expected_types: Type):
     return decorator
 
 
-class SpecValidator:
-    def __init__(self):
-        self.criteria = {}
-
-        self.register("~", lambda x, *args, **kwargs: (True, ""))
-
-    def register(self, path: Path | str, criteria: SpecFlexibleValidatorFunction):
-        if path in self.criteria:
-            raise KeyError(f"criterion for {path} already exists")
-        self.criteria[path] = SpecCriterion(Path(path), criteria)
-
-    def unregister(self, key: str):
-        self.criteria.pop(key, None)
-
-    def get_criteria(self, path: Path) -> SpecCriterion:
-        key = path.name
-        criterion = self.criteria.get(key, None)
-        if criterion is None:
-            criterion = self.criteria.get(path.as_posix())
-        # for key, value in self.criteria.items():
-        #     if key
-        # if criterion is None:
-        #     print(
-        #         f"NoValidatorsRegistered\t{path.as_posix()}")
-        return criterion
-
-    def validate(self, data: any, path: Path = Path("~/"),
-                 violations: list[SpecViolation] = None) -> (bool, list[SpecViolation]):
-
-        if violations is None:
-            violations = []
-        if isinstance(data, dict):
-
-            # If `data` is a dictionary, iterate over its key-value pairs
-            for key, value in data.items():
-                current_path = path / key
-                self.validate(value, current_path, violations)
-
-        elif isinstance(data, list):
-
-            # If `data` is a list, iterate over its elements
-            for i, item in enumerate(data):
-                item_path = path / f"[{i}]"
-                self.validate(item, item_path, violations)
-
-        criterion = self.get_criteria(path)
-        if isinstance(criterion, SpecCriterion):
-            criterion.validate(data, path, violations)
-        return len(violations) == 0, violations
-
-
+# assertion methods section
 @assert_spec_type(str)
-def assert_shorter(string: str, max_len: int):
+def assert_shorter(string: str, max_len: int) -> SpecValidationResult:
+    """
+    Asserts that the length of a string is shorter than the specified maximum length.
+
+    Parameters:
+        string (str): The string to check.
+        max_len (int): The maximum length of the string.
+
+    Returns:
+        SpecValidationResult: A tuple containing a boolean indicating whether the string is shorter than max_len,
+                              and an error message if not.
+    """
     return len(string) < max_len, f"expected string shorter than {max_len} characters"
 
 
 @assert_spec_type(float, int)
-def assert_float_range(value: float, min_value: float, max_value: float, divisor: float = 1):
+def assert_float_range(value: float, min_value: float, max_value: float, divisor: float = 1) -> SpecValidationResult:
+    """
+    Asserts that a value is within a specified range, optionally divided by a divisor.
+
+    Parameters:
+        value (float): The value to check.
+        min_value (float): The minimum value.
+        max_value (float): The maximum value.
+        divisor (float, optional): The divisor to divide the value by, default is 1.
+
+    Returns:
+        SpecValidationResult: A tuple containing a boolean indicating whether the value is within the range,
+                              and a message if not.
+    """
     return (min_value <= value / divisor <= max_value,
             f"expected value in range [{(min_value * divisor):.1f}, {(max_value * divisor):.1f}]")
 
 
 @assert_spec_type(int)
-def assert_int_range(value: int, min_value: int, max_value: int):
+def assert_int_range(value: int, min_value: int, max_value: int) -> SpecValidationResult:
+    """
+    Asserts that an integer value is within a specified range.
+
+    Parameters:
+        value (int): The integer value to check.
+        min_value (int): The minimum value.
+        max_value (int): The maximum value.
+
+    Returns:
+        SpecValidationResult: A tuple containing a boolean indicating whether the value is within the range,
+                              and a message if not.
+    """
     return min_value <= value <= max_value, f"expected integer value in range [{min_value}, {max_value}]"
 
 
-def assert_choice(value, keys: list):
+def assert_choice(value: Any, keys: List[Any]) -> SpecValidationResult:
+    """
+    Asserts that a value is one of the specified choices.
+
+    Parameters:
+        value (Any): The value to check.
+        keys (List[Any]): A list of valid choices.
+
+    Returns:
+        SpecValidationResult: A tuple containing a boolean indicating whether the value is one of the choices,
+                              and a message if not.
+    """
     return value in keys, f"expected one of {keys}"
 
 
-_check_profile_name = lambda x, *args, **kwargs: assert_shorter(x, 50)
-_check_cartridge_name = lambda x, *args, **kwargs: assert_shorter(x, 50)
-_check_caliber = lambda x, *args, **kwargs: assert_shorter(x, 50)
-_check_bullet_name = lambda x, *args, **kwargs: assert_shorter(x, 50)
-_check_device_uuid = lambda x, *args, **kwargs: assert_shorter(x, 50)
-_check_short_name_top = lambda x, *args, **kwargs: assert_shorter(x, 8)
-_check_short_name_bot = lambda x, *args, **kwargs: assert_shorter(x, 8)
-_check_user_note = lambda x, *args, **kwargs: assert_shorter(x, 1024)
-_check_zero_x = lambda x, *args, **kwargs: assert_float_range(x, -200.0, 200.0, 1000)
-_check_zero_y = lambda x, *args, **kwargs: assert_float_range(x, -200.0, 200.0, 1000)
-_check_sc_height = lambda x, *args, **kwargs: assert_float_range(x, -5000.0, 5000.0)
-_check_r_twist = lambda x, *args, **kwargs: assert_float_range(x, 0.0, 100.0, 100)
-_check_c_muzzle_velocity = lambda x, *args, **kwargs: assert_float_range(x, 10.0, 3000.0, 10)
-_check_c_zero_temperature = lambda x, *args, **kwargs: assert_float_range(x, -100.0, 100.0)
-_check_c_t_coeff = lambda x, *args, **kwargs: assert_float_range(x, 0.0, 5.0, 1000)
-_check_c_zero_air_temperature = lambda x, *args, **kwargs: assert_float_range(x, -100.0, 100.0)
-_check_c_zero_air_pressure = lambda x, *args, **kwargs: assert_float_range(x, 300.0, 1500.0, 10)
-_check_c_zero_air_humidity = lambda x, *args, **kwargs: assert_float_range(x, 0.0, 100.0)
-_check_c_zero_w_pitch = lambda x, *args, **kwargs: assert_float_range(x, -90.0, 90.0, 10)
-_check_c_zero_p_temperature = lambda x, *args, **kwargs: assert_float_range(x, -100.0, 100.0)
-_check_c_zero_b_diameter = lambda x, *args, **kwargs: assert_float_range(x, 0.001, 50.0, 1000)
-_check_c_zero_b_weight = lambda x, *args, **kwargs: assert_float_range(x, 1.0, 6553.5, 10)
-_check_c_zero_b_length = lambda x, *args, **kwargs: assert_float_range(x, 0.01, 200.0, 1000)
-_check_twist_fir = lambda x, *args, **kwargs: assert_choice(x, ['RIGHT', 'LEFT'])
+@assert_spec_type(tuple, list)
+def assert_items_count(items: Union[tuple, list], min_count: int, max_count: int) -> SpecValidationResult:
+    """
+    Asserts that the number of items in a tuple or list is within a specified range.
 
-_check_c_zero_distance_idx = lambda x, *args, **kwargs: (0 <= x <= 200, "expected integer value in range [0, 200]")
+    Parameters:
+        items (Union[tuple, list]): The collection of items to check.
+        min_count (int): The minimum number of items.
+        max_count (int): The maximum number of items.
 
-_check_one_distance = lambda x, *args, **kwargs: assert_float_range(x, 1.0, 3000.0, 100)
+    Returns:
+        SpecValidationResult: A tuple containing a boolean indicating whether the number of items is within the range,
+                              and a message if not.
+    """
+    items_len = len(items)
+    if items_len < min_count:
+        return False, f"expected minimum {min_count} item(s) but got {items_len}"
+    if items_len > max_count:
+        return False, f"expected maximum {max_count} item(s) but got {items_len}"
+    return True, ""
 
 
-def _check_distance_from(x, *args, **kwargs):
+class SpecValidator:
+    """
+    A class responsible for validating data according to specified criteria.
+
+    Attributes:
+        criteria (Dict[str, SpecCriterion]): A dictionary mapping paths to their corresponding validation criteria.
+
+    Methods:
+        register(path: Union[str, Path], criteria: SpecFlexibleValidatorFunction):
+            Registers a validation criterion for a specified path.
+
+        unregister(key: str):
+            Unregisters the validation criterion for a specified path.
+
+        get_criteria(path: Path) -> Optional[SpecCriterion]:
+            Retrieves the validation criterion for a specified path.
+
+        validate(data: Any, path: Path = Path("~/"), violations: Optional[List[SpecViolation]] = None) -> Tuple[bool, List[SpecViolation]]:
+            Validates the provided data according to the registered criteria and collects any violations.
+    """
+
+    def __init__(self):
+        """
+        Initializes the SpecValidator with an empty criteria dictionary and a default registration.
+        """
+        self.criteria: Dict[str, SpecCriterion] = {}
+        # Register a default validation that always passes
+        self.register("~", lambda x, *args, **kwargs: (True, ""))
+
+    def register(self, path: Union[Path, str], criteria: SpecFlexibleValidatorFunction):
+        """
+        Registers a validation criterion for a given path.
+
+        Parameters:
+            path (Union[Path, str]): The path to register the criterion for.
+            criteria (SpecFlexibleValidatorFunction): The validation function to associate with the path.
+
+        Raises:
+            KeyError: If the path already has an associated validation criterion.
+        """
+        if path in self.criteria:
+            raise KeyError(f"Criterion for {path} already exists.")
+        self.criteria[str(path)] = SpecCriterion(Path(path), criteria)
+
+    def unregister(self, key: str):
+        """
+        Unregisters the validation criterion for a given path.
+
+        Parameters:
+            key (str): The path of the criterion to remove.
+        """
+        self.criteria.pop(key, None)
+
+    def get_criteria(self, path: Path) -> Optional[SpecCriterion]:
+        """
+        Retrieves the validation criterion for a specified path.
+
+        Parameters:
+            path (Path): The path to retrieve the validation criterion for.
+
+        Returns:
+            Optional[SpecCriterion]: The validation criterion associated with the path, or None if not found.
+        """
+        key = str(path)
+        criterion = self.criteria.get(key, None)
+        if criterion is None:
+            criterion = self.criteria.get(path.as_posix())
+        return criterion
+
+    def validate(self, data: Any, path: Path = Path("~/"), violations: Optional[List[SpecViolation]] = None) -> Tuple[
+        bool, List[SpecViolation]]:
+        """
+        Validates the given data recursively according to the registered validation criteria.
+
+        Parameters:
+            data (Any): The data to validate.
+            path (Path, optional): The current path being validated (default is Path("~/")).
+            violations (Optional[List[SpecViolation]], optional): A list to accumulate validation violations (default is None).
+
+        Returns:
+            Tuple[bool, List[SpecViolation]]: A tuple where the first element is a boolean indicating if validation passed
+                                              and the second element is a list of violations (if any).
+        """
+        if violations is None:
+            violations = []
+
+        # If `data` is a dictionary, recursively validate its key-value pairs
+        if isinstance(data, dict):
+            for key, value in data.items():
+                current_path = path / key
+                self.validate(value, current_path, violations)
+
+        # If `data` is a list, recursively validate its elements
+        elif isinstance(data, list):
+            for i, item in enumerate(data):
+                item_path = path / f"[{i}]"
+                self.validate(item, item_path, violations)
+
+        # Validate the data at the current path according to its criterion
+        criterion = self.get_criteria(path)
+        if isinstance(criterion, SpecCriterion):
+            criterion.validate(data, path, violations)
+
+        return len(violations) == 0, violations
+
+
+# Default validation functions section
+def _check_profile_name(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the profile name is shorter than 50 characters."""
+    return assert_shorter(x, 50)
+
+
+def _check_cartridge_name(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the cartridge name is shorter than 50 characters."""
+    return assert_shorter(x, 50)
+
+
+def _check_caliber(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the caliber name is shorter than 50 characters."""
+    return assert_shorter(x, 50)
+
+
+def _check_bullet_name(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the bullet name is shorter than 50 characters."""
+    return assert_shorter(x, 50)
+
+
+def _check_device_uuid(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the device UUID is shorter than 50 characters."""
+    return assert_shorter(x, 50)
+
+
+def _check_short_name_top(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the short name (top) is shorter than 8 characters."""
+    return assert_shorter(x, 8)
+
+
+def _check_short_name_bot(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the short name (bottom) is shorter than 8 characters."""
+    return assert_shorter(x, 8)
+
+
+def _check_user_note(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the user note is shorter than 1024 characters."""
+    return assert_shorter(x, 1024)
+
+
+def _check_zero_x(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the zero x value is in the range of [-200.0, 200.0] with a divisor of 1000."""
+    return assert_float_range(x, -200.0, 200.0, 1000)
+
+
+def _check_zero_y(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the zero y value is in the range of [-200.0, 200.0] with a divisor of 1000."""
+    return assert_float_range(x, -200.0, 200.0, 1000)
+
+
+def _check_sc_height(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the SC height is in the range of [-5000.0, 5000.0]."""
+    return assert_float_range(x, -5000.0, 5000.0)
+
+
+def _check_r_twist(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the right twist value is in the range of [0.0, 100.0] with a divisor of 100."""
+    return assert_float_range(x, 0.0, 100.0, 100)
+
+
+def _check_c_muzzle_velocity(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the muzzle velocity is in the range of [10.0, 3000.0] with a divisor of 10."""
+    return assert_float_range(x, 10.0, 3000.0, 10)
+
+
+def _check_c_zero_temperature(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the zero temperature is in the range of [-100.0, 100.0]."""
+    return assert_float_range(x, -100.0, 100.0)
+
+
+def _check_c_t_coeff(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the temperature coefficient is in the range of [0.0, 5.0] with a divisor of 1000."""
+    return assert_float_range(x, 0.0, 5.0, 1000)
+
+
+def _check_c_zero_air_temperature(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the zero air temperature is in the range of [-100.0, 100.0]."""
+    return assert_float_range(x, -100.0, 100.0)
+
+
+def _check_c_zero_air_pressure(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the zero air pressure is in the range of [300.0, 1500.0] with a divisor of 10."""
+    return assert_float_range(x, 300.0, 1500.0, 10)
+
+
+def _check_c_zero_air_humidity(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the zero air humidity is in the range of [0.0, 100.0]."""
+    return assert_float_range(x, 0.0, 100.0)
+
+
+def _check_c_zero_w_pitch(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the zero wind pitch is in the range of [-90.0, 90.0] with a divisor of 10."""
+    return assert_float_range(x, -90.0, 90.0, 10)
+
+
+def _check_c_zero_p_temperature(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the zero pressure temperature is in the range of [-100.0, 100.0]."""
+    return assert_float_range(x, -100.0, 100.0)
+
+
+def _check_c_zero_b_diameter(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the zero ballistic diameter is in the range of [0.001, 50.0] with a divisor of 1000."""
+    return assert_float_range(x, 0.001, 50.0, 1000)
+
+
+def _check_c_zero_b_weight(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the zero ballistic weight is in the range of [1.0, 6553.5] with a divisor of 10."""
+    return assert_float_range(x, 1.0, 6553.5, 10)
+
+
+def _check_c_zero_b_length(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the zero ballistic length is in the range of [0.01, 200.0] with a divisor of 1000."""
+    return assert_float_range(x, 0.01, 200.0, 1000)
+
+
+def _check_twist_fir(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the twist direction is either 'RIGHT' or 'LEFT'."""
+    return assert_choice(x, ['RIGHT', 'LEFT'])
+
+
+# Validation functions for distances/c_zero_distance_idx section
+def _check_c_zero_distance_idx(x: int, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the zero distance index is in the range of [0, 200]."""
+    return assert_int_range(x, 0, 200)
+
+
+def _check_one_distance(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the one distance value is in the range of [1.0, 3000.0] with a divisor of 100."""
+    return assert_float_range(x, 1.0, 3000.0, 100)
+
+
+# Validation functions for switches section
+def _check_distance_from(x: Union[float, int, str], *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """
+    Validates that the distance value is within the range [1.0, 3000.0] (divisor of 100),
+    or is a special value "VALUE".
+    """
     if isinstance(x, (float, int)):
         return assert_float_range(x, 1.0, 3000.0, 100)
     if isinstance(x, str) and x == "VALUE":  # TODO: check special value
@@ -174,23 +461,33 @@ def _check_distance_from(x, *args, **kwargs):
     return False, "unexpected value or value type"
 
 
-# switches spec checks
-def _check_cidx(idx: int, *args, **kwargs) -> SpecValidationResult:
+def _check_cidx(idx: int, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the index is either '255' (special value) or in the range of [0, 200]."""
     if idx == 255:
-        return True, "uses special 'unused' value '255'"  # TODO: 255 uses ad default ?
+        return True, "uses special 'unused' value '255'"
     return assert_int_range(idx, 0, 200)
 
 
-_check_reticle_idx = lambda x, *args, **kwargs: assert_int_range(x, 0, 255)
-_check_zoom = lambda x, *args, **kwargs: assert_int_range(x, 0, 4)
+def _check_reticle_idx(x: int, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the reticle index is in the range of [0, 255]."""
+    return assert_int_range(x, 0, 255)
 
 
-def _check_switches(switches: list, path: Path, violations: list[SpecViolation], *args, **kwargs):
+def _check_zoom(x: int, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the zoom value is in the range of [0, 4]."""
+    return assert_int_range(x, 0, 4)
+
+
+def _check_switches(switches: List[dict], path: Path, violations: List[SpecViolation], *args: Any,
+                    **kwargs: Any) -> SpecValidationResult:
+    """
+    Validates the switches list, ensuring it contains at least 4 items, and validates each switch
+    based on specific criteria (cIdx, reticleIdx, zoom, distanceFrom).
+    """
     criterion = SpecCriterion(
         path,
         lambda x, *args, **kwargs: (x >= 4, f"expected minimum 4 items but got {x}")
     )
-
     criterion.validate(len(switches), path, violations)
 
     v = SpecValidator()
@@ -204,25 +501,49 @@ def _check_switches(switches: list, path: Path, violations: list[SpecViolation],
     return True, "No reasons"
 
 
-_check_bc_type = lambda x, *args, **kwargs: assert_choice(x, ['G7', 'G1', 'CUSTOM'])
-
-_check_bc_value = lambda x, *args, **kwargs: assert_float_range(x, 0.0, 10.0, 10000)
-_check_cd_value = lambda x, *args, **kwargs: assert_float_range(x, 0.0, 10.0, 10000)
-_check_ma_value = lambda x, *args, **kwargs: assert_float_range(x, 0.0, 10.0, 10000)
-_check_mv_value = lambda x, *args, **kwargs: assert_float_range(x, 0.0, 3000.0, 10)
+# Validation functions for bc type and bc/cd/mv values section
+def _check_bc_type(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the ballistic coefficient type is one of 'G7', 'G1', or 'CUSTOM'."""
+    return assert_choice(x, ['G7', 'G1', 'CUSTOM'])
 
 
-@assert_spec_type(tuple, list)
-def assert_items_count(items, min_count, max_count):
-    items_len = len(items)
-    if items_len < min_count:
-        return False, f"expected minimum {min_count} item(s) but got {items_len}"
-    if items_len > max_count:
-        return False, f"expected maximum {max_count} item(s) but got {items_len}"
-    return True, ""
+def _check_bc_value(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the ballistic coefficient value is in the range of [0.0, 10.0] with a divisor of 10000."""
+    return assert_float_range(x, 0.0, 10.0, 10000)
 
 
-def _check_coef_rows(profile: dict, path: Path, violations: list[SpecViolation], *args, **kwargs):
+def _check_cd_value(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the drag coefficient value is in the range of [0.0, 10.0] with a divisor of 10000."""
+    return assert_float_range(x, 0.0, 10.0, 10000)
+
+
+def _check_ma_value(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the Mach value is in the range of [0.0, 10.0] with a divisor of 10000."""
+    return assert_float_range(x, 0.0, 10.0, 10000)
+
+
+def _check_mv_value(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+    """Validates that the muzzle velocity value is in the range of [0.0, 3000.0] with a divisor of 10."""
+    return assert_float_range(x, 0.0, 3000.0, 10)
+
+
+# Validation function for coef_rows
+def _check_coef_rows(profile: dict, path: Path, violations: List[SpecViolation], *args: Any, **kwargs: Any) -> Tuple[
+    bool, str]:
+    """
+    Validates the 'coefRows' field in the profile based on its 'bcType'.
+    The validation checks the number of coefficient rows and validates 'bcCd' and 'mv' values
+    based on the 'bcType' (G7, G1, or CUSTOM).
+
+    Args:
+        profile (dict): The profile containing the data to validate.
+        path (Path): The path to the profile data for error reporting.
+        violations (list): A list to store the violations found during validation.
+
+    Returns:
+        Tuple[bool, str]: A tuple where the first element indicates if validation passed,
+                           and the second element is a reason or message.
+    """
     bc_type = profile['bcType']
     bc_criterion = SpecCriterion(Path("bcType"), _check_bc_type)
     coef_rows_violations = []
@@ -231,7 +552,6 @@ def _check_coef_rows(profile: dict, path: Path, violations: list[SpecViolation],
     is_valid, reason = bc_criterion.validate(bc_type, path, coef_rows_violations)
 
     if is_valid:
-
         v = SpecValidator()
 
         # Register validation rules based on bcType
@@ -268,7 +588,22 @@ def _check_coef_rows(profile: dict, path: Path, violations: list[SpecViolation],
     return True, ""
 
 
-def _check_distances(profile, path: Path, violations, *args, **kwargs):
+# Validation function for distances
+def _check_distances(profile: dict, path: Path, violations: List[SpecViolation], *args: Any, **kwargs: Any) -> Tuple[
+    bool, str]:
+    """
+    Validates the 'distances' field and the 'cZeroDistanceIdx' field in the profile.
+    Ensures the zero distance index is valid and the distances are within the expected range.
+
+    Args:
+        profile (dict): The profile containing the data to validate.
+        path (Path): The path to the profile data for error reporting.
+        violations (list): A list to store the violations found during validation.
+
+    Returns:
+        Tuple[bool, str]: A tuple where the first element indicates if validation passed,
+                           and the second element is a reason or message.
+    """
     distances_violations = []
 
     idx = profile["cZeroDistanceIdx"]
@@ -293,7 +628,7 @@ def _check_distances(profile, path: Path, violations, *args, **kwargs):
     ).validate(distances, path / "distances", distances_violations)
 
     criterion = SpecCriterion(
-        path / "[:]",
+        path / "[:] ",
         _check_one_distance
     )
 
@@ -313,11 +648,34 @@ def _check_distances(profile, path: Path, violations, *args, **kwargs):
     return True, ""
 
 
-def _check_dependency_distances(zero_distance_index: int, distances: list[int]):
+def _check_dependency_distances(zero_distance_index: int, distances: List[int]) -> Tuple[bool, str]:
+    """
+    Validates the dependency between 'cZeroDistanceIdx' and the 'distances' list.
+
+    Args:
+        zero_distance_index (int): The index representing the zero distance.
+        distances (List[int]): A list of distances.
+
+    Returns:
+        Tuple[bool, str]: A tuple indicating if the validation passed, and a reason message if failed.
+    """
     return 0 <= zero_distance_index < len(distances), "zero distance index > len(distances)"
 
 
-def _check_profile(profile: dict, path: Path, violations: list[SpecViolation], *args, **kwargs):
+# Validation function for profile
+def _check_profile(profile: dict, path: Path, violations: List[SpecViolation], *args: Any, **kwargs: Any) -> Tuple[
+    bool, str]:
+    """
+    Validates the entire profile, including switches, distances, and coefRows.
+
+    Args:
+        profile (dict): The profile containing the data to validate.
+        path (Path): The path to the profile data for error reporting.
+        violations (list): A list to store the violations found during validation.
+
+    Returns:
+        Tuple[bool, str]: A tuple indicating if validation passed, and a reason or message.
+    """
     v = SpecValidator()
     v.register("~/profile/switches", _check_switches)
 
@@ -329,7 +687,11 @@ def _check_profile(profile: dict, path: Path, violations: list[SpecViolation], *
     return True, "Found problems in 'profile' section"
 
 
-_default_validation_funcs = validation_functions = {
+# Type alias for validation function
+SpecValidationFunction = Callable[..., Tuple[bool, str]]
+
+# Default validation functions dictionary
+_default_validation_funcs: Dict[str, SpecValidationFunction] = {
     "profileName": _check_profile_name,
     "cartridgeName": _check_cartridge_name,
     "caliber": _check_caliber,
@@ -362,16 +724,43 @@ _default_validation_funcs = validation_functions = {
 class _DefaultSpecValidator(SpecValidator):
     def __init__(self):
         super().__init__()
-        for key, func in validation_functions.items():
+        # Register all default validation functions
+        for key, func in _default_validation_funcs.items():
             self.register(key, func)
 
 
 _default_validator = _DefaultSpecValidator()
 
 
-def validate_spec(payload: profedit_pb2.Payload):
+def validate_spec(payload: profedit_pb2.Payload) -> None:
+    """
+    Validates a given payload using the default validator.
+
+    Args:
+        payload (profedit_pb2.Payload): The payload to validate.
+
+    Raises:
+        A7PSpecValidationError: If validation fails, raises an exception with details.
+    """
+    # Convert protobuf message to dictionary, including default values
     data = MessageToDict(payload, including_default_value_fields=True)
 
+    # Perform validation
     is_valid, violations = _default_validator.validate(data)
+
+    # Raise an error if validation fails
     if not is_valid:
         raise A7PSpecValidationError("Spec Validation Error", payload, violations)
+
+
+__all__ = (
+    'SpecValidator',
+    'SpecCriterion',
+    'validate_spec',
+    'assert_spec_type',
+    'assert_items_count',
+    'assert_shorter',
+    'assert_float_range',
+    'assert_int_range',
+    'assert_choice',
+)
