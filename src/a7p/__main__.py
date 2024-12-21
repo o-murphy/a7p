@@ -109,12 +109,6 @@ class Result:
         else:
             print(f'{color_fmt("Valid:", levelname="INFO")} File: {self.path.absolute()}')
 
-
-        # valid = color_fmt("Invalid", levelname='ERROR') \
-        #     if self.error \
-        #     else color_fmt("Valid", levelname='INFO')
-
-        # print(f"{valid} File: {self.path.absolute()}")
         if self.zero:
             x, y = self.zero
             print("\tZero:\tX: {},\tY: {}".format(-x, y))
@@ -125,8 +119,7 @@ class Result:
             color_print("\tNew range: {}".format(self.distances), levelname='LIGHT_BLUE')
         if self.zero_distance:
             color_print("\tNew zero distance: {}".format(self.zero_distance), levelname='LIGHT_BLUE')
-        # if self.error:
-        #     color_print(f"\t{self.error}", levelname='ERROR')
+
         if self.validation_error and verbose:
             for violation in self.validation_error.all_violations:
                 color_print(violation.format(), levelname='WARNING')
