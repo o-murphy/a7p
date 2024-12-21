@@ -63,6 +63,7 @@ parser.add_argument('-V', '--version', action='version', version=__version__)
 parser.add_argument('-r', '--recursive', action='store_true', help="Recursively walk files")
 parser.add_argument('--unsafe', action='store_true', help="Skip validation")
 parser.add_argument('--verbose', action='store_true', help="Verbose")
+parser.add_argument('-s', '--sort', action='store_true', help="Sort output by error")
 parser.add_argument('-F', '--force', action='store_true', help="Force changes saving")
 # parser.add_argument('--json', action='store', type=pathlib.Path, help="Convert to/from JSON")
 
@@ -236,7 +237,8 @@ async def process_files(
         verbose: bool = False,
         force: bool = False,
         zero_offset: tuple[float, float] = None,
-        zero_sync: pathlib.Path = None
+        zero_sync: pathlib.Path = None,
+        sort: bool = False
 ):
     if unsafe:
         logger.warning("Unsafe mode is restricted, it can corrupt your files")
@@ -266,9 +268,11 @@ async def process_files(
                                                    zero_sync))
 
     # results: tuple[Result] = await asyncio.gather(*tasks)
-    results: tuple[Result] = await tqdm_asyncio.gather(*tasks)
+    results: tuple[Result] | list[Result] = await tqdm_asyncio.gather(*tasks)
 
     count_errors = 0
+    if sort:
+        results = sorted(filter(lambda x: x is not None, results), key=lambda x: x.error is not None, reverse=False)
     for result in results:
         if result:
             result.print(verbose)
