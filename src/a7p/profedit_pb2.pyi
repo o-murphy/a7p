@@ -2,75 +2,69 @@
 Stubs for profedit_pb2
 """
 
-from dataclasses import dataclass
-from enum import IntEnum
+from typing import List
+from google.protobuf.message import Message
+
+class Payload(Message):
+    profile: 'Profile'
 
 
-@dataclass
-class DType(IntEnum):
-    VALUE = 0
-    INDEX = 1
+class CoefRow(Message):
+    bc_cd: int
+    mv: int
 
 
-@dataclass
-class CoefRow:
-    bc_cd: int = None
-    mv: int = None
+class SwPos(Message):
+    c_idx: int
+    reticle_idx: int
+    zoom: int
+    distance: int
+    distance_from: 'DType'
 
 
-@dataclass
-class SwPos:
-    c_idx: int = None
-    reticle_idx: int = None
-    zoom: int = None
-    distance: int = None
-    distance_from: DType  = None
+class Profile(Message):
+    profile_name: str
+    cartridge_name: str
+    bullet_name: str
+    short_name_top: str
+    short_name_bot: str
+    user_note: str
+    zero_x: int
+    zero_y: int
+    sc_height: int
+    r_twist: int
+    c_muzzle_velocity: int
+    c_zero_temperature: int
+    c_t_coeff: int
+    c_zero_distance_idx: int
+    c_zero_air_temperature: int
+    c_zero_air_pressure: int
+    c_zero_air_humidity: int
+    c_zero_w_pitch: int
+    c_zero_p_temperature: int
+    b_diameter: int
+    b_weight: int
+    b_length: int
+    twist_dir: 'TwistDir'
+    bc_type: 'GType'
+    switches: List['SwPos']
+    distances: List[int]
+    coef_rows: List['CoefRow']
+    caliber: str
+    device_uuid: str
 
 
-class TwistDir(IntEnum):
-    RIGHT = 0
-    LEFT = 1
+class DType:
+    VALUE: int
+    INDEX: int
 
 
-class GType(IntEnum):
-    G1 = 0
-    G7 = 1
-    CUSTOM = 2
+class GType:
+    G1: int
+    G7: int
+    CUSTOM: int
 
 
-@dataclass
-class Profile:
-    profile_name: str = None
-    cartridge_name: str = None
-    bullet_name: str = None
-    short_name_top: str = None
-    short_name_bot: str = None
-    user_note: str = None
-    zero_x: int = None
-    zero_y: int = None
-    sc_height: int = None
-    r_twist: int = None
-    c_muzzle_velocity: int = None
-    c_zero_temperature: int = None
-    c_t_coeff: int = None
-    c_zero_distance_idx: int = None
-    c_zero_air_temperature: int = None
-    c_zero_air_pressure: int = None
-    c_zero_air_humidity: int = None
-    c_zero_w_pitch: int = None
-    c_zero_p_temperature: int = None
-    b_diameter: int = None
-    b_weight: int = None
-    b_length: int = None
-    twist_dir: TwistDir = None
-    bc_type: GType = None
-    switches: list[SwPos] = None
-    distances: list[int] = None
-    coef_rows: list[CoefRow] = None
-    caliber: str = None
-    device_uuid: str = None
-
-
-@dataclass
-class Payload:
-    profile: Profile = None
+class TwistDir:
+    RIGHT: int
+    LEFT: int

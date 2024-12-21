@@ -3,6 +3,8 @@ from pathlib import Path
 from typing import Type
 
 from a7p.buf.validate import expression_pb2
+from a7p import profedit_pb2
+from a7p.logger import logger
 
 
 @dataclass
@@ -11,22 +13,25 @@ class Violation:
     value: any
     reason: str
 
-@dataclass
-class ProtoViolation(Violation):
-    ...
-
-@dataclass
-class SpecViolation(Violation):
-
     def format(self) -> str:
         is_stringer = isinstance(self.value, (str, int, float, bool))
-        path__ = f"Path    :  {self.path}" if isinstance(self.path, Path) else self.path
+        path__ = f"Path    :  {self.path.as_posix() if isinstance(self.path, Path) else self.path}"
         value_ = f"Value   :  {self.value if is_stringer else '<object>'}"
         reason = f"Reason  :  {self.reason}"
         return "\n\t".join(["Violation:", path__, value_, reason])
 
 
-class A7PError(Exception):
+@dataclass
+class ProtoViolation(Violation):
+    pass
+
+
+@dataclass
+class SpecViolation(Violation):
+    pass
+
+
+class A7PError(RuntimeError):
     pass
 
 
@@ -39,20 +44,30 @@ class A7PChecksumError(A7PDataError):
 
 
 class A7PValidationError(A7PDataError):
-    def __init__(self, msg: str, violations: list[Violation]):
+    def __init__(self, msg: str, payload: profedit_pb2.Payload,
+                 violations: list[Violation] = None,
+                 proto_violations: list[ProtoViolation] = None,
+                 spec_violations: list[SpecViolation] = None,
+                 ):
         super().__init__(msg)
-        self.violations = violations
+        self.payload = payload
+        self.violations = violations or []
+        self.proto_violations = proto_violations or []
+        self.spec_violations = spec_violations or []
+
+    @property
+    def all_violations(self) -> list[Violation]:
+        return self.violations + self.proto_violations + self.spec_violations
 
 
 class A7PProtoValidationError(A7PValidationError):
-    def __init__(self, msg: str, violations: expression_pb2.Violations):
-        self.violations = _extract_protovalidate_violations(violations)
-        super().__init__(msg, self.violations)
+    def __init__(self, msg: str, payload: profedit_pb2.Payload, violations: expression_pb2.Violations):
+        super().__init__(msg, payload, proto_violations=_extract_protovalidate_violations(violations))
 
 
 class A7PSpecValidationError(A7PValidationError):
-    def __init__(self, violations: list[SpecViolation]):
-        self.violations = violations
+    def __init__(self, msg: str, payload, violations: list[SpecViolation]):
+        super().__init__(msg, payload, spec_violations=violations)
 
 
 class A7PSpecTypeError(A7PDataError):
@@ -83,13 +98,12 @@ def _extract_violation(violation: expression_pb2.Violation) -> ProtoViolation:  
         elif violation_field.name == "message":
             message = violation_value
         else:
-            print("Unknown field:", violation_field.name, violation_value)
+            logger.warning("Unknown field: {} {}" % violation_field.name, violation_value)
     return ProtoViolation(field_path, constraint_id, message)
 
 
 def _extract_protovalidate_violations(violations: expression_pb2.Violations) -> list[ProtoViolation]:
     if not isinstance(violations, expression_pb2.Violations):
-        print(violations)
         raise TypeError("Expected an instance of expression_pb2.Violations, but got a different type.")
 
     extracted_violations = []

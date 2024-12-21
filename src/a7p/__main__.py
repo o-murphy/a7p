@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from importlib import metadata
 
 import a7p
-from a7p import exceptions
+from a7p import exceptions, profedit_pb2
+from a7p.exceptions import A7PValidationError
 from a7p.factory import DistanceTable
 from a7p.logger import logger, color_print, color_fmt
 
@@ -87,25 +88,33 @@ zeroing_exclusive_group.add_argument('-zo', '--zero-offset', action='store', nar
 # parser.add_argument('--max-threads', action='store', type=int, default=5)
 
 
-
 @dataclass
 class Result:
     path: pathlib.Path
     error = None
-    proto_violations: list[exceptions.ProtoViolation] = None
+    validation_error: A7PValidationError = None
     zero: tuple[float, float] = None
     new_zero: tuple[float, float] = None
     zero_update: bool = False
     distances: str = None
     zero_distance: str = None
-    payload: object = None
+    payload: profedit_pb2.Payload = None
 
     def print(self, verbose=False):
-        valid = color_fmt("Invalid", levelname='ERROR') \
-            if self.error \
-            else color_fmt("Valid", levelname='INFO')
 
-        print(f"{valid} File: {self.path.absolute()}")
+        if self.error:
+            error = color_fmt(f"Invalid ({self.error}):", levelname='ERROR')
+            print(f'{error} File: {self.path.absolute()}')
+
+        else:
+            print(f'{color_fmt("Valid:", levelname="INFO")} File: {self.path.absolute()}')
+
+
+        # valid = color_fmt("Invalid", levelname='ERROR') \
+        #     if self.error \
+        #     else color_fmt("Valid", levelname='INFO')
+
+        # print(f"{valid} File: {self.path.absolute()}")
         if self.zero:
             x, y = self.zero
             print("\tZero:\tX: {},\tY: {}".format(-x, y))
@@ -116,27 +125,12 @@ class Result:
             color_print("\tNew range: {}".format(self.distances), levelname='LIGHT_BLUE')
         if self.zero_distance:
             color_print("\tNew zero distance: {}".format(self.zero_distance), levelname='LIGHT_BLUE')
-        if self.error:
-            color_print(f"{self.error}", levelname='ERROR')
-            if verbose:
-                self.print_violations()
+        # if self.error:
+        #     color_print(f"\t{self.error}", levelname='ERROR')
+        if self.validation_error and verbose:
+            for violation in self.validation_error.all_violations:
+                color_print(violation.format(), levelname='WARNING')
 
-    def print_violations(self):
-
-        if self.proto_violations:
-            for violation in self.proto_violations.ListFields():
-                try:
-                    violation_msg = []
-                    for details in violation[1]:
-                        violation_msg.extend([
-                            color_fmt("\tViolation:", levelname="WARNING"),
-                            f"\t\t{details.field_path}",
-                            f"\t\t{details.constraint_id}",
-                            f"\t\t{details.message}"
-                        ])
-                    print("\n".join(violation_msg))
-                except Exception:
-                    print(violation)
 
     def save_changes(self, force=False):
         if self.zero_distance or self.distances or self.zero_update:
@@ -148,7 +142,7 @@ class Result:
             try:
                 with open(self.path.absolute(), 'wb') as fp:
                     try:
-                        a7p.dump(self.payload, fp, validate=True)
+                        a7p.dump(self.payload, fp, validate_=True)
                         logger.info("Changes saved successfully")
                     except exceptions.A7PDataError:
                         logger.warning("Invalid data, changes would not be saved")
@@ -192,7 +186,7 @@ def update_data(payload, distances, zero_distance, zero_offset, zero_sync):
 def get_zero_to_sync(path, validate):
     try:
         with open(path, 'rb') as f:
-            payload = a7p.load(f, validate)
+            payload = a7p.load(f, validate_=validate, fail_fast=True)
         return payload.profile.zero_x, payload.profile.zero_y
     except (IOError, exceptions.A7PDataError) as e:
         parser.error(e)
@@ -217,16 +211,14 @@ def process_file(
     try:
         with open(path, 'rb') as fp:
             data = fp.read()
-        payload = a7p.loads(data, False)
-
         try:
-            if validate:
-                a7p.validate(payload)
-        except exceptions.A7PValidationError as e:
+            payload = a7p.loads(data, validate_=True, fail_fast=False)
+        except exceptions.A7PValidationError as err:
             result.error = "Validation error"
-            result.proto_violations = e.violations
-    except (IOError, exceptions.A7PDataError) as e:
-        result.error = e
+            result.validation_error = err
+            payload = err.payload
+    except (IOError, exceptions.A7PDataError) as err:
+        result.error = err
         return result
 
     result.zero = (payload.profile.zero_x / 1000, payload.profile.zero_y / 1000)
@@ -289,10 +281,12 @@ async def process_files(
 
 def main():
     # try:
-        args = parser.parse_args()
-        asyncio.run(process_files(**args.__dict__))
-    # except Exception as e:
-    #     logger.critical(e)
+    args = parser.parse_args()
+    asyncio.run(process_files(**args.__dict__))
+
+
+# except Exception as e:
+#     logger.critical(e)
 
 
 if __name__ == '__main__':

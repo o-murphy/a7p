@@ -4,9 +4,10 @@ from functools import wraps
 from pathlib import Path
 from typing import Callable, Any, Tuple, Type
 
-from a7p import profedit_pb2, to_dict, load
-from a7p.logger import logger
-from a7p.exceptions import SpecViolation, A7PSpecTypeError, A7PSpecValidationError
+from google.protobuf.json_format import MessageToDict
+
+from . import profedit_pb2
+from .exceptions import SpecViolation, A7PSpecTypeError, A7PSpecValidationError
 
 __all__ = ['SpecValidator', 'SpecCriterion']
 
@@ -35,16 +36,13 @@ class SpecCriterion:
             is_valid, reason = self.validation_func(data, path, violations)
             if not is_valid:
                 violations.append(SpecViolation(path, data, str(reason)))
+            return is_valid, reason
         except TypeError as err:
             violations.append(SpecViolation(path, data, f"Type error: {str(err)}"))
             return False, f"Type error: {str(err)}"
         except A7PSpecTypeError as err:
             violations.append(SpecViolation(path, data, f"Type error: {err.message}"))
             return False, f"Type error: {err.message}"
-
-    def formatted_value(self):
-        # TODO: not implemented
-        raise NotImplementedError
 
 
 def assert_spec_type(*expected_types: Type):
@@ -169,11 +167,17 @@ _check_c_zero_distance_idx = lambda x, *args, **kwargs: (0 <= x <= 200, "expecte
 
 _check_one_distance = lambda x, *args, **kwargs: assert_float_range(x, 1.0, 3000.0, 100)
 
+def _check_distance_from(x, *args, **kwargs):
+    if isinstance(x, (float, int)):
+        return assert_float_range(x, 1.0, 3000.0, 100)
+    if isinstance(x, str) and x == "VALUE": # TODO: check special value
+        return True, ""
+    return False, "unexpected value or value type"
 
 # switches spec checks
 def _check_cidx(idx: int, *args, **kwargs) -> SpecValidationResult:
     if idx == 255:
-        return False, "uses special 'unused value '255'"
+        return True, "uses special 'unused' value '255'"  # TODO: 255 uses ad default ?
     return assert_int_range(idx, 0, 200)
 
 
@@ -194,7 +198,7 @@ def _check_switches(switches: list, path: Path, violations: list[SpecViolation],
     v.register("cIdx", _check_cidx)
     v.register("reticleIdx", _check_reticle_idx)
     v.register("zoom", _check_zoom)
-    v.register("distanceFrom", _check_one_distance)
+    v.register("distanceFrom", _check_distance_from)
 
     v.validate(switches, path, violations)
 
@@ -290,30 +294,19 @@ _default_validation_funcs = validation_functions = {
 }
 
 
-class _DefaultValidator(SpecValidator):
+class _DefaultSpecValidator(SpecValidator):
     def __init__(self):
         super().__init__()
         for key, func in validation_functions.items():
             self.register(key, func)
 
 
-_default_validator = _DefaultValidator()
+_default_validator = _DefaultSpecValidator()
 
 
-def validate(payload: profedit_pb2.Payload):
-    data = to_dict(payload)
+def validate_spec(payload: profedit_pb2.Payload):
+    data = MessageToDict(payload, including_default_value_fields=True)
 
     is_valid, violations = _default_validator.validate(data)
     if not is_valid:
-        raise A7PSpecValidationError(violations)
-
-
-if __name__ == '__main__':
-
-    with open("broken.a7p", "rb") as fp:
-        payload = load(fp, False)
-    try:
-        validate(payload)
-    except A7PSpecValidationError as e:
-        for vio in e.violations:
-            logger.warning(vio.format())
+        raise A7PSpecValidationError("Spec Validation Error", payload, violations)
