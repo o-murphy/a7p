@@ -277,7 +277,13 @@ async def process_files(
 
             if result.error:
                 count_errors += 1
-    print(f"Files checked: {len(results)}, Ok: {len(results) - count_errors}, Errors: {count_errors}")
+
+    output_strings = [
+        f"Files checked: {len(results)}",
+        color_fmt(f"Ok: {len(results) - count_errors}", levelname="INFO"),
+        color_fmt(f"Failed: {count_errors}", levelname="ERROR"),
+    ]
+    print(", ".join(output_strings))
 
 
 def main():
