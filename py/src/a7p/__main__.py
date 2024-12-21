@@ -142,12 +142,16 @@ class Result:
                     logger.info("No changes have been saved.")
                     return
             try:
-                with open(self.path.absolute(), 'wb') as fp:
-                    try:
-                        a7p.dump(self.payload, fp, validate_=True)
-                        logger.info("Changes have been saved successfully.")
-                    except exceptions.A7PDataError:
-                        logger.warning("The data is invalid. Changes have not been saved.")
+                try:
+                    # Serialize and validate the payload
+                    data = a7p.dumps(self.payload, validate_=True)
+                    logger.info("Changes have been saved successfully.")
+
+                    # Write the validated data to the file
+                    with open(self.path.absolute(), 'wb') as fp:
+                        fp.write(data)
+                except exceptions.A7PDataError:
+                    logger.warning("The data is invalid. Changes have not been saved.")
             except IOError as e:
                 logger.warning(f"An error occurred while saving: {e}")
 
