@@ -1,6 +1,4 @@
-include requirements.txt
-include a7p/*.proto
-include a7p/*.pyi
+include proto/*.proto
 include README.MD
 include LICENSE
 include py.typed
