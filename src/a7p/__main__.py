@@ -6,6 +6,8 @@ from asyncio import Semaphore
 from dataclasses import dataclass
 from importlib import metadata
 
+from tqdm.asyncio import tqdm_asyncio
+
 import a7p
 from a7p import exceptions, profedit_pb2
 from a7p.exceptions import A7PValidationError
@@ -263,7 +265,8 @@ async def process_files(
                     tasks.append(limited_to_thread(process_file, item, validate, distances, zero_distance, zero_offset,
                                                    zero_sync))
 
-    results: tuple[Result] = await asyncio.gather(*tasks)
+    # results: tuple[Result] = await asyncio.gather(*tasks)
+    results: tuple[Result] = await tqdm_asyncio.gather(*tasks)
 
     for result in results:
         if result:
