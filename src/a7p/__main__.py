@@ -63,7 +63,6 @@ parser.add_argument('-V', '--version', action='version', version=__version__)
 parser.add_argument('-r', '--recursive', action='store_true', help="Recursively walk files")
 parser.add_argument('--unsafe', action='store_true', help="Skip validation")
 parser.add_argument('--verbose', action='store_true', help="Verbose")
-parser.add_argument('-s', '--sort', action='store_true', help="Sort output by error")
 parser.add_argument('-F', '--force', action='store_true', help="Force changes saving")
 # parser.add_argument('--json', action='store', type=pathlib.Path, help="Convert to/from JSON")
 
@@ -127,7 +126,6 @@ class Result:
             for violation in self.validation_error.all_violations:
                 color_print(violation.format(), levelname='WARNING')
 
-
     def save_changes(self, force=False):
         if self.zero_distance or self.distances or self.zero_update:
             if not force:
@@ -163,7 +161,6 @@ def update_distances(payload, distances, zero_distance):
 
 
 def update_zeroing(payload, zero_offset=None, zero_sync=None):
-    print(zero_sync, zero_offset)
     if zero_offset:
         x_offset, y_offset = zero_offset
         payload.profile.zero_x = payload.profile.zero_x + round(x_offset * -1000)
@@ -194,7 +191,8 @@ def process_file(
         distances=None,
         zero_distance=None,
         zero_offset=None,
-        zero_sync=None
+        zero_sync=None,
+        verbose=False
 ):
     if path.suffix != ".a7p":
         return
@@ -208,7 +206,7 @@ def process_file(
         with open(path, 'rb') as fp:
             data = fp.read()
         try:
-            payload = a7p.loads(data, validate_=True, fail_fast=False)
+            payload = a7p.loads(data, validate_=validate, fail_fast=verbose == False)
         except exceptions.A7PValidationError as err:
             result.error = "Validation error"
             result.validation_error = err
@@ -226,53 +224,10 @@ def process_file(
     result.payload = payload
     return result
 
-
-async def process_files(
-        path: pathlib.Path = None,
-        recursive: bool = False,
-        unsafe: bool = False,
-        distances: str = None,
-        zero_distance: int = None,
-        json: pathlib.Path = None,
-        verbose: bool = False,
-        force: bool = False,
-        zero_offset: tuple[float, float] = None,
-        zero_sync: pathlib.Path = None,
-        sort: bool = False
-):
-    if unsafe:
-        logger.warning("Unsafe mode is restricted, it can corrupt your files")
-    if force:
-        logger.warning('Use the "force" option only if you are sure of what you are doing')
-    validate = unsafe is False
-    tasks = []
-
-    if zero_sync:
-        zero_sync = get_zero_to_sync(zero_sync, validate)
-
-    if not path.is_dir():
-        tasks.append(asyncio.to_thread(process_file, path, validate, distances, zero_distance, zero_offset, zero_sync))
-    else:
-        if json is not None:
-            parser.warning("--json conversion available only for a single file")
-        if recursive:
-            item: pathlib.Path
-            for item in path.rglob("*"):  # '*' matches all files and directories
-                if item.is_file():
-                    tasks.append(limited_to_thread(process_file, item, validate, distances, zero_distance, zero_offset,
-                                                   zero_sync))
-        else:
-            for item in path.iterdir():
-                if item.is_file():
-                    tasks.append(limited_to_thread(process_file, item, validate, distances, zero_distance, zero_offset,
-                                                   zero_sync))
-
-    # results: tuple[Result] = await asyncio.gather(*tasks)
-    results: tuple[Result] | list[Result] = await tqdm_asyncio.gather(*tasks)
-
+async def print_results(results, verbose=False, force=False):
     count_errors = 0
-    if sort:
-        results = sorted(filter(lambda x: x is not None, results), key=lambda x: x.error is not None, reverse=False)
+    results = sorted(filter(lambda x: x is not None, results),
+                     key=lambda x: x.error is not None, reverse=False)
     for result in results:
         if result:
             result.print(verbose)
@@ -288,6 +243,53 @@ async def process_files(
         color_fmt(f"Failed: {count_errors}", levelname="ERROR"),
     ]
     print(", ".join(output_strings))
+
+async def process_files(
+        path: pathlib.Path = None,
+        recursive: bool = False,
+        unsafe: bool = False,
+        distances: str = None,
+        zero_distance: int = None,
+        json: pathlib.Path = None,
+        verbose: bool = False,
+        force: bool = False,
+        zero_offset: tuple[float, float] = None,
+        zero_sync: pathlib.Path = None,
+):
+    if unsafe:
+        logger.warning("Unsafe mode is restricted, it can corrupt your files")
+    if force:
+        logger.warning('Use the "force" option only if you are sure of what you are doing')
+    validate = unsafe is False
+    tasks = []
+
+    if zero_sync:
+        zero_sync = get_zero_to_sync(zero_sync, validate)
+
+    if not path.is_dir():
+        results = [await asyncio.to_thread(process_file,
+                                           path, validate, distances,
+                                           zero_distance, zero_offset, zero_sync, verbose
+                                           )]
+    else:
+        if json is not None:
+            parser.warning("--json conversion available only for a single file")
+        if recursive:
+            item: pathlib.Path
+            for item in path.rglob("*"):  # '*' matches all files and directories
+                if item.is_file():
+                    tasks.append(limited_to_thread(
+                        process_file, item, validate, distances,
+                        zero_distance, zero_offset, zero_sync, verbose))
+        else:
+            for item in path.iterdir():
+                if item.is_file():
+                    tasks.append(limited_to_thread(process_file, item, validate, distances,
+                                                   zero_distance, zero_offset, zero_sync, verbose))
+
+        results: tuple[Result] | list[Result] = await tqdm_asyncio.gather(*tasks)
+
+    await print_results(results, verbose=verbose, force=force)
 
 
 def main():

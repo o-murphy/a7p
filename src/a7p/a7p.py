@@ -10,7 +10,7 @@ from a7p import exceptions
 from a7p.spec_validator import validate_spec
 
 
-def loads(string: bytes, validate_: bool = True, fail_fast: bool = True):
+def loads(string: bytes, validate_: bool = True, fail_fast: bool = False):
     data = string[32:]
     md5_hash = hashlib.md5(data).hexdigest()
     if md5_hash == string[:32].decode():
@@ -23,12 +23,12 @@ def loads(string: bytes, validate_: bool = True, fail_fast: bool = True):
         raise exceptions.A7PChecksumError("Input data is missing for MD5 hashing")
 
 
-def load(file: BinaryIO, validate_: bool = True, fail_fast: bool = True) -> profedit_pb2.Payload:
+def load(file: BinaryIO, validate_: bool = True, fail_fast: bool = False) -> profedit_pb2.Payload:
     string = file.read()
     return loads(string, validate_, fail_fast)
 
 
-def dumps(payload: profedit_pb2.Payload, validate_: bool = True, fail_fast: bool = True) -> bytes:
+def dumps(payload: profedit_pb2.Payload, validate_: bool = True, fail_fast: bool = False) -> bytes:
     if validate_:
         validate(payload, fail_fast)
     data = payload.SerializeToString()
@@ -36,7 +36,7 @@ def dumps(payload: profedit_pb2.Payload, validate_: bool = True, fail_fast: bool
     return md5_hash + data
 
 
-def dump(payload: profedit_pb2.Payload, file: BinaryIO, validate_: bool = True, fail_fast: bool = True) -> None:
+def dump(payload: profedit_pb2.Payload, file: BinaryIO, validate_: bool = True, fail_fast: bool = False) -> None:
     data = dumps(payload, validate_, fail_fast)
     file.write(data)
 
@@ -57,7 +57,7 @@ def from_dict(data: dict) -> profedit_pb2.Payload:
     return Parse(json.dumps(data), profedit_pb2.Payload())
 
 
-def validate(payload: profedit_pb2.Payload, fail_fast: bool = True):
+def validate(payload: profedit_pb2.Payload, fail_fast: bool = False):
     violations = {
         'violations': []
     }

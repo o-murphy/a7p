@@ -1,4 +1,3 @@
-import pathlib
 from dataclasses import dataclass
 from functools import wraps
 from pathlib import Path
@@ -11,7 +10,7 @@ from .exceptions import SpecViolation, A7PSpecTypeError, A7PSpecValidationError
 
 __all__ = ['SpecValidator', 'SpecCriterion']
 
-
+from .protovalidate.validator import Validator
 
 # def is_list_of_violations(violations: str | list[SpecViolation]):
 #     """Check if a variable is a list of Violation objects."""
@@ -31,7 +30,7 @@ class SpecCriterion:
     path: Path
     validation_func: SpecFlexibleValidatorFunction
 
-    def validate(self, data: any, path: pathlib.Path, violations: list[SpecViolation]) -> SpecValidationResult:
+    def validate(self, data: any, path: Path | str, violations: list[SpecViolation]) -> SpecValidationResult:
         try:
             is_valid, reason = self.validation_func(data, path, violations)
             if not is_valid:
@@ -160,19 +159,20 @@ _check_c_zero_p_temperature = lambda x, *args, **kwargs: assert_float_range(x, -
 _check_c_zero_b_diameter = lambda x, *args, **kwargs: assert_float_range(x, 0.001, 50.0, 1000)
 _check_c_zero_b_weight = lambda x, *args, **kwargs: assert_float_range(x, 1.0, 6553.5, 10)
 _check_c_zero_b_length = lambda x, *args, **kwargs: assert_float_range(x, 0.01, 200.0, 1000)
-_check_bc_type = lambda x, *args, **kwargs: assert_choice(x, ['G7', 'G1', 'CUSTOM'])
 _check_twist_fir = lambda x, *args, **kwargs: assert_choice(x, ['RIGHT', 'LEFT'])
 
 _check_c_zero_distance_idx = lambda x, *args, **kwargs: (0 <= x <= 200, "expected integer value in range [0, 200]")
 
 _check_one_distance = lambda x, *args, **kwargs: assert_float_range(x, 1.0, 3000.0, 100)
 
+
 def _check_distance_from(x, *args, **kwargs):
     if isinstance(x, (float, int)):
         return assert_float_range(x, 1.0, 3000.0, 100)
-    if isinstance(x, str) and x == "VALUE": # TODO: check special value
+    if isinstance(x, str) and x == "VALUE":  # TODO: check special value
         return True, ""
     return False, "unexpected value or value type"
+
 
 # switches spec checks
 def _check_cidx(idx: int, *args, **kwargs) -> SpecValidationResult:
@@ -186,7 +186,6 @@ _check_zoom = lambda x, *args, **kwargs: assert_int_range(x, 0, 4)
 
 
 def _check_switches(switches: list, path: Path, violations: list[SpecViolation], *args, **kwargs):
-
     criterion = SpecCriterion(
         path,
         lambda x, *args, **kwargs: (x >= 4, f"expected minimum 4 items but got {x}")
@@ -205,40 +204,113 @@ def _check_switches(switches: list, path: Path, violations: list[SpecViolation],
     return True, "No reasons"
 
 
+_check_bc_type = lambda x, *args, **kwargs: assert_choice(x, ['G7', 'G1', 'CUSTOM'])
+
+_check_bc_value = lambda x, *args, **kwargs: assert_float_range(x, 0.0, 10.0, 10000)
+_check_cd_value = lambda x, *args, **kwargs: assert_float_range(x, 0.0, 10.0, 10000)
+_check_ma_value = lambda x, *args, **kwargs: assert_float_range(x, 0.0, 10.0, 10000)
+_check_mv_value = lambda x, *args, **kwargs: assert_float_range(x, 0.0, 3000.0, 10)
+
+
+@assert_spec_type(tuple, list)
+def assert_items_count(items, min_count, max_count):
+    items_len = len(items)
+    if items_len < min_count:
+        return False, f"expected minimum {min_count} item(s) but got {items_len}"
+    if items_len > max_count:
+        return False, f"expected maximum {max_count} item(s) but got {items_len}"
+    return True, ""
+
+
 def _check_coef_rows(profile: dict, path: Path, violations: list[SpecViolation], *args, **kwargs):
-    # TODO: coefRows / bc / custom
-    return True, "NOT IMPLEMENTED"
+    bc_type = profile['bcType']
+    bc_criterion = SpecCriterion(Path("bcType"), _check_bc_type)
+    coef_rows_violations = []
+
+    # Validate the boundary condition type
+    is_valid, reason = bc_criterion.validate(bc_type, path, coef_rows_violations)
+
+    if is_valid:
+
+        v = SpecValidator()
+
+        # Register validation rules based on bcType
+        if bc_type in ['G7', 'G1']:
+            v.register("coefRows", lambda x, *args, **kwargs: assert_items_count(x, 1, 5))
+            v.register("bcCd", _check_bc_value)
+            v.register("mv", _check_mv_value)
+        elif bc_type == 'CUSTOM':
+            v.register("coefRows", lambda x, *args, **kwargs: assert_items_count(x, 1, 200))
+            v.register("bcCd", _check_cd_value)
+            v.register("mv", _check_ma_value)
+        else:
+            coef_rows_violations.append(
+                SpecViolation(
+                    path / "coefRows",
+                    "Validation skipped for coefRows",
+                    f"Unsupported bcType '{bc_type}'"
+                )
+            )
+
+        # Perform the validation
+        v.validate(profile, path, coef_rows_violations)
+
+    # Handle violations
+    if len(coef_rows_violations) <= 12:
+        violations.extend(coef_rows_violations)
+    else:
+        violations.append(SpecViolation(
+            path / "coefRows",
+            f"Too many errors in {path / 'coefRows'}",
+            "More than 12 errors found, listing all is omitted"
+        ))
+
+    return True, ""
 
 
-def _check_distances(distances: list[int], path: Path, violations, *args, **kwargs):
-    reasons = []
-    if len(distances) < 1:
-        reasons.append(f"expected minimum 1 item(s) but got {len(distances)}")
-    elif len(distances) > 200:
-        reasons.append(f"expected maximum 200 item(s) but got {len(distances)}")
+def _check_distances(profile, path: Path, violations, *args, **kwargs):
+    distances_violations = []
+
+    idx = profile["cZeroDistanceIdx"]
+    distances = profile["distances"]
+
+    SpecCriterion(
+        path / "cZeroDistanceIdx",
+        _check_c_zero_distance_idx
+    ).validate(
+        idx,
+        path / "cZeroDistanceIdx",
+        distances_violations
+    )
+
+    is_valid, reason = _check_dependency_distances(idx, distances)
+    if not is_valid:
+        distances_violations.append(SpecViolation("Distances", "Distance dependency error", reason))
+
+    SpecCriterion(
+        path / "distances",
+        lambda x, *args, **kwargs: assert_items_count(x, 1, 200)
+    ).validate(distances, path / "distances", distances_violations)
 
     criterion = SpecCriterion(
         path / "[:]",
         _check_one_distance
     )
-    criteria_violations = []
-    invalid_distances = []
 
     for i, d in enumerate(distances):
-        is_valid, reason = criterion.validate(d, path / f"[{i}]", criteria_violations)
-        if not is_valid:
-            invalid_distances.append(d)
+        criterion.validate(d, path / 'distances' / f"[{i}]", distances_violations)
 
-    if len(criteria_violations) > 0:
-        # TODO: maybe collapse if to many violations
-        # if len(invalid_distances) <= 10:
-        #     violations.extend(criteria_violations)
-        # else:
-        #     reasons.append(f"Invalid distances: {invalid_distances}")
+    # Handle violations
+    if len(distances_violations) <= 11:
+        violations.extend(distances_violations)
+    else:
+        violations.append(SpecViolation(
+            path / "distances",
+            f"Too many errors in {path / 'distances'}",
+            "More than 10 errors found, listing all is omitted"
+        ))
 
-        reasons.append(f"Invalid distances: {invalid_distances}")
-
-    return len(reasons) == 0, f"[ {', '.join(reasons)} ]"
+    return True, ""
 
 
 def _check_dependency_distances(zero_distance_index: int, distances: list[int]):
@@ -247,20 +319,14 @@ def _check_dependency_distances(zero_distance_index: int, distances: list[int]):
 
 def _check_profile(profile: dict, path: Path, violations: list[SpecViolation], *args, **kwargs):
     v = SpecValidator()
-    v.register("~/profile/distances", _check_distances)
-    v.register("~/profile/cZeroDistanceIdx", _check_c_zero_distance_idx)
-
     v.register("~/profile/switches", _check_switches)
-    # TODO: coefRows / bc / custom
-    # v.register("~/profile/coefRows", _check_coef_rows)
 
     v.validate(profile, path, violations)
 
-    is_valid, reason = _check_dependency_distances(profile["cZeroDistanceIdx"], profile["distances"])
-    if not is_valid:
-        violations.append(SpecViolation("Distances", "Distance dependency error", reason))
+    _check_distances(profile, path, violations, *args, **kwargs)
+    _check_coef_rows(profile, path, violations, *args, **kwargs)
 
-    return is_valid, "Found problems in 'profile' section"
+    return True, "Found problems in 'profile' section"
 
 
 _default_validation_funcs = validation_functions = {
@@ -287,7 +353,6 @@ _default_validation_funcs = validation_functions = {
     "bLength": _check_c_zero_b_length,
     "bWeight": _check_c_zero_b_weight,
     "bDiameter": _check_c_zero_b_diameter,
-    "bcType": _check_bc_type,
     "twistDir": _check_twist_fir,
 
     "~/profile": _check_profile
