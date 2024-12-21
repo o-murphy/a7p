@@ -268,11 +268,16 @@ async def process_files(
     # results: tuple[Result] = await asyncio.gather(*tasks)
     results: tuple[Result] = await tqdm_asyncio.gather(*tasks)
 
+    count_errors = 0
     for result in results:
         if result:
             result.print(verbose)
             print()
             result.save_changes(force)
+
+            if result.error:
+                count_errors += 1
+    print(f"Files checked: {len(results)}, Ok: {len(results) - count_errors}, Errors: {count_errors}")
 
 
 def main():
@@ -281,6 +286,9 @@ def main():
         asyncio.run(process_files(**args.__dict__))
     except Exception as e:
         logger.critical(e)
+    except KeyboardInterrupt:
+        logger.warning("Process interrupted by user. Exiting gracefully...")
+        sys.exit(0)
 
 
 if __name__ == '__main__':
