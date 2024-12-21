@@ -6,6 +6,7 @@ from asyncio import Semaphore
 from dataclasses import dataclass
 from importlib import metadata
 
+from google.protobuf.json_format import Parse
 from tqdm.asyncio import tqdm_asyncio
 
 import a7p
@@ -58,13 +59,19 @@ parser = CustomArgumentParser(
     f"a7p {__version__}",
     exit_on_error=True,
 )
-parser.add_argument("path", type=pathlib.Path, help="Specify the path to the directory or file to process.")
-parser.add_argument('-V', '--version', action='version', version=__version__, help="Display the current version of the tool.")
-parser.add_argument('-r', '--recursive', action='store_true', help="Recursively process files in the specified directory.")
+
+parser.add_argument("path", type=pathlib.Path,
+                    help="Specify the path to the directory or a .a7p file to process.")
+
+# Main options
+parser.add_argument('-V', '--version', action='version', version=__version__,
+                    help="Display the current version of the tool.")
+parser.add_argument('-r', '--recursive', action='store_true',
+                    help="Recursively process files in the specified directory.")
 parser.add_argument('--unsafe', action='store_true', help="Skip data validation (use with caution).")
-parser.add_argument('--verbose', action='store_true', help="Enable verbose output for detailed logs.")
+parser.add_argument('--verbose', action='store_true',
+                    help="Enable verbose output for detailed logs. This option is only allowed for a single file.")
 parser.add_argument('-F', '--force', action='store_true', help="Force saving changes without confirmation.")
-# parser.add_argument('--json', action='store', type=pathlib.Path, help="Convert data to/from JSON format.")
 
 # Distances group
 distances_group = parser.add_argument_group("Distances")
@@ -82,7 +89,6 @@ zeroing_exclusive_group.add_argument('-zs', '--zero-sync', action='store', type=
 zeroing_exclusive_group.add_argument('-zo', '--zero-offset', action='store', nargs=2, type=float,
                                      metavar=("X_OFFSET", "Y_OFFSET"),
                                      help="Set the offset for zeroing in clicks (X_OFFSET and Y_OFFSET).")
-
 
 
 # zeroing_exclusive_group.add_argument('-cs', '--clicks-switch', action='store', nargs=4, help="Switch clicks sizes",
@@ -226,6 +232,7 @@ def process_file(
     result.payload = payload
     return result
 
+
 async def print_results(results, verbose=False, force=False):
     count_errors = 0
     results = sorted(filter(lambda x: x is not None, results),
@@ -246,6 +253,7 @@ async def print_results(results, verbose=False, force=False):
     ]
     print(", ".join(output_strings))
 
+
 async def process_files(
         path: pathlib.Path = None,
         recursive: bool = False,
@@ -257,7 +265,10 @@ async def process_files(
         force: bool = False,
         zero_offset: tuple[float, float] = None,
         zero_sync: pathlib.Path = None,
+        *args, **kwargs,
 ):
+    if not pathlib.Path.exists(path):
+        parser.warning(f"The '{path}' is not a valid path")
     if unsafe:
         logger.warning("The 'unsafe' mode is restricted and may lead to file corruption.")
     if force:
@@ -276,9 +287,8 @@ async def process_files(
                                            )]
     else:
         if verbose:
-            parser.warning("The --verbose option is only supported when processing a single file.")
-        if json is not None:
-            parser.warning("The --json conversion is only supported when processing a single file.")
+            parser.warning("The --verbose option is supported only when processing a single file.")
+
         if recursive:
             item: pathlib.Path
             for item in path.rglob("*"):  # '*' matches all files and directories
