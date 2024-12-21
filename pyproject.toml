@@ -27,7 +27,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: Implementation :: CPython",
 ]
-dependencies = ["google", "protobuf==4.25.2", "cel-python"]
+dependencies = ["google", "protobuf==4.25.2", "cel-python", "tqdm"]
 dynamic = ["version"]
 
 
@@ -40,6 +40,9 @@ dynamic = ["version"]
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["a7p*"]
+
+[project.optional-dependencies]
+dev = ["build", "protovalidate"]
 
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}

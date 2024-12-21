@@ -2,7 +2,7 @@
 Stubs for profedit_pb2
 """
 
-from typing import List
+from typing import List, Union
 from google.protobuf.message import Message
 
 
@@ -15,12 +15,15 @@ class CoefRow(Message):
     mv: int
 
 
+DType = Union[int, str]
+
+
 class SwPos(Message):
     c_idx: int
     reticle_idx: int
     zoom: int
     distance: int
-    distance_from: 'DType'
+    distance_from: DType
 
 
 class Profile(Message):

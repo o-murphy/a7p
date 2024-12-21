@@ -1,4 +1,4 @@
-include src/**/*.proto
+include proto/*.proto
 include README.MD
 include LICENSE
 include py.typed

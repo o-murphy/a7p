@@ -27,6 +27,7 @@ __all__ = (
     'CoefRow',
 
     'A7PFactory',
+
     'factory',
     'exceptions',
     'logger',

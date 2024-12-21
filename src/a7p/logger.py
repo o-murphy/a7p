@@ -1,3 +1,15 @@
+"""
+This module provides logging utilities with colored output for different log levels,
+using ANSI escape codes to change the color of the log messages.
+
+Classes:
+    ANSILoggerFormatter: A custom formatter for logging that adds colored output based on the log level.
+
+Functions:
+    color_fmt: Formats a message with color based on the log level.
+    color_print: Prints a message to the console with color, based on the log level.
+"""
+
 import sys
 import logging
 
@@ -23,7 +35,26 @@ COLORS = {
 
 
 class ANSILoggerFormatter(logging.Formatter):
+    """
+    A custom logging formatter that adds color to log messages based on their level.
+
+    This formatter modifies the log message to prepend a color code depending on the
+    log level, making logs more visually distinct.
+
+    Methods:
+        format: Formats the log record with color based on the log level.
+    """
+
     def format(self, record):
+        """
+        Formats the log record and adds color based on the level name.
+
+        Args:
+            record (logging.LogRecord): The log record to format.
+
+        Returns:
+            str: The formatted log message with the appropriate color applied.
+        """
         log_color = COLORS.get(record.levelname, RESET)
         formatted_message = f"{record.levelname.ljust(len('CRITICAL'))}: {super().format(record)}"
         return f"{log_color}{formatted_message}{RESET}"
@@ -41,10 +72,33 @@ logger.propagate = False
 
 
 def color_fmt(*args, levelname: str = "", sep=" "):
+    """
+    Formats a message with color based on the log level.
+
+    Args:
+        *args: The message components to join and format.
+        levelname (str): The log level to determine the color (e.g., 'INFO', 'DEBUG').
+        sep (str): The separator between the message components.
+
+    Returns:
+        str: The formatted message with color applied.
+    """
     return f"{COLORS.get(levelname.upper(), RESET)}{sep.join(args)}{RESET}"
 
 
 def color_print(*args, levelname: str = "", sep=" ", end="\n"):
+    """
+    Prints a message to the console with color based on the log level.
+
+    Args:
+        *args: The message components to print.
+        levelname (str): The log level to determine the color (e.g., 'INFO', 'DEBUG').
+        sep (str): The separator between the message components.
+        end (str): The string appended after the message (default is newline).
+
+    Returns:
+        None
+    """
     print(color_fmt(*args, levelname=levelname, sep=sep), end=end, flush=True)
 
 
