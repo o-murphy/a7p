@@ -29,33 +29,35 @@ pip install https://github.com/o-murphy/a7p
 ## Usage
 
 #### CLI-tool
-```bash
+```
 a7p -h
-usage: a7p 0.0.10 [-h] [-V] [-r] [--unsafe] [--verbose] [-F] [-zd ZERO_DISTANCE] [-d {subsonic,low,medium,long,ultra}] [-zs ZERO_SYNC | -zo X_OFFSET Y_OFFSET] path
+
+usage: a7p 1.0.0b2 [-h] [-V] [-r] [--unsafe] [--verbose] [-F] [-zd ZERO_DISTANCE]
+                   [-d {subsonic,low,medium,long,ultra}] [-zs ZERO_SYNC | -zo X_OFFSET Y_OFFSET]
+                   path
 
 positional arguments:
-  path                  Path to the directory or file
+  path                  Specify the path to the directory or a .a7p file to process.
 
 options:
   -h, --help            show this help message and exit
-  -V, --version         show program`s version number and exit
-  -r, --recursive       Recursively walk files
-  --unsafe              Skip validation
-  --verbose             Verbose
-  -F, --force           Force changes saving
+  -V, --version         Display the current version of the tool.
+  -r, --recursive       Recursively process files in the specified directory.
+  --unsafe              Skip data validation (use with caution).
+  --verbose             Enable verbose output for detailed logs. This option is only allowed for a single file.
+  -F, --force           Force saving changes without confirmation.
 
 Distances:
-  -zd ZERO_DISTANCE, --zero-distance ZERO_DISTANCE
-                        Set zero distance in meters
-  -d {subsonic,low,medium,long,ultra}, --distances {subsonic,low,medium,long,ultra}
-                        Set distances range
+  -zd, --zero-distance ZERO_DISTANCE
+                        Set the zero distance in meters.
+  -d, --distances {subsonic,low,medium,long,ultra}
+                        Specify the distance range: 'subsonic', 'low', 'medium', 'long', or 'ultra'.
 
 Zeroing:
-  -zs ZERO_SYNC, --zero-sync ZERO_SYNC
-                        Synchronize zero
-  -zo X_OFFSET Y_OFFSET, --zero-offset X_OFFSET Y_OFFSET
-                        Set clicks offset
-
+  -zs, --zero-sync ZERO_SYNC
+                        Synchronize zero using a specified configuration file.
+  -zo, --zero-offset X_OFFSET Y_OFFSET
+                        Set the offset for zeroing in clicks (X_OFFSET and Y_OFFSET).
 ```
 
 #### Use as imported module
