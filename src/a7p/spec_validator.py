@@ -475,7 +475,7 @@ def _check_reticle_idx(x: int, *args: Any, **kwargs: Any) -> SpecValidationResul
 
 def _check_zoom(x: int, *args: Any, **kwargs: Any) -> SpecValidationResult:
     """Validates that the zoom value is in the range of [0, 4]."""
-    return assert_int_range(x, 0, 4)
+    return assert_int_range(x, 0, 6)
 
 
 def _check_switches(switches: List[dict], path: Path, violations: List[SpecViolation], *args: Any,
