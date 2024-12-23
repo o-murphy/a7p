@@ -1,10 +1,12 @@
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
-from google._upb._message import RepeatedScalarContainer
+from google._upb._message import RepeatedScalarContainer, RepeatedCompositeContainer
 
 from a7p import profedit_pb2, A7PFactory
 from a7p.factory import Switches
+from a7p.logger import color_fmt
 
 
 def camel_to_snake(camel_case_str):
@@ -21,9 +23,55 @@ def camel_to_snake(camel_case_str):
     snake_case_str = re.sub(r'(?<!^)(?<!_)([A-Z])', r'_\1', camel_case_str).lower()
     return snake_case_str
 
+
+@dataclass
+class RecoverResult:
+    is_recovered: bool
+    path: Path | str
+    old_value: str | None = None
+    new_value: str | None = None
+
+    def print(self):
+
+        if isinstance(self.path, Path):
+            path_string = f"{self.path.as_posix()}"
+        else:
+            path_string = f"{self.path}"
+
+        if len(path_string) > 30:
+            path_string = path_string[:27] + "..."
+        path_string = path_string.rjust(30)
+
+        if self.is_recovered:
+            prefix = color_fmt("Recovered".ljust(10), levelname="INFO")
+        else:
+            prefix = color_fmt("Skipped".ljust(10), levelname="WARNING")
+
+        def truncate_list(_value):
+            if isinstance(_value, (RepeatedScalarContainer, RepeatedCompositeContainer, list, tuple)):
+                _value = [str(v) for v in _value]
+                if len(_value) > 6:
+                    _value = f'[ {", ".join(_value[:3])}, ... {", ".join(_value[-3:])} ]'
+                else:
+                    _value = f'[ {",".join(_value)} ]'
+            return _value
+
+        def truncate(string):
+            string = str(string).replace("\n", " ")
+            if len(string) > 50:
+                # string = f'[ {string[:25]} ... {string[-25:]} ]'
+                string = f'{string[:25]} ... {string[-25:]}'
+            return string
+
+        old_value = str(truncate_list(self.old_value))
+        new_value = str(truncate_list(self.new_value))
+
+        print(f"{prefix} : {path_string} : value : {truncate(old_value)} -> {truncate(new_value)}")
+
+
 class Recover:
     def __init__(self):
-        self.fixtools = {}
+        self.recover_funcs = {}
 
     def register(self, path, func):
         raise NotImplementedError("register not implemented as is abstract method")
@@ -41,42 +89,25 @@ class Recover:
         for p in _path:
             if hasattr(_value, p):
                 _value = getattr(_value, p)
-        if isinstance(_value, (RepeatedScalarContainer, list, tuple)):
-            _value = [str(v) for v in _value]
-            if len(_value) > 6:
-                _value = f'[ {", ".join(_value[:3])}, ... {", ".join(_value[-3:])} ]'
-            else:
-                _value = f'[ {",".join(_value)} ]'
-            # if len(_value) > 50:
-            #     _value = f'[ {_value[:25]} ... {_value[-25:]} ]'
+
         return _value
 
     def recover_one(self, payload, violation):
-        if violation.path in self.fixtools:
+
+        if violation.path in self.recover_funcs:
             old_value = self.get_value_by_violation(payload, violation)
-            self.fixtools[violation.path](payload)
+            self.recover_funcs[violation.path](payload)
             new_value = self.get_value_by_violation(payload, violation)
+            return RecoverResult(True, violation.path, old_value, new_value)
 
-            if isinstance(violation.path, Path):
-                prefix = f"Recovered: {violation.path.as_posix()}"
-            else:
-                prefix = f"Recovered: {violation.path}"
-
-            prefix = prefix.ljust(40)  # Reassign the result of rjust() to prefix
-            if len(prefix) > 40:
-                prefix = prefix[:37] + "..."
-            print(f"{prefix}\t|\tvalue changed: {old_value} -> {new_value}")
-            return True
-        print(f"Skipped:   {violation.path}".ljust(40))
-        return False
+        return RecoverResult(False, violation.path, None, None)
 
     def recover(self, payload, violations):
-        total = len(violations)
-        skipped = 0
+        results = []
         for v in violations:
-            if not self.recover_one(payload, v):
-                skipped += 1
-        print(f"Total {total}, Fixed: {total - skipped}, Skipped: {skipped}")
+            result = self.recover_one(payload, v)
+            results.append(result)
+        return results
 
 
 def fix_str_len_type(string: str, expected_len: int, default: str = "nil"):
@@ -184,9 +215,8 @@ def _recover_proto_bc_type(payload):
 
 
 def _recover_proto_switches(payload):
-    # TODO: check values and then try to fix
-    # TODO: check min / max len
-    print(f"Skipped:   ~/profile/switches".ljust(40))
+    del payload.profile.switches[:]
+    payload.profile.switches.extend(Switches())
 
 
 def _recover_proto_coef_rows(payload):
@@ -212,7 +242,7 @@ def _recover_proto_device_uuid(payload):
 class RecoverProto(Recover):
 
     def register(self, path, func):
-        self.fixtools[path] = func
+        self.recover_funcs[path] = func
 
     @staticmethod
     def split_path(path: Path | str) -> list:
@@ -262,7 +292,7 @@ recover_proto.register("profile.device_uuid", _recover_proto_device_uuid)
 class RecoverSpec(Recover):
 
     def register(self, path, func):
-        self.fixtools[Path(path)] = func
+        self.recover_funcs[Path(path)] = func
 
     @staticmethod
     def split_path(path: Path | str) -> list:
