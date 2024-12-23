@@ -1,5 +1,5 @@
 from a7p import exceptions, load, logger, validate
-from a7p.fixtool import protofix, specfix
+from a7p.recover import recover_spec, recover_proto
 
 if __name__ == '__main__':
 
@@ -12,7 +12,7 @@ if __name__ == '__main__':
                 logger.color_print(v.format())
 
             # trying to fix payload by spec
-            specfix.fix(e.payload, e.spec_violations)
+            recover_spec.recover(e.payload, e.spec_violations)
 
             try:
                 # trying to validate fixed payload
@@ -20,7 +20,7 @@ if __name__ == '__main__':
             except exceptions.A7PValidationError as e:
 
                 # if still got proto violations trying to fix them too
-                protofix.fix(e.payload, e.proto_violations)
+                recover_proto.recover(e.payload, e.proto_violations)
 
                 try:
                     # last validation for get fix results
