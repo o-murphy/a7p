@@ -6,7 +6,8 @@ from google._upb._message import RepeatedScalarContainer, RepeatedCompositeConta
 
 from a7p import profedit_pb2, A7PFactory
 from a7p.factory import Switches
-from a7p.logger import color_fmt
+from a7p.logger import color_fmt, logger
+from a7p.spec_validator import assert_choice
 
 
 def camel_to_snake(camel_case_str):
@@ -210,7 +211,7 @@ def _recover_proto_twist_dir(payload):
 
 
 def _recover_proto_bc_type(payload):
-    # TODO: check coef_rows len and values to fix it
+    logger.warning("Drag model restored to G7")
     payload.bc_type = profedit_pb2.GType.G7
 
 
@@ -220,13 +221,17 @@ def _recover_proto_switches(payload):
 
 
 def _recover_proto_coef_rows(payload):
-    # TODO: check bc_type to fix it
-    # TODO: check min / max len
-    print(f"Skipped:   ~/profile/coefRows".ljust(40))
+    logger.warning("Drag model coefficients restored to 0.1")
+    del payload.profile.coef_rows[:]
+    payload.profile.coef_rows.extend(
+        profedit_pb2.CoefRow(
+            bc_cd=round(0.1 * 10000),
+            mv=round(0 * 10)
+        )
+    )
 
 
 def _recover_proto_distances(payload):
-    # TODO: check min / max len
     del payload.profile.distances[:]
     payload.profile.distances[:] = [int(d * 100) for d in A7PFactory.DistanceTable.LONG_RANGE.value]
 
@@ -401,7 +406,7 @@ def _recover_spec_twist_dir(payload):
 
 
 def _recover_spec_bc_type(payload):
-    # TODO: check coef_rows len and values to fix it
+    logger.warning("Drag model restored to G7")
     payload.bc_type = profedit_pb2.GType.G7
 
 
@@ -411,9 +416,14 @@ def _recover_spec_switches(payload):
 
 
 def _recover_spec_coef_rows(payload):
-    # TODO: check bc_type to fix it
-    # TODO: check min / max len
-    print(f"Skipped:   ~/profile/coefRows".ljust(40))
+    logger.warning("Drag model coefficients restored to 0.1")
+    del payload.profile.coef_rows[:]
+    payload.profile.coef_rows.extend(
+        profedit_pb2.CoefRow(
+            bc_cd=round(0.1 * 10000),
+            mv=round(0 * 10)
+        )
+    )
 
 
 def _recover_spec_distances(payload):

@@ -13,7 +13,6 @@ def _example():
                 color_print("Violations found:", levelname="ERROR")
                 for v in err.all_violations:
                     color_print(v.format(), levelname="WARNING")
-
                 attempt_to_recover(err)
             else:
                 logger.info("No violations found")
