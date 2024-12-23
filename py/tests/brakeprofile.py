@@ -1,7 +1,7 @@
 import a7p
 
 with open("bc_ok.a7p", "rb") as fp:
-    payload = a7p.load(fp, validate=True)
+    payload = a7p.load(fp, validate_=True)
 
 del payload.profile.distances[:]
 payload.profile.distances[:] = [10000000, ]

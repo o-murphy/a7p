@@ -67,6 +67,10 @@ class ProtoViolation(Violation):
     Inherits all attributes and methods from Violation.
     """
     pass
+    # def __init__(self, path: str, value: any, reason: str) -> None:
+    #     self.path = Path("~/", *path.split("."))
+    #     self.value = value
+    #     self.reason = reason
 
 
 @dataclass

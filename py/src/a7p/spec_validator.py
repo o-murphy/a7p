@@ -273,7 +273,7 @@ class SpecValidator:
         Returns:
             Optional[SpecCriterion]: The validation criterion associated with the path, or None if not found.
         """
-        key = str(path)
+        key = path.name
         criterion = self.criteria.get(key, None)
         if criterion is None:
             criterion = self.criteria.get(path.as_posix())
@@ -417,22 +417,22 @@ def _check_c_zero_p_temperature(x: float, *args: Any, **kwargs: Any) -> SpecVali
     return assert_float_range(x, -100.0, 100.0)
 
 
-def _check_c_zero_b_diameter(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+def _check_b_diameter(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
     """Validates that the zero ballistic diameter is in the range of [0.001, 50.0] with a divisor of 1000."""
     return assert_float_range(x, 0.001, 50.0, 1000)
 
 
-def _check_c_zero_b_weight(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+def _check_b_weight(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
     """Validates that the zero ballistic weight is in the range of [1.0, 6553.5] with a divisor of 10."""
     return assert_float_range(x, 1.0, 6553.5, 10)
 
 
-def _check_c_zero_b_length(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+def _check_b_length(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
     """Validates that the zero ballistic length is in the range of [0.01, 200.0] with a divisor of 1000."""
     return assert_float_range(x, 0.01, 200.0, 1000)
 
 
-def _check_twist_fir(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
+def _check_twist_dir(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
     """Validates that the twist direction is either 'RIGHT' or 'LEFT'."""
     return assert_choice(x, ['RIGHT', 'LEFT'])
 
@@ -712,10 +712,10 @@ _default_validation_funcs: Dict[str, SpecValidationFunction] = {
     "cZeroAirHumidity": _check_c_zero_air_humidity,
     "cZeroPTemperature": _check_c_zero_p_temperature,
     "cZeroWPitch": _check_c_zero_w_pitch,
-    "bLength": _check_c_zero_b_length,
-    "bWeight": _check_c_zero_b_weight,
-    "bDiameter": _check_c_zero_b_diameter,
-    "twistDir": _check_twist_fir,
+    "bLength": _check_b_length,
+    "bWeight": _check_b_weight,
+    "bDiameter": _check_b_diameter,
+    "twistDir": _check_twist_dir,
 
     "~/profile": _check_profile
 }
@@ -763,4 +763,7 @@ __all__ = (
     'assert_float_range',
     'assert_int_range',
     'assert_choice',
+    'SpecValidationResult',
+    'SpecValidationFunction',
+    'SpecFlexibleValidatorFunction',
 )
