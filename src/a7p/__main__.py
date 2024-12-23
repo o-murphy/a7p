@@ -1,12 +1,11 @@
 import asyncio
-import pathlib
 import sys
 from argparse import ArgumentParser
 from asyncio import Semaphore
 from dataclasses import dataclass
 from importlib import metadata
+from pathlib import Path
 
-from google.protobuf.json_format import Parse
 from tqdm.asyncio import tqdm_asyncio
 
 import a7p
@@ -60,7 +59,7 @@ parser = CustomArgumentParser(
     exit_on_error=True,
 )
 
-parser.add_argument("path", type=pathlib.Path,
+parser.add_argument("path", type=Path,
                     help="Specify the path to the directory or a .a7p file to process.")
 
 # Main options
@@ -68,10 +67,16 @@ parser.add_argument('-V', '--version', action='version', version=__version__,
                     help="Display the current version of the tool.")
 parser.add_argument('-r', '--recursive', action='store_true',
                     help="Recursively process files in the specified directory.")
-parser.add_argument('--unsafe', action='store_true', help="Skip data validation (use with caution).")
+parser.add_argument('--unsafe', action='store_true',
+                    help="Skip data validation (use with caution).")
 parser.add_argument('--verbose', action='store_true',
-                    help="Enable verbose output for detailed logs. This option is only allowed for a single file.")
-parser.add_argument('-F', '--force', action='store_true', help="Force saving changes without confirmation.")
+                    help="Enable verbose output for detailed logs. "
+                         "This option is only allowed for a single file.")
+parser.add_argument('--recover', action='store_true',
+                    help="Attempt to recover from errors found in a file. "
+                         "This option is only allowed for a single file.")
+parser.add_argument('-F', '--force', action='store_true',
+                    help="Force saving changes without confirmation.")
 
 # Distances group
 distances_group = parser.add_argument_group("Distances")
@@ -84,7 +89,7 @@ distances_group.add_argument('-d', '--distances', action='store',
 # Zeroing group
 zeroing_group = parser.add_argument_group("Zeroing")
 zeroing_exclusive_group = zeroing_group.add_mutually_exclusive_group()
-zeroing_exclusive_group.add_argument('-zs', '--zero-sync', action='store', type=pathlib.Path,
+zeroing_exclusive_group.add_argument('-zs', '--zero-sync', action='store', type=Path,
                                      help="Synchronize zero using a specified configuration file.")
 zeroing_exclusive_group.add_argument('-zo', '--zero-offset', action='store', nargs=2, type=float,
                                      metavar=("X_OFFSET", "Y_OFFSET"),
@@ -100,7 +105,7 @@ zeroing_exclusive_group.add_argument('-zo', '--zero-offset', action='store', nar
 
 @dataclass
 class Result:
-    path: pathlib.Path
+    path: Path
     error = None
     validation_error: A7PValidationError = None
     zero: tuple[float, float] = None
@@ -258,20 +263,25 @@ async def print_results(results, verbose=False, force=False):
     print(", ".join(output_strings))
 
 
+def recover_profile(path: Path = None):
+    color_print(f"Attempt to recover profile: {path.absolute()}", levelname="INFO")
+    raise NotImplementedError("The recovering function is not yet implemented")
+
+
 async def process_files(
-        path: pathlib.Path = None,
+        path: Path = None,
         recursive: bool = False,
         unsafe: bool = False,
         distances: str = None,
         zero_distance: int = None,
-        json: pathlib.Path = None,
+        json: Path = None,
         verbose: bool = False,
         force: bool = False,
         zero_offset: tuple[float, float] = None,
-        zero_sync: pathlib.Path = None,
-        *args, **kwargs,
+        zero_sync: Path = None,
+        recover: bool = False,
 ):
-    if not pathlib.Path.exists(path):
+    if not Path.exists(path):
         parser.warning(f"The '{path}' is not a valid path")
     if unsafe:
         logger.warning("The 'unsafe' mode is restricted and may lead to file corruption.")
@@ -285,16 +295,33 @@ async def process_files(
         zero_sync = get_zero_to_sync(zero_sync, validate)
 
     if not path.is_dir():
-        results = [await asyncio.to_thread(process_file,
-                                           path, validate, distances,
-                                           zero_distance, zero_offset, zero_sync, verbose
-                                           )]
+        if path and recover:
+
+            print(locals())
+
+            invalid_options_for_recover = [
+                recursive, unsafe, distances, zero_distance, json,
+                verbose, force, zero_offset, zero_sync
+            ]
+
+            if any(invalid_options_for_recover):
+                raise parser.error(f"The '--recover' option cannot be combined with other options.")
+            await asyncio.to_thread(recover_profile, path)
+            sys.exit(0)
+
+        else:
+            results = [await asyncio.to_thread(process_file,
+                                               path, validate, distances,
+                                               zero_distance, zero_offset, zero_sync, verbose
+                                               )]
     else:
+        if recover:
+            parser.warning("The '--recover' option is supported only when processing a single file.")
         if verbose:
-            parser.warning("The --verbose option is supported only when processing a single file.")
+            parser.warning("The '--verbose' option is supported only when processing a single file.")
 
         if recursive:
-            item: pathlib.Path
+            item: Path
             for item in path.rglob("*"):  # '*' matches all files and directories
                 if item.is_file():
                     tasks.append(limited_to_thread(
@@ -315,8 +342,12 @@ def main():
     try:
         args = parser.parse_args()
         asyncio.run(process_files(**args.__dict__))
+    except NotImplementedError as e:
+        logger.error(e)
+        sys.exit(0)
     except Exception as e:
         logger.critical(e)
+        sys.exit(1)
     except KeyboardInterrupt:
         logger.warning("Process interrupted by user. Exiting gracefully...")
         sys.exit(0)
