@@ -56,7 +56,8 @@ class ANSILoggerFormatter(logging.Formatter):
             str: The formatted log message with the appropriate color applied.
         """
         log_color = COLORS.get(record.levelname, RESET)
-        formatted_message = f"{record.levelname.ljust(len('CRITICAL'))}: {super().format(record)}"
+        # formatted_message = f"{record.levelname.ljust(len('CRITICAL'))}: {super().format(record)}"
+        formatted_message = f"{record.levelname.ljust(10)} : {super().format(record)}"
         return f"{log_color}{formatted_message}{RESET}"
 
 

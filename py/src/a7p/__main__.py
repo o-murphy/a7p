@@ -13,6 +13,7 @@ from a7p import exceptions, profedit_pb2
 from a7p.exceptions import A7PValidationError
 from a7p.factory import DistanceTable
 from a7p.logger import logger, color_print, color_fmt
+from a7p.recover.recover_process import attempt_to_recover
 
 try:
     __version__ = metadata.version("a7p")
@@ -67,16 +68,18 @@ parser.add_argument('-V', '--version', action='version', version=__version__,
                     help="Display the current version of the tool.")
 parser.add_argument('-r', '--recursive', action='store_true',
                     help="Recursively process files in the specified directory.")
-parser.add_argument('--unsafe', action='store_true',
-                    help="Skip data validation (use with caution).")
-parser.add_argument('--verbose', action='store_true',
-                    help="Enable verbose output for detailed logs. "
-                         "This option is only allowed for a single file.")
-parser.add_argument('--recover', action='store_true',
-                    help="Attempt to recover from errors found in a file. "
-                         "This option is only allowed for a single file.")
 parser.add_argument('-F', '--force', action='store_true',
                     help="Force saving changes without confirmation.")
+parser.add_argument('--unsafe', action='store_true',
+                    help="Skip data validation (use with caution).")
+
+recover_group = parser.add_argument_group("Single file specific options")
+recover_group.add_argument('--verbose', action='store_true',
+                           help="Enable verbose output for detailed logs. "
+                                "This option is only allowed for a single file.")
+recover_group.add_argument('--recover', action='store_true',
+                           help="Attempt to recover from errors found in a file. "
+                                "This option is only allowed for a single file.")
 
 # Distances group
 distances_group = parser.add_argument_group("Distances")
@@ -107,13 +110,18 @@ zeroing_exclusive_group.add_argument('-zo', '--zero-offset', action='store', nar
 class Result:
     path: Path
     error = None
-    validation_error: A7PValidationError = None
+    validation_error: A7PValidationError | None = None
     zero: tuple[float, float] = None
     new_zero: tuple[float, float] = None
     zero_update: bool = False
     distances: str = None
     zero_distance: str = None
+    recover: bool = False
     payload: profedit_pb2.Payload = None
+
+    def reset_errors(self):
+        self.error = None
+        self.validation_error = None
 
     def print(self, verbose=False):
 
@@ -140,21 +148,25 @@ class Result:
                 color_print(violation.format(), levelname='WARNING')
 
     def save_changes(self, force=False):
-        if self.zero_distance or self.distances or self.zero_update:
+        if self.zero_distance or self.distances or self.zero_update or self.recover:
             if not force:
-                yes_no = input("Do you want to save changes? (Y/N): ")
+                yes_no = input(color_fmt("Do you want to save changes? (Y/N): ", levelname="LIGHT_YELLOW"))
                 if yes_no.lower() != "y":
                     logger.info("No changes have been saved.")
                     return
             try:
                 try:
                     # Serialize and validate the payload
-                    data = a7p.dumps(self.payload, validate_=True)
-                    logger.info("Changes have been saved successfully.")
+                    data = a7p.dumps(self.payload)
 
                     # Write the validated data to the file
-                    with open(self.path.absolute(), 'wb') as fp:
+                    filepath = self.path.absolute()
+                    if self.recover:
+                        filepath = filepath.with_name(filepath.stem + "_recovered" + filepath.suffix)
+
+                    with open(filepath, 'wb') as fp:
                         fp.write(data)
+                        logger.info(f"Changes have been saved successfully to {filepath}.")
                 except exceptions.A7PDataError:
                     logger.warning("The data is invalid. Changes have not been saved.")
             except IOError as e:
@@ -209,7 +221,8 @@ def process_file(
         zero_distance=None,
         zero_offset=None,
         zero_sync=None,
-        verbose=False
+        verbose=False,
+        recover=False,
 ):
     if path.suffix != ".a7p":
         return
@@ -239,10 +252,14 @@ def process_file(
     result.new_zero = (payload.profile.zero_x / 1000, payload.profile.zero_y / 1000)
 
     result.payload = payload
+
+    if recover:
+        recover_payload(result)
+
     return result
 
 
-async def print_results(results, verbose=False, force=False):
+async def print_results_and_save(results, verbose=False, force=False):
     count_errors = 0
     results = sorted(filter(lambda x: x is not None, results),
                      key=lambda x: x.error is not None, reverse=False)
@@ -263,9 +280,20 @@ async def print_results(results, verbose=False, force=False):
     print(", ".join(output_strings))
 
 
-def recover_profile(path: Path = None):
-    color_print(f"Attempt to recover profile: {path.absolute()}", levelname="INFO")
-    raise NotImplementedError("The recovering function is not yet implemented")
+def recover_payload(result: Result):
+    if result.validation_error:
+        result.recover = True
+
+        color_print("Violations found:", levelname="ERROR")
+        for v in result.validation_error.all_violations:
+            color_print(v.format(), levelname="WARNING")
+
+        recover_error = attempt_to_recover(result.validation_error)
+        if not recover_error:
+            result.reset_errors()
+
+    else:
+        logger.info("No violations found")
 
 
 async def process_files(
@@ -297,8 +325,6 @@ async def process_files(
     if not path.is_dir():
         if path and recover:
 
-            print(locals())
-
             invalid_options_for_recover = [
                 recursive, unsafe, distances, zero_distance, json,
                 verbose, force, zero_offset, zero_sync
@@ -306,14 +332,14 @@ async def process_files(
 
             if any(invalid_options_for_recover):
                 raise parser.error(f"The '--recover' option cannot be combined with other options.")
-            await asyncio.to_thread(recover_profile, path)
-            sys.exit(0)
 
-        else:
-            results = [await asyncio.to_thread(process_file,
-                                               path, validate, distances,
-                                               zero_distance, zero_offset, zero_sync, verbose
-                                               )]
+            verbose = True
+
+        results = [await asyncio.to_thread(process_file,
+                                           path, validate, distances,
+                                           zero_distance, zero_offset, zero_sync,
+                                           verbose, recover
+                                           )]
     else:
         if recover:
             parser.warning("The '--recover' option is supported only when processing a single file.")
@@ -335,7 +361,7 @@ async def process_files(
 
         results: tuple[Result] | list[Result] = await tqdm_asyncio.gather(*tasks)
 
-    await print_results(results, verbose=verbose, force=force)
+    await print_results_and_save(results, verbose=verbose, force=force)
 
 
 def main():
@@ -349,8 +375,11 @@ def main():
         logger.critical(e)
         sys.exit(1)
     except KeyboardInterrupt:
+        print()
         logger.warning("Process interrupted by user. Exiting gracefully...")
         sys.exit(0)
+    logger.info("Process completed successfully. Exiting gracefully...")
+    sys.exit(0)
 
 
 if __name__ == '__main__':
