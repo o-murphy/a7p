@@ -56,7 +56,7 @@ class Violation:
         path__ = f"Path    :  {self.path.as_posix() if isinstance(self.path, Path) else self.path}"
         value_ = f"Value   :  {self.value if is_stringer else '<object>'}"
         reason = f"Reason  :  {self.reason}"
-        return "\n\t".join(["Violation:", path__, value_, reason])
+        return "\n    ".join(["Violation:".ljust(10), path__, value_, reason])
 
 
 @dataclass

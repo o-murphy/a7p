@@ -1,34 +1,28 @@
-from a7p import exceptions, load, logger, validate
-from a7p.recover import recover_spec, recover_proto
+from a7p import exceptions, load
+from a7p.logger import color_print, logger
+from a7p.recover.recover_process import attempt_to_recover
+
+
+def _example():
+    try:
+        with open("broken.a7p", "rb") as fp:
+            try:
+                # trying to load file data to payload
+                load(fp, fail_fast=False)
+            except exceptions.A7PValidationError as err:
+                color_print("Violations found:", levelname="ERROR")
+                for v in err.all_violations:
+                    color_print(v.format(), levelname="WARNING")
+                attempt_to_recover(err)
+            else:
+                logger.info("No violations found")
+
+    except IOError as e:
+        print("Error: %s" % e)
 
 if __name__ == '__main__':
+    _example()
 
-    with open("broken.a7p", "rb") as fp:
-        try:
-            # trying to load file data to payload
-            payload = load(fp, fail_fast=False)
-        except exceptions.A7PValidationError as e:
-            for v in e.all_violations:
-                logger.color_print(v.format())
-
-            # trying to fix payload by spec
-            recover_spec.recover(e.payload, e.spec_violations)
-
-            try:
-                # trying to validate fixed payload
-                validate(e.payload, fail_fast=True)
-            except exceptions.A7PValidationError as e:
-
-                # if still got proto violations trying to fix them too
-                recover_proto.recover(e.payload, e.proto_violations)
-
-                try:
-                    # last validation for get fix results
-                    validate(e.payload, fail_fast=False)
-                except exceptions.A7PValidationError as e:
-
-                    for v in e.all_violations:
-                        logger.color_print(v.format())
 
 
 

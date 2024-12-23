@@ -31,10 +31,7 @@ pip install https://github.com/o-murphy/a7p
 #### CLI-tool
 ```
 a7p -h
-
-usage: a7p 1.0.0b2 [-h] [-V] [-r] [--unsafe] [--verbose] [-F] [-zd ZERO_DISTANCE]
-                   [-d {subsonic,low,medium,long,ultra}] [-zs ZERO_SYNC | -zo X_OFFSET Y_OFFSET]
-                   path
+usage: a7p 1.0.0b3 [-h] [-V] [-r] [-F] [--unsafe] [--verbose] [--recover] [-zd ZERO_DISTANCE] [-d {subsonic,low,medium,long,ultra}] [-zs ZERO_SYNC | -zo X_OFFSET Y_OFFSET] path
 
 positional arguments:
   path                  Specify the path to the directory or a .a7p file to process.
@@ -43,20 +40,23 @@ options:
   -h, --help            show this help message and exit
   -V, --version         Display the current version of the tool.
   -r, --recursive       Recursively process files in the specified directory.
-  --unsafe              Skip data validation (use with caution).
-  --verbose             Enable verbose output for detailed logs. This option is only allowed for a single file.
   -F, --force           Force saving changes without confirmation.
+  --unsafe              Skip data validation (use with caution).
+
+Single file specific options:
+  --verbose             Enable verbose output for detailed logs. This option is only allowed for a single file.
+  --recover             Attempt to recover from errors found in a file. This option is only allowed for a single file.
 
 Distances:
-  -zd, --zero-distance ZERO_DISTANCE
+  -zd ZERO_DISTANCE, --zero-distance ZERO_DISTANCE
                         Set the zero distance in meters.
-  -d, --distances {subsonic,low,medium,long,ultra}
+  -d {subsonic,low,medium,long,ultra}, --distances {subsonic,low,medium,long,ultra}
                         Specify the distance range: 'subsonic', 'low', 'medium', 'long', or 'ultra'.
 
 Zeroing:
-  -zs, --zero-sync ZERO_SYNC
+  -zs ZERO_SYNC, --zero-sync ZERO_SYNC
                         Synchronize zero using a specified configuration file.
-  -zo, --zero-offset X_OFFSET Y_OFFSET
+  -zo X_OFFSET Y_OFFSET, --zero-offset X_OFFSET Y_OFFSET
                         Set the offset for zeroing in clicks (X_OFFSET and Y_OFFSET).
 ```
 

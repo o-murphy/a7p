@@ -32,4 +32,5 @@ __all__ = (
     'exceptions',
     'logger',
     'profedit_pb2',
+    'recover',
 )
