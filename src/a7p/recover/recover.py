@@ -1,4 +1,5 @@
 import re
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -7,8 +8,6 @@ from google._upb._message import RepeatedScalarContainer, RepeatedCompositeConta
 from a7p import profedit_pb2, A7PFactory
 from a7p.factory import Switches
 from a7p.logger import color_fmt, logger
-from a7p.spec_validator import assert_choice
-
 
 def camel_to_snake(camel_case_str):
     """
@@ -41,7 +40,7 @@ class RecoverResult:
 
         if len(path_string) > 30:
             path_string = path_string[:27] + "..."
-        path_string = path_string.rjust(30)
+        path_string = path_string.ljust(30)
 
         if self.is_recovered:
             prefix = color_fmt("Recovered".ljust(10), levelname="INFO")
@@ -91,7 +90,7 @@ class Recover:
             if hasattr(_value, p):
                 _value = getattr(_value, p)
 
-        return _value
+        return deepcopy(_value)
 
     def recover_one(self, payload, violation):
 
