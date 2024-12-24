@@ -100,8 +100,8 @@ class Profile(BaseModel):
     bc_type: BCType
     switches: conlist(Switch, min_length=4)
     distances: conlist(conint(ge=int(1.0 * 100), le=int(3000.0 * 100)), min_length=1, max_length=200)
-    # coef_rows: Union[List[BcMvRows], List[CdMaRows]]
-    coef_rows: List[CoefRows]
+    coef_rows: Union[List[BcMvRows], List[CdMaRows]]
+    # coef_rows: List[CoefRows]
     caliber: constr(max_length=50)
     c_zero_distance_idx: conint(ge=0, le=200)
     c_zero_w_pitch: conint(ge=-90 * 10, le=90 * 10)
@@ -122,7 +122,7 @@ class Profile(BaseModel):
     #
     #     return values
 
-    @field_validator("coef_rows", mode="after")
+    @field_validator("coef_rows", mode="before")
     def validate_coefRows_based_on_bcType(cls, v, info: FieldValidationInfo):
         # Convert dictionaries to model instances based on bcType
         bc_type = info.data.get('bc_type')
