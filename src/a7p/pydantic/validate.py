@@ -1,9 +1,11 @@
 from google._upb._message import RepeatedScalarContainer, RepeatedCompositeContainer
-from google.protobuf.json_format import MessageToDict, ParseDict
 from pydantic import ValidationError
 
+import a7p
 from a7p import profedit_pb2, exceptions
 from .models import Payload
+from .template import PAYLOAD_TEMPLATE
+from ..exceptions import A7PValidationError
 
 
 def get_dict_field(payload: dict, field_path):
@@ -93,15 +95,9 @@ def set_payload_field(payload: profedit_pb2.Payload, field_path, value):
             setattr(current, last_part, value)  # Set the field value using setattr
 
 
-def validate(payload_message: profedit_pb2.Payload):
-    data = MessageToDict(
-        payload_message,
-        including_default_value_fields=True,
-        preserving_proto_field_name=True,
-    )
-
+def validate(data: dict):
     try:
-        Payload.validate(data)
+        Payload.model_validate(data)
     except ValidationError as err:
         print()
         print("Pydantic validation error")
@@ -116,32 +112,49 @@ def validate(payload_message: profedit_pb2.Payload):
                     reason=error.get('msg', "Undefined error")
                 )
             )
+        raise A7PValidationError(
+            "Pydantic validation error",
+            payload=a7p.from_dict(data),
+            violations=violations
+        )
 
-        # for v in violations:
-        #     # print(v.format())
-        #     print(v.path, get_payload_field(payload_message, v.path))
 
-        print("pre", get_dict_field(data, "profile.c_muzzle_velocity"))
-        set_dict_field(data, "profile.c_muzzle_velocity", 8000)
-        print("post", get_dict_field(data, "profile.c_muzzle_velocity"))
-        print()
-        print("pre", get_dict_field(data, "profile.distances.0"))
-        set_dict_field(data, "profile.distances.0", 123456)
-        print("post", get_dict_field(data, "profile.distances.0"))
-        print()
-        print("pre", get_dict_field(data, "profile.distances"))
-        set_dict_field(data, "profile.distances", [10000, 20000])
-        set_dict_field(data, "profile.distances", [10000, 20000, 30000])
-        print("post", get_dict_field(data, "profile.distances"))
-        print()
-        print("pre", get_dict_field(data, "profile.switches"))
-        set_dict_field(data, "profile.switches", [{'c_idx': 1}, {'c_idx': 1}])
-        print("post", get_dict_field(data, "profile.switches"))
-        print()
-        print("pre", get_dict_field(data, "profile.switches.0"))
-        set_dict_field(data, "profile.switches.0", {'c_idx': 5})
-        print("post", get_dict_field(data, "profile.switches.0"))
-        print()
-
-        new_payload = profedit_pb2.Payload()
-        print(ParseDict(data, new_payload))
+def recover(data: dict, violations: list[exceptions.Violation]):
+    for violation in violations:
+        path = violation.path
+        old_value = get_dict_field(data, path)
+        try:
+            new_value = get_dict_field(PAYLOAD_TEMPLATE, path)
+        except KeyError:
+            print("Not recovered", path, old_value)
+        else:
+            set_dict_field(data, path, new_value)
+            print("Recovered", path, old_value, new_value)
+    # print("pre", get_dict_field(data, "profile.c_muzzle_velocity"))
+    # set_dict_field(data, "profile.c_muzzle_velocity", 8000)
+    # print("post", get_dict_field(data, "profile.c_muzzle_velocity"))
+    # print()
+    # print("pre", get_dict_field(data, "profile.distances.0"))
+    # set_dict_field(data, "profile.distances.0", 123456)
+    # print("post", get_dict_field(data, "profile.distances.0"))
+    # print()
+    # print("pre", get_dict_field(data, "profile.distances"))
+    # set_dict_field(data, "profile.distances", [10000, 20000])
+    # set_dict_field(data, "profile.distances", [10000, 20000, 30000])
+    # print("post", get_dict_field(data, "profile.distances"))
+    # print()
+    # print("pre", get_dict_field(data, "profile.switches"))
+    # set_dict_field(data, "profile.switches", [{'c_idx': 1}, {'c_idx': 1}])
+    # print("post", get_dict_field(data, "profile.switches"))
+    # print()
+    # print("pre", get_dict_field(data, "profile.switches.0"))
+    # set_dict_field(data, "profile.switches.0", {'c_idx': 5})
+    # print("post", get_dict_field(data, "profile.switches.0"))
+    # print()
+    #
+    # print("pre", get_dict_field(data, "profile.switches.0.c_idx"))
+    # set_dict_field(data, "profile.switches.0.c_idx", 3)
+    # print("post", get_dict_field(data, "profile.switches.0.c_idx"))
+    # print()
+    #
+    # print(a7p.from_dict(data))

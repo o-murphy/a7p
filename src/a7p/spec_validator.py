@@ -27,7 +27,6 @@ Usage Example:
 
 Module Dependencies:
     - profedit_pb2: Protobuf definition for the payload structure.
-    - MessageToDict: Function used to convert protobuf messages to dictionaries.
     - A7PSpecValidationError: Custom exception raised on validation failure.
 
 """
@@ -37,8 +36,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Callable, Any, Tuple, Type, Dict, Optional, Union, List
 
-from google.protobuf.json_format import MessageToDict
-
+import a7p
 from . import profedit_pb2
 from .exceptions import SpecViolation, A7PSpecTypeError, A7PSpecValidationError
 
@@ -461,7 +459,7 @@ def _check_distance_from(x: Union[float, int, str], *args: Any, **kwargs: Any) -
     return False, "unexpected value or value type"
 
 
-def _check_cidx(idx: int, *args: Any, **kwargs: Any) -> SpecValidationResult:
+def _check_c_idx(idx: int, *args: Any, **kwargs: Any) -> SpecValidationResult:
     """Validates that the index is either '255' (special value) or in the range of [0, 200]."""
     if idx == 255:
         return True, "uses special 'unused' value '255'"
@@ -482,7 +480,7 @@ def _check_switches(switches: List[dict], path: Path, violations: List[SpecViola
                     **kwargs: Any) -> SpecValidationResult:
     """
     Validates the switches list, ensuring it contains at least 4 items, and validates each switch
-    based on specific criteria (cIdx, reticleIdx, zoom, distanceFrom).
+    based on specific criteria (c_idx, reticle_idx, zoom, distance_from).
     """
     criterion = SpecCriterion(
         path,
@@ -491,10 +489,10 @@ def _check_switches(switches: List[dict], path: Path, violations: List[SpecViola
     criterion.validate(len(switches), path, violations)
 
     v = SpecValidator()
-    v.register("cIdx", _check_cidx)
-    v.register("reticleIdx", _check_reticle_idx)
+    v.register("c_idx", _check_c_idx)
+    v.register("reticle_idx", _check_reticle_idx)
     v.register("zoom", _check_zoom)
-    v.register("distanceFrom", _check_distance_from)
+    v.register("distance_from", _check_distance_from)
 
     v.validate(switches, path, violations)
 
@@ -531,9 +529,9 @@ def _check_mv_value(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult
 def _check_coef_rows(profile: dict, path: Path, violations: List[SpecViolation], *args: Any, **kwargs: Any) -> Tuple[
     bool, str]:
     """
-    Validates the 'coefRows' field in the profile based on its 'bcType'.
-    The validation checks the number of coefficient rows and validates 'bcCd' and 'mv' values
-    based on the 'bcType' (G7, G1, or CUSTOM).
+    Validates the 'coef_rows' field in the profile based on its 'bc_type'.
+    The validation checks the number of coefficient rows and validates 'bc_cd' and 'mv' values
+    based on the 'bc_type' (G7, G1, or CUSTOM).
 
     Args:
         profile (dict): The profile containing the data to validate.
@@ -544,8 +542,8 @@ def _check_coef_rows(profile: dict, path: Path, violations: List[SpecViolation],
         Tuple[bool, str]: A tuple where the first element indicates if validation passed,
                            and the second element is a reason or message.
     """
-    bc_type = profile['bcType']
-    bc_criterion = SpecCriterion(Path("bcType"), _check_bc_type)
+    bc_type = profile['bc_type']
+    bc_criterion = SpecCriterion(Path("bc_type"), _check_bc_type)
     coef_rows_violations = []
 
     # Validate the boundary condition type
@@ -554,21 +552,21 @@ def _check_coef_rows(profile: dict, path: Path, violations: List[SpecViolation],
     if is_valid:
         v = SpecValidator()
 
-        # Register validation rules based on bcType
+        # Register validation rules based on bc_type
         if bc_type in ['G7', 'G1']:
-            v.register("coefRows", lambda x, *args, **kwargs: assert_items_count(x, 1, 5))
-            v.register("bcCd", _check_bc_value)
+            v.register("coef_rows", lambda x, *args, **kwargs: assert_items_count(x, 1, 5))
+            v.register("bc_cd", _check_bc_value)
             v.register("mv", _check_mv_value)
         elif bc_type == 'CUSTOM':
-            v.register("coefRows", lambda x, *args, **kwargs: assert_items_count(x, 1, 200))
-            v.register("bcCd", _check_cd_value)
+            v.register("coef_rows", lambda x, *args, **kwargs: assert_items_count(x, 1, 200))
+            v.register("bc_cd", _check_cd_value)
             v.register("mv", _check_ma_value)
         else:
             coef_rows_violations.append(
                 SpecViolation(
-                    path / "coefRows",
-                    "Validation skipped for coefRows",
-                    f"Unsupported bcType '{bc_type}'"
+                    path / "coef_rows",
+                    "Validation skipped for coef_rows",
+                    f"Unsupported bc_type '{bc_type}'"
                 )
             )
 
@@ -580,8 +578,8 @@ def _check_coef_rows(profile: dict, path: Path, violations: List[SpecViolation],
         violations.extend(coef_rows_violations)
     else:
         violations.append(SpecViolation(
-            path / "coefRows",
-            f"Too many errors in {path / 'coefRows'}",
+            path / "coef_rows",
+            f"Too many errors in {path / 'coef_rows'}",
             "More than 12 errors found, listing all is omitted"
         ))
 
@@ -592,7 +590,7 @@ def _check_coef_rows(profile: dict, path: Path, violations: List[SpecViolation],
 def _check_distances(profile: dict, path: Path, violations: List[SpecViolation], *args: Any, **kwargs: Any) -> Tuple[
     bool, str]:
     """
-    Validates the 'distances' field and the 'cZeroDistanceIdx' field in the profile.
+    Validates the 'distances' field and the 'c_zero_distance_idx' field in the profile.
     Ensures the zero distance index is valid and the distances are within the expected range.
 
     Args:
@@ -606,15 +604,15 @@ def _check_distances(profile: dict, path: Path, violations: List[SpecViolation],
     """
     distances_violations = []
 
-    idx = profile["cZeroDistanceIdx"]
+    idx = profile["c_zero_distance_idx"]
     distances = profile["distances"]
 
     SpecCriterion(
-        path / "cZeroDistanceIdx",
+        path / "c_zero_distance_idx",
         _check_c_zero_distance_idx
     ).validate(
         idx,
-        path / "cZeroDistanceIdx",
+        path / "c_zero_distance_idx",
         distances_violations
     )
 
@@ -650,7 +648,7 @@ def _check_distances(profile: dict, path: Path, violations: List[SpecViolation],
 
 def _check_dependency_distances(zero_distance_index: int, distances: List[int]) -> Tuple[bool, str]:
     """
-    Validates the dependency between 'cZeroDistanceIdx' and the 'distances' list.
+    Validates the dependency between 'c_zero_distance_idx' and the 'distances' list.
 
     Args:
         zero_distance_index (int): The index representing the zero distance.
@@ -666,7 +664,7 @@ def _check_dependency_distances(zero_distance_index: int, distances: List[int]) 
 def _check_profile(profile: dict, path: Path, violations: List[SpecViolation], *args: Any, **kwargs: Any) -> Tuple[
     bool, str]:
     """
-    Validates the entire profile, including switches, distances, and coefRows.
+    Validates the entire profile, including switches, distances, and coef_rows.
 
     Args:
         profile (dict): The profile containing the data to validate.
@@ -692,30 +690,30 @@ SpecValidationFunction = Callable[..., Tuple[bool, str]]
 
 # Default validation functions dictionary
 _default_validation_funcs: Dict[str, SpecValidationFunction] = {
-    "profileName": _check_profile_name,
-    "cartridgeName": _check_cartridge_name,
+    "profile_name": _check_profile_name,
+    "cartridge_name": _check_cartridge_name,
     "caliber": _check_caliber,
-    "bulletName": _check_bullet_name,
-    "deviceUuid": _check_device_uuid,
-    "shortNameTop": _check_short_name_top,
-    "shortNameBot": _check_short_name_bot,
-    "userNote": _check_user_note,
-    "zeroX": _check_zero_x,
-    "zeroY": _check_zero_y,
-    "scHeight": _check_sc_height,
-    "rTwist": _check_r_twist,
-    "cMuzzleVelocity": _check_c_muzzle_velocity,
-    "cZeroTemperature": _check_c_zero_temperature,
-    "cTCoeff": _check_c_t_coeff,
-    "cZeroAirTemperature": _check_c_zero_air_temperature,
-    "cZeroAirPressure": _check_c_zero_air_pressure,
-    "cZeroAirHumidity": _check_c_zero_air_humidity,
-    "cZeroPTemperature": _check_c_zero_p_temperature,
-    "cZeroWPitch": _check_c_zero_w_pitch,
-    "bLength": _check_b_length,
-    "bWeight": _check_b_weight,
-    "bDiameter": _check_b_diameter,
-    "twistDir": _check_twist_dir,
+    "bullet_name": _check_bullet_name,
+    "device_uuid": _check_device_uuid,
+    "short_name_top": _check_short_name_top,
+    "short_name_bot": _check_short_name_bot,
+    "user_note": _check_user_note,
+    "zero_x": _check_zero_x,
+    "zero_y": _check_zero_y,
+    "sc_height": _check_sc_height,
+    "r_twist": _check_r_twist,
+    "c_muzzle_velocity": _check_c_muzzle_velocity,
+    "c_zero_temperature": _check_c_zero_temperature,
+    "c_t_coeff": _check_c_t_coeff,
+    "c_zero_air_temperature": _check_c_zero_air_temperature,
+    "c_zero_air_pressure": _check_c_zero_air_pressure,
+    "c_zero_air_humidity": _check_c_zero_air_humidity,
+    "c_zero_p_temperature": _check_c_zero_p_temperature,
+    "c_zero_w_pitch": _check_c_zero_w_pitch,
+    "b_length": _check_b_length,
+    "b_weight": _check_b_weight,
+    "b_diameter": _check_b_diameter,
+    "twist_dir": _check_twist_dir,
 
     "~/profile": _check_profile
 }
@@ -743,7 +741,7 @@ def validate_spec(payload: profedit_pb2.Payload) -> None:
         A7PSpecValidationError: If validation fails, raises an exception with details.
     """
     # Convert protobuf message to dictionary, including default values
-    data = MessageToDict(payload, including_default_value_fields=True)
+    data = a7p.to_dict(payload)
 
     # Perform validation
     is_valid, violations = _default_validator.validate(data)

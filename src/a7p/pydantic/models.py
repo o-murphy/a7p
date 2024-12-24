@@ -6,7 +6,7 @@ from pydantic_core.core_schema import FieldValidationInfo
 
 
 def validate_coef_rows_based_on_bc_type(v, info: FieldValidationInfo):
-    # Convert dictionaries to model instances based on bcType
+    # Convert dictionaries to model instances based on bc_type
     bc_type = info.data.get('bc_type')
 
     try:
@@ -16,7 +16,7 @@ def validate_coef_rows_based_on_bc_type(v, info: FieldValidationInfo):
             if len(v) > 5:
                 raise ValueError('coef_rows should have maximum 5 items when bc_type is {bc_type}')
 
-            # Ensure coefRows contains BcMvRows instances
+            # Ensure coef_rows contains BcMvRows instances
             v = [BcMvRows(**row) if isinstance(row, dict) else row for row in v]
             if not all(isinstance(row, BcMvRows) for row in v):
                 raise ValueError(f'coef_rows must contain BcMvRows when bc_type is {bc_type}')
@@ -27,7 +27,7 @@ def validate_coef_rows_based_on_bc_type(v, info: FieldValidationInfo):
             if len(v) > 200:
                 raise ValueError('coef_rows should have maximum 200 items when bc_type is {bc_type}')
 
-            # Ensure coefRows contains CdMaRows instances
+            # Ensure coef_rows contains CdMaRows instances
             v = [CdMaRows(**row) if isinstance(row, dict) else row for row in v]
             if not all(isinstance(row, CdMaRows) for row in v):
                 raise ValueError(f'coef_rows must contain CdMaRows when bc_type is {bc_type}')
@@ -37,14 +37,14 @@ def validate_coef_rows_based_on_bc_type(v, info: FieldValidationInfo):
     except ValidationError as e:
         # raise e
         # Handle the validation error gracefully
-        raise ProfileValidationError(f"Validation error while processing coefRows for bcType {bc_type}", str(e))
+        raise ProfileValidationError(f"Validation error while processing coef_rows for bc_type {bc_type}", str(e))
 
     return v
 
 
 def validate_c_idx(v):
     if not (0 <= v <= 200 or v == 255):
-        raise ValueError('cIdx must be between 0 and 200, or exactly 255')
+        raise ValueError('c_idx must be between 0 and 200, or exactly 255')
     # assert 0 <= v <= 200 or v == 255
     return v
 
@@ -80,7 +80,7 @@ class Switch(BaseModel):
     zoom: conint(ge=0, le=6)
     distance: conint(ge=int(1.0 * 100), le=int(3000.0 * 100))
     reticle_idx: conint(ge=0, le=255)
-    distance: Annotated[Union[int, str], BeforeValidator(validate_distance_from)]
+    distance_from: Annotated[Union[int, str], BeforeValidator(validate_distance_from)]
 
 
 class CoefRows(BaseModel):
@@ -137,15 +137,15 @@ class Profile(BaseModel):
 
     # # FIXME: do not work as expected
     # @model_validator(mode="before")
-    # def validate_cZeroDistanceIdx(cls, values):
+    # def validate_c_zero_distance_dx(cls, values):
     #     distances = values.get('distances')
-    #     cZeroDistanceIdx = values.get('cZeroDistanceIdx')
-    #     if isinstance(distances, (list, tuple)) and cZeroDistanceIdx is not None:
-    #         print("V", len(distances), cZeroDistanceIdx, cZeroDistanceIdx >= len(distances))
+    #     c_zero_distance_dx = values.get('c_zero_distance_dx')
+    #     if isinstance(distances, (list, tuple)) and c_zero_distance_dx is not None:
+    #         print("V", len(distances), c_zero_distance_dx, c_zero_distance_dx >= len(distances))
     #
-    #         if cZeroDistanceIdx >= len(distances):
-    #             print("V", len(distances), cZeroDistanceIdx)
-    #             raise ValueError(f"cZeroDistanceIdx must be less than the length of distances (length={len(distances)})")
+    #         if c_zero_distance_dx >= len(distances):
+    #             print("V", len(distances), c_zero_distance_dx)
+    #             raise ValueError(f"c_zero_distance_dx must be less than the length of distances (length={len(distances)})")
     #
     #     return values
 
