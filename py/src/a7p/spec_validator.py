@@ -456,7 +456,7 @@ def _check_distance_from(x: Union[float, int, str], *args: Any, **kwargs: Any) -
     """
     if isinstance(x, (float, int)):
         return assert_float_range(x, 1.0, 3000.0, 100)
-    if isinstance(x, str) and x == "VALUE":  # TODO: check special value
+    if isinstance(x, str) and x.lower() in ["value", "index"]:  # TODO: check special value
         return True, ""
     return False, "unexpected value or value type"
 
