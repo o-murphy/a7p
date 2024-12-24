@@ -165,6 +165,7 @@ class Payload(BaseModel):
 
 
 if __name__ == "__main__":
+    from pprint import pprint
 
     def set_value_by_field_path(payload, field_path, value):
         """
@@ -210,12 +211,13 @@ if __name__ == "__main__":
             )
             print("Pydantic validation there")
             data['profile']['bc_type'] = 'CUSTOM'
+            data['profile']['sc_height'] = 'invalid'
             try:
                 Payload.model_validate(data)
             except ValidationError as err:
                 print("Errors", len(err.errors()))
                 for e in err.errors():
-                    # pprint(e)
+                    pprint(e)
 
                     # attr = payload
                     # for key in e['loc']:
@@ -235,14 +237,16 @@ if __name__ == "__main__":
                         set_value_by_field_path(payload, ".".join([str(i) for i in e['loc']]), [1000])
                     else:
                         print(e['loc'])
-                    #
-                    data = MessageToDict(
-                        payload,
-                        including_default_value_fields=True,
-                        preserving_proto_field_name=True
-                    )
-                    print(data['profile']['distances'])
-                    try:
-                        Payload.model_validate(data)
-                    except ValidationError as err:
-                        print("Errors", len(err.errors()))
+
+                data = MessageToDict(
+                    payload,
+                    including_default_value_fields=True,
+                    preserving_proto_field_name=True
+                )
+                print(data['profile']['distances'])
+                try:
+                    Payload.model_validate(data)
+                except ValidationError as err:
+                    print("Errors", len(err.errors()))
+                    for e in err.errors():
+                        pprint(e)
