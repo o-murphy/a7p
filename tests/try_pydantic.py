@@ -1,5 +1,6 @@
 import a7p
-from a7p import exceptions, pydantic
+from a7p import exceptions, pydantic, recover
+from a7p.logger import color_print
 
 if __name__ == "__main__":
     with open("broken.a7p", 'rb') as fp:
@@ -16,14 +17,16 @@ if __name__ == "__main__":
                 pydantic.validate(data)
             except exceptions.A7PValidationError as err:
                 for v in err.violations:
-                    print(v.format())
-                data = a7p.to_dict(err.payload)
-                pydantic.recover(data, err.violations)
+                    color_print(v.format(), levelname="WARNING")
 
-                print()
-                print("Final validation")
+                data = a7p.to_dict(err.payload)
+
+                results = pydantic.recover(data, err.violations)
+                for r in results:
+                    r.print()
+                color_print("Final validation", levelname="INFO")
                 try:
                     pydantic.validate(data)
                 except exceptions.A7PValidationError as err:
                     for v in err.violations:
-                        print(v.format())
+                        color_print(v.format(), levelname="WARNING")

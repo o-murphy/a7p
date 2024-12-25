@@ -1,7 +1,10 @@
 from enum import Enum
+
+from pydantic.fields import FieldInfo
 from typing_extensions import List, Union, Annotated
 
-from pydantic import BaseModel, ValidationError, conint, constr, conlist, field_validator, BeforeValidator
+from pydantic import BaseModel, ValidationError, conint, constr, conlist, field_validator, BeforeValidator, \
+    model_validator
 from pydantic_core.core_schema import FieldValidationInfo
 
 
@@ -137,17 +140,20 @@ class Profile(BaseModel):
 
     # # FIXME: do not work as expected
     # @model_validator(mode="before")
-    # def validate_c_zero_distance_dx(cls, values):
+    # def validate_c_zero_distance_idx(cls, values):
     #     distances = values.get('distances')
-    #     c_zero_distance_dx = values.get('c_zero_distance_dx')
-    #     if isinstance(distances, (list, tuple)) and c_zero_distance_dx is not None:
-    #         print("V", len(distances), c_zero_distance_dx, c_zero_distance_dx >= len(distances))
-    #
-    #         if c_zero_distance_dx >= len(distances):
-    #             print("V", len(distances), c_zero_distance_dx)
-    #             raise ValueError(f"c_zero_distance_dx must be less than the length of distances (length={len(distances)})")
+    #     c_zero_distance_idx = values.get('c_zero_distance_idx')
+    #     print(distances, c_zero_distance_idx)
+    #     if isinstance(distances, (list, tuple)) and c_zero_distance_idx is not None:
+    #         if c_zero_distance_idx >= len(distances):
+    #             raise ValueError(f"c_zero_distance_idx must be less than the length of distances (length={len(distances)})")
     #
     #     return values
+
+
+def validate_and_correct_range(value: int, min_value: int, max_value: int) -> int:
+    """Ensure value is within valid range, correcting if necessary."""
+    return max(min_value, min(value, max_value))
 
 
 class Payload(BaseModel):

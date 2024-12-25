@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from google._upb._message import RepeatedScalarContainer, RepeatedCompositeContainer
+from typing_extensions import Any
 
 from a7p import profedit_pb2, A7PFactory
 from a7p.factory import Switches
@@ -11,10 +12,10 @@ from a7p.logger import color_fmt, logger
 
 @dataclass
 class RecoverResult:
-    is_recovered: bool
+    recovered: bool
     path: Path | str
     old_value: str | None = None
-    new_value: str | None = None
+    new_value: Any = None
 
     def print(self):
 
@@ -27,12 +28,12 @@ class RecoverResult:
             path_string = path_string[:27] + "..."
         path_string = path_string.ljust(30)
 
-        if self.is_recovered:
+        if self.recovered:
             prefix = color_fmt("Recovered".ljust(10), levelname="INFO")
         else:
             prefix = color_fmt("Skipped".ljust(10), levelname="WARNING")
 
-        def truncate_list(_value):
+        def truncate_list(_value: Any) -> str:
             if isinstance(_value, (RepeatedScalarContainer, RepeatedCompositeContainer, list, tuple)):
                 _value = [str(v) for v in _value]
                 if len(_value) > 6:
@@ -41,7 +42,7 @@ class RecoverResult:
                     _value = f'[ {",".join(_value)} ]'
             return _value
 
-        def truncate(string):
+        def truncate(string: str):
             string = str(string).replace("\n", " ")
             if len(string) > 50:
                 # string = f'[ {string[:25]} ... {string[-25:]} ]'
