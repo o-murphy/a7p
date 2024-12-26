@@ -122,7 +122,7 @@ def assert_spec_type(*expected_types: Type) -> Callable[[SpecFlexibleValidatorFu
 
 # assertion methods section
 @assert_spec_type(str)
-def assert_shorter(string: str, max_len: int) -> SpecValidationResult:
+def assert_shorter_le(string: str, max_len: int) -> SpecValidationResult:
     """
     Asserts that the length of a string is shorter than the specified maximum length.
 
@@ -134,7 +134,7 @@ def assert_shorter(string: str, max_len: int) -> SpecValidationResult:
         SpecValidationResult: A tuple containing a boolean indicating whether the string is shorter than max_len,
                               and an error message if not.
     """
-    return len(string) < max_len, f"expected string shorter than {max_len} characters"
+    return len(string) <= max_len, f"expected string shorter than {max_len} characters"
 
 
 @assert_spec_type(float, int)
@@ -319,42 +319,42 @@ class SpecValidator:
 # Default validation functions section
 def _check_profile_name(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
     """Validates that the profile name is shorter than 50 characters."""
-    return assert_shorter(x, 50)
+    return assert_shorter_le(x, 50)
 
 
 def _check_cartridge_name(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
     """Validates that the cartridge name is shorter than 50 characters."""
-    return assert_shorter(x, 50)
+    return assert_shorter_le(x, 50)
 
 
 def _check_caliber(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
     """Validates that the caliber name is shorter than 50 characters."""
-    return assert_shorter(x, 50)
+    return assert_shorter_le(x, 50)
 
 
 def _check_bullet_name(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
     """Validates that the bullet name is shorter than 50 characters."""
-    return assert_shorter(x, 50)
+    return assert_shorter_le(x, 50)
 
 
 def _check_device_uuid(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
     """Validates that the device UUID is shorter than 50 characters."""
-    return assert_shorter(x, 50)
+    return assert_shorter_le(x, 50)
 
 
 def _check_short_name_top(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
     """Validates that the short name (top) is shorter than 8 characters."""
-    return assert_shorter(x, 8)
+    return assert_shorter_le(x, 8)
 
 
 def _check_short_name_bot(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
     """Validates that the short name (bottom) is shorter than 8 characters."""
-    return assert_shorter(x, 8)
+    return assert_shorter_le(x, 8)
 
 
 def _check_user_note(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
     """Validates that the user note is shorter than 1024 characters."""
-    return assert_shorter(x, 1024)
+    return assert_shorter_le(x, 1024)
 
 
 def _check_zero_x(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
@@ -759,7 +759,7 @@ __all__ = (
     'validate_spec',
     'assert_spec_type',
     'assert_items_count',
-    'assert_shorter',
+    'assert_shorter_le',
     'assert_float_range',
     'assert_int_range',
     'assert_choice',
