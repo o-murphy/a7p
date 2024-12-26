@@ -1,9 +1,11 @@
 from enum import Enum
 
+from pydantic import BaseModel, ValidationError, conint, constr, conlist, BeforeValidator, AfterValidator, \
+    field_validator
+from pydantic_core.core_schema import FieldValidationInfo
 from typing_extensions import List, Union, Annotated
 
-from pydantic import BaseModel, ValidationError, conint, constr, conlist, BeforeValidator
-from pydantic_core.core_schema import FieldValidationInfo
+from a7p.exceptions import Violation
 
 
 def validate_coef_rows_based_on_bc_type(v, info: FieldValidationInfo):
@@ -63,6 +65,25 @@ def validate_distance_from(v):
         raise ValueError("distance_from must be either an integer in range 0-255 or the string 'VALUE' or 'INDEX'.")
 
     return v
+
+
+def validate_c_zero_distance_idx(value, info: FieldValidationInfo):
+    # Retrieve 'distances' from the model's data
+    distances = info.data.get('distances')
+
+    # If distances is None, raise an error since validation cannot proceed
+    if distances is None:
+        raise ValueError("c_zero_distance_idx cannot be valid if distances are invalid or missing")
+
+    # If distances is a list or tuple, and value is not None, validate the index
+    if isinstance(distances, (list, tuple)) and value is not None:
+        if value >= len(distances):  # Check if index is out of bounds
+            raise ValueError(
+                f"c_zero_distance_idx must be less than the length of distances (length={len(distances)})"
+            )
+
+    # Return the validated value
+    return value
 
 
 class BCType(Enum):
@@ -131,27 +152,10 @@ class Profile(BaseModel):
     distances: conlist(conint(ge=int(1.0 * 100), le=int(3000.0 * 100)), min_length=1, max_length=200)
     coef_rows: Annotated[Union[List[BcMvRows], List[CdMaRows]], BeforeValidator(validate_coef_rows_based_on_bc_type)]
     caliber: constr(max_length=50)
-    c_zero_distance_idx: conint(ge=0, le=200)
+    c_zero_distance_idx: Annotated[conint(ge=0, le=200), AfterValidator(validate_c_zero_distance_idx)]
     c_zero_w_pitch: conint(ge=-90 * 10, le=90 * 10)
     twist_dir: TwistDir
     device_uuid: constr(max_length=50)
-
-    # # FIXME: do not work as expected
-    # @model_validator(mode="before")
-    # def validate_c_zero_distance_idx(cls, values):
-    #     distances = values.get('distances')
-    #     c_zero_distance_idx = values.get('c_zero_distance_idx')
-    #     print(distances, c_zero_distance_idx)
-    #     if isinstance(distances, (list, tuple)) and c_zero_distance_idx is not None:
-    #         if c_zero_distance_idx >= len(distances):
-    #             raise ValueError(f"c_zero_distance_idx must be less than the length of distances (length={len(distances)})")
-    #
-    #     return values
-
-
-def validate_and_correct_range(value: int, min_value: int, max_value: int) -> int:
-    """Ensure value is within valid range, correcting if necessary."""
-    return max(min_value, min(value, max_value))
 
 
 class Payload(BaseModel):

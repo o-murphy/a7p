@@ -1,14 +1,13 @@
 from typing import Any
 
-from typing_extensions import List, Dict
-
 from pydantic import ValidationError
+from typing_extensions import List, Dict
 
 import a7p
 from a7p import exceptions
-from a7p.recover import RecoverResult
 from a7p.pydantic.models import Payload
 from a7p.pydantic.template import PAYLOAD_RECOVERY_SCHEMA
+from a7p.recover import RecoverResult
 
 
 def get_dict_field(payload_dict: Dict[str, Any], field_path: str):
@@ -69,6 +68,7 @@ def validate(payload_dict: Dict[str, Any]):
             violations=violations
         )
 
+
 def recursive_recover(path: str, old_value: Any) -> Any:
     loc = path.split('.') if path else []
     recover_value = get_dict_field(PAYLOAD_RECOVERY_SCHEMA, path)
@@ -80,6 +80,7 @@ def recursive_recover(path: str, old_value: Any) -> Any:
     elif isinstance(recover_value, list):
         return [recursive_recover(".".join(loc + [str(i)]), None) for i in range(len(recover_value))]
     return recover_value
+
 
 def recover(payload_dict: Dict[str, Any], violations: List[exceptions.Violation]) -> List[RecoverResult]:
     results: List[RecoverResult] = []

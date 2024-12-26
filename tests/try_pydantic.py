@@ -13,6 +13,7 @@ if __name__ == "__main__":
             del payload.profile.distances[:]
         finally:
             data = a7p.to_dict(payload)
+            data['profile']['c_zero_distance_idx'] = 2
             try:
                 pydantic.validate(data)
             except exceptions.A7PValidationError as err:
