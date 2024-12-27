@@ -7,6 +7,8 @@ from pydantic import StringConstraints
 from pydantic_core.core_schema import FieldValidationInfo
 from typing_extensions import get_args
 
+from a7p.recover import RecoverResult
+
 
 def pre_validate_interval(value: Any, interval: Optional[Interval]) -> None:
     """
@@ -177,7 +179,13 @@ def retrieve_confield_validator(cls: type, field_name: str) -> Callable[[Any], A
         raise TypeError(f"Field '{field_name}' is not valid confield") from err
 
 
-def field_correction(handler: Optional[Callable[[type, Any, FieldValidationInfo, Exception], Any]] = None) -> \
+def trigger_confield_validation(cls, value, info: FieldValidationInfo):
+    validate = retrieve_confield_validator(cls, info.field_name)
+    if callable(validate):
+        value = validate(value)
+    return value
+
+def on_restore(handler: Callable[[type, Any, FieldValidationInfo, Exception], Any]) -> \
         Callable[[Callable], Callable]:
     """
     A decorator that applies a correction function if validation fails.
@@ -197,8 +205,23 @@ def field_correction(handler: Optional[Callable[[type, Any, FieldValidationInfo,
                 try:
                     return func(cls, value, info)
                 except (TypeError, ValueError) as err:
-                    print(f"Validation failed with error: {err}, invoking handler")
-                    return handler(cls, value, info, err)
+                    print(f"Validation failed with error: {err}")
+
+                    if 'restored' not in info.context:
+                        info.context['restored'] = {}
+
+                    if callable(handler):
+                        print("Invoking handler")
+                        result = handler(cls, value, info, err)
+                        info.context['restored'][info.field_name] = RecoverResult(
+                            recovered=True,
+                            path=info.field_name,
+                            old_value=value,
+                            new_value=result
+                        )
+                        return result
+                    return value
+
             return func(cls, value, info)
 
         return wrapper
@@ -220,117 +243,7 @@ def example_handler(cls: type, value: Any, info: FieldValidationInfo, err: Excep
         Any: The corrected value.
     """
     print(f"Handler modifying value: {value} due to error: {err}")
-    if 'recovered' not in info.context:
-        info.context['recovered'] = {}
-    info.context['recovered'][info.field_name] = err
+    if 'restored' not in info.context:
+        info.context['restored'] = {}
+    info.context['restored'][info.field_name] = err
     return 0
-
-# import math
-# from functools import wraps
-#
-# from annotated_types import Interval, MultipleOf
-# from pydantic_core.core_schema import FieldValidationInfo
-# from typing_extensions import get_args
-#
-#
-#
-# def pre_validate_interval(value, interval: Interval):
-#     if interval is None:
-#         return
-#     if interval.ge is not None and value < interval.ge:
-#         raise ValueError("value must be greater than or equal to {}".format(interval.ge))
-#     if interval.le is not None and value > interval.le:
-#         raise ValueError("value must be greater than or equal to {}".format(interval.ge))
-#     if interval.gt is not None and value <= interval.ge:
-#         raise ValueError("value must be greater than {}".format(interval.ge))
-#     if interval.gt is not None and value >= interval.ge:
-#         raise ValueError("value must be greater than {}".format(interval.ge))
-#
-#
-# def pre_validate_multiple_of(value, multiple_of: MultipleOf):
-#     if multiple_of is not None and multiple_of.multiple_of is not None and value % multiple_of.multiple_of != 0:
-#         raise ValueError("value must be a multiple of {}".format(multiple_of))
-#
-#
-# def pre_validate_conint(type_, strict, interval: Interval, multiple_of):
-#     def validate(value):
-#         if strict and not isinstance(value, type_):
-#             raise TypeError("value must be a type of {}".format(type_))
-#         pre_validate_interval(value, interval)
-#         pre_validate_multiple_of(value, multiple_of)
-#         return value
-#
-#     return validate
-#
-#
-# def pre_validate_confloat(type_, strict, interval: Interval, multiple_of, allow_inf_nan):
-#     def validate(value):
-#         if strict and not isinstance(value, type_):
-#             raise TypeError("value must be a type of {}".format(type_))
-#         pre_validate_interval(value, interval)
-#         pre_validate_multiple_of(value, multiple_of)
-#
-#         if allow_inf_nan:
-#             if math.isnan(value):
-#                 ValueError("value is NaN")
-#             elif math.isinf(value):
-#                 ValueError("Value is positive infinity" if value > 0 else "Value is negative infinity")
-#
-#         return value
-#
-#     return validate
-#
-#
-# def pre_validate_constr(type_, str_constraints):
-#     print(str_constraints)
-#
-#
-# def retrieve_confield_validator(cls, field_name):
-#     field = cls.__annotations__.get(field_name, None)
-#     if field is None:
-#         raise AttributeError(f"Field '{field_name}' is not defined")
-#     # origin = get_origin(field)
-#     args = get_args(field)
-#
-#     try:
-#         type_ = args[0]
-#     except IndexError:
-#         raise TypeError(f"typing.Annotated should have at least one item")
-#
-#     try:
-#         if type_ is int:
-#             return pre_validate_conint(*args)
-#         elif type_ is float:
-#             return pre_validate_confloat(*args)
-#         elif type_ is str:
-#             return pre_validate_constr(*args)
-#         else:
-#             raise TypeError("Can't validate field type '%s'" % type_)
-#     except TypeError as err:
-#         raise TypeError("Field '%s' is not valid confield" % field_name) from err
-#
-#
-# def field_correction(handler=None):
-#     def decorator(func):
-#         @wraps(func)  # Preserve the original function signature
-#         def wrapper(cls, value, info: FieldValidationInfo):
-#             ctx = info.context or {}
-#             if ctx.get("restore") and handler is not None:
-#                 try:
-#                     return func(cls, value, info)
-#                 except (TypeError, ValueError) as err:
-#                     print(f"Validation failed with error: {err}, invoking handler")
-#                     return handler(cls, value, info, err)
-#             return func(cls, value, info)
-#
-#         return wrapper
-#
-#     return decorator
-#
-#
-# def example_corrector(cls, value, info, err):
-#     print(f"Handler modifying value: {value} due to error: {err}")
-#     if 'recovered' not in info.context:
-#         info.context['recovered'] = {}
-#     info.context['recovered'][info.field_name] = err
-#     return 0

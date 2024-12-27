@@ -1,11 +1,12 @@
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, ValidationError, conint, constr, conlist, BeforeValidator, AfterValidator, \
     field_validator
 from pydantic_core.core_schema import FieldValidationInfo
 from typing_extensions import List, Union, Annotated
 
-from a7p.exceptions import Violation
+from a7p.pydantic.correct import on_restore, trigger_confield_validation
 
 
 def validate_coef_rows_based_on_bc_type(v, info: FieldValidationInfo):
@@ -86,6 +87,23 @@ def validate_c_zero_distance_idx(value, info: FieldValidationInfo):
     return value
 
 
+def restore_str_len(max_len, default="nil"):
+    def decorator(cls: type, value: Any, info: FieldValidationInfo, err: Exception) -> Any:
+        if info.context.get('restore'):
+            if isinstance(value, str):
+                return value[:max_len]
+        return default[:max_len]
+
+    return decorator
+
+
+def restore_default(default):
+    def decorator(cls: type, value: Any, info: FieldValidationInfo, err: Exception) -> Any:
+        return default
+
+    return decorator
+
+
 class BCType(Enum):
     G1 = "G1"
     G7 = "G7"
@@ -127,35 +145,134 @@ class ProfileValidationError(ValueError):
 
 
 class Profile(BaseModel):
+    # description params
     profile_name: constr(max_length=50)
     cartridge_name: constr(max_length=50)
     bullet_name: constr(max_length=50)
     short_name_top: constr(max_length=8)
     short_name_bot: constr(max_length=8)
+    caliber: constr(max_length=50)
     user_note: constr(max_length=1024)
+    device_uuid: constr(max_length=50)
+
+    # zeroing props
     zero_x: conint(ge=-200 * 1000, le=200 * 1000)
     zero_y: conint(ge=-200 * 1000, le=200 * 1000)
+
+    # barrel params
     sc_height: conint(ge=-5000, le=5000)
     r_twist: conint(ge=0, le=100 * 100)
+    twist_dir: TwistDir
+
+    # muzzle velocity
     c_muzzle_velocity: conint(ge=-10 * 10, le=3000 * 10)
+
+    # zero environment props
     c_zero_temperature: conint(ge=-100, le=100)
     c_t_coeff: conint(ge=0, le=5 * 1000)
     c_zero_air_temperature: conint(ge=-100, le=100)
     c_zero_air_pressure: conint(ge=300 * 10, le=1500 * 10)
     c_zero_air_humidity: conint(ge=0, le=100)
     c_zero_p_temperature: conint(ge=-100, le=100)
+    c_zero_w_pitch: conint(ge=-90 * 10, le=90 * 10)
+
+    # bullet params
     b_diameter: conint(ge=int(0.001 * 1000), le=int(50.0 * 1000))
     b_weight: conint(ge=int(1.0 * 10), le=int(6553.5 * 10))
     b_length: conint(ge=int(0.01 * 1000), le=int(200.0 * 1000))
+
     bc_type: BCType
     switches: conlist(Switch, min_length=4)
     distances: conlist(conint(ge=int(1.0 * 100), le=int(3000.0 * 100)), min_length=1, max_length=200)
     coef_rows: Annotated[Union[List[BcMvRows], List[CdMaRows]], BeforeValidator(validate_coef_rows_based_on_bc_type)]
-    caliber: constr(max_length=50)
     c_zero_distance_idx: Annotated[conint(ge=0, le=200), AfterValidator(validate_c_zero_distance_idx)]
-    c_zero_w_pitch: conint(ge=-90 * 10, le=90 * 10)
-    twist_dir: TwistDir
-    device_uuid: constr(max_length=50)
+
+
+    @field_validator('profile_name',
+                     'cartridge_name',
+                     'bullet_name',
+                     'caliber',
+                     mode='before')
+    @on_restore(handler=restore_str_len(50))
+    def validate_string_50(cls, value, info: FieldValidationInfo):
+        return trigger_confield_validation(cls, value, info)
+
+    @field_validator('device_uuid', mode='before')
+    @on_restore(handler=restore_str_len(50, ""))
+    def validate_device_uuid(cls, value, info: FieldValidationInfo):
+        return trigger_confield_validation(cls, value, info)
+
+    @field_validator('short_name_top',
+                     'short_name_bot',
+                     mode='before')
+    @on_restore(handler=restore_str_len(8))
+    def validate_string_8(cls, value, info: FieldValidationInfo):
+        return trigger_confield_validation(cls, value, info)
+
+    @field_validator('user_note',
+                     mode='before')
+    @on_restore(handler=restore_str_len(1024))
+    def validate_user_note(cls, value, info: FieldValidationInfo):
+        return trigger_confield_validation(cls, value, info)
+
+    @field_validator('zero_x',
+                     'zero_y',
+                     'c_zero_air_humidity',
+                     'c_zero_w_pitch',
+                     mode='before')
+    @on_restore(handler=restore_default(0))
+    def validate_zero(cls, value, info: FieldValidationInfo):
+        return trigger_confield_validation(cls, value, info)
+
+    @field_validator('sc_height', mode='before')
+    @on_restore(handler=restore_default(90))
+    def validate_sc_height(cls, value, info: FieldValidationInfo):
+        return trigger_confield_validation(cls, value, info)
+
+    @field_validator('c_muzzle_velocity', mode='before')
+    @on_restore(handler=restore_default(8000))
+    def validate_c_muzzle_velocity(cls, value, info: FieldValidationInfo):
+        return trigger_confield_validation(cls, value, info)
+
+    @field_validator('c_zero_temperature',
+                     'c_zero_air_temperature',
+                     'c_zero_p_temperature',
+                     mode='before')
+    @on_restore(handler=restore_default(15))
+    def validate_temperature(cls, value, info: FieldValidationInfo):
+        return trigger_confield_validation(cls, value, info)
+
+    @field_validator('c_t_coeff', mode='before')
+    @on_restore(handler=restore_default(1000))
+    def validate_c_t_coeff(cls, value, info: FieldValidationInfo):
+        return trigger_confield_validation(cls, value, info)
+
+    @field_validator('c_zero_air_pressure', mode='before')
+    @on_restore(handler=restore_default(10000))
+    def validate_c_zero_pressure(cls, value, info: FieldValidationInfo):
+        return trigger_confield_validation(cls, value, info)
+
+    @field_validator('b_weight', mode='before')
+    @on_restore(handler=restore_default(3000))
+    def validate_b_weight(cls, value, info: FieldValidationInfo):
+        return trigger_confield_validation(cls, value, info)
+
+    @field_validator('b_diameter', mode='before')
+    @on_restore(handler=restore_default(1800))
+    def validate_b_diameter(cls, value, info: FieldValidationInfo):
+        return trigger_confield_validation(cls, value, info)
+
+    @field_validator('b_length', mode='before')
+    @on_restore(handler=restore_default(338))
+    def validate_b_length(cls, value, info: FieldValidationInfo):
+        return trigger_confield_validation(cls, value, info)
+
+    @field_validator('twist_dir', mode='before')
+    @on_restore(handler=restore_default(TwistDir.RIGHT))
+    def validate_twist_dir(cls, value, info: FieldValidationInfo):
+        if not value in [TwistDir.RIGHT, TwistDir.LEFT]:
+            raise ValueError("Input should be 'RIGHT' or 'LEFT'")
+        return trigger_confield_validation(cls, value, info)
 
 
 class Payload(BaseModel):

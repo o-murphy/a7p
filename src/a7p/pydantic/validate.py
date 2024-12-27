@@ -4,7 +4,7 @@ from pydantic import ValidationError
 from typing_extensions import List, Dict
 
 import a7p
-from a7p import exceptions
+from a7p import exceptions, profedit_pb2
 from a7p.pydantic.models import Payload
 from a7p.pydantic.template import PAYLOAD_RECOVERY_SCHEMA
 from a7p.recover import RecoverResult
@@ -48,9 +48,14 @@ def set_dict_field(payload_dict: Dict[str, Any], field_path: str, value: Any):
         current[last_part] = value
 
 
-def validate(payload_dict: Dict[str, Any]):
+def validate(payload: profedit_pb2.Payload, restore=False):
+    payload_dict = a7p.to_dict(payload)
+    context = {
+        "restore": restore,
+        "restored": {}
+    }
     try:
-        Payload.model_validate(payload_dict)
+        Payload.model_validate(payload_dict, context=context)
     except ValidationError as err:
         violations = []
         for error in err.errors():
