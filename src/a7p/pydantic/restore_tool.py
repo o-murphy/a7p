@@ -44,7 +44,7 @@ def main():
                 with open(file_path.with_stem(file_path.stem + "_restored"), 'wb') as fp:
                     restored_payload = a7p.from_dict(dump)
                     a7p.dump(restored_payload, fp)
-
+p
 
 if __name__ == "__main__":
     main()
