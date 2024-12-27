@@ -205,7 +205,7 @@ def on_restore(handler: Callable[[type, Any, FieldValidationInfo, Exception], An
                 try:
                     return func(cls, value, info)
                 except (TypeError, ValueError) as err:
-                    print(f"Validation failed with error: {err}")
+                    print(f"Validation of field '{info.field_name}' failed with error: {err}")
 
                     if 'restored' not in info.context:
                         info.context['restored'] = {}

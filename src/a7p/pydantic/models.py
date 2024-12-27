@@ -1,12 +1,12 @@
 from enum import Enum
-from typing import Any
+from typing import Any, get_args
 
-from pydantic import BaseModel, ValidationError, conint, constr, conlist, BeforeValidator, AfterValidator, \
-    field_validator
+from pydantic import BaseModel, ValidationError, conint, constr, conlist, BeforeValidator, field_validator
 from pydantic_core.core_schema import FieldValidationInfo
 from typing_extensions import List, Union, Annotated
 
-from a7p.pydantic.correct import on_restore, trigger_confield_validation
+from a7p import A7PFactory
+from a7p.pydantic.correct import on_restore, trigger_confield_validation, pre_validate_conint
 
 
 def validate_coef_rows_based_on_bc_type(v, info: FieldValidationInfo):
@@ -68,25 +68,6 @@ def validate_distance_from(v):
     return v
 
 
-def validate_c_zero_distance_idx(value, info: FieldValidationInfo):
-    # Retrieve 'distances' from the model's data
-    distances = info.data.get('distances')
-
-    # If distances is None, raise an error since validation cannot proceed
-    if distances is None:
-        raise ValueError("c_zero_distance_idx cannot be valid if distances are invalid or missing")
-
-    # If distances is a list or tuple, and value is not None, validate the index
-    if isinstance(distances, (list, tuple)) and value is not None:
-        if value >= len(distances):  # Check if index is out of bounds
-            raise ValueError(
-                f"c_zero_distance_idx must be less than the length of distances (length={len(distances)})"
-            )
-
-    # Return the validated value
-    return value
-
-
 def restore_str_len(max_len, default="nil"):
     def decorator(cls: type, value: Any, info: FieldValidationInfo, err: Exception) -> Any:
         if info.context.get('restore'):
@@ -144,48 +125,81 @@ class ProfileValidationError(ValueError):
         self.errors = errors
 
 
+LongString = constr(max_length=50)
+ShortString = constr(max_length=8)
+Text = constr(max_length=1024)
+
+SightHeight = conint(ge=-5000, le=5000)
+Twist = conint(ge=0, le=100 * 100)
+
+Velocity = conint(ge=-10 * 10, le=3000 * 10)
+TCoeff = conint(ge=0, le=5 * 1000)
+
+Zeroing = conint(ge=-200 * 1000, le=200 * 1000)
+Temperature = conint(ge=-100, le=100)
+Pressure = conint(ge=300 * 10, le=1500 * 10)
+Humidity = conint(ge=0, le=100)
+Pitch = conint(ge=-90 * 10, le=90 * 10)
+
+Diameter = conint(ge=int(0.001 * 1000), le=int(50.0 * 1000))
+Weight = conint(ge=int(1.0 * 10), le=int(6553.5 * 10))
+Length = conint(ge=int(0.01 * 1000), le=int(200.0 * 1000))
+
+SwitchesList = conlist(Switch, min_length=4)
+Distance = conint(ge=int(1.0 * 100), le=int(3000.0 * 100))
+DistancesList = conlist(Distance, min_length=1, max_length=200)
+
+DistanceIdx = conint(ge=0, le=200, strict=True)
+ZeroDistanceIdx = DistanceIdx
+CoefRowsList = Annotated[Union[List[BcMvRows], List[CdMaRows]], BeforeValidator(validate_coef_rows_based_on_bc_type)]
+
+
+def restore_distances(cls: type, value: Any, info: FieldValidationInfo, err: Exception):
+    return [int(d * 100) for d in A7PFactory.DistanceTable.LONG_RANGE.value]
+
+
 class Profile(BaseModel):
     # description params
-    profile_name: constr(max_length=50)
-    cartridge_name: constr(max_length=50)
-    bullet_name: constr(max_length=50)
-    short_name_top: constr(max_length=8)
-    short_name_bot: constr(max_length=8)
-    caliber: constr(max_length=50)
-    user_note: constr(max_length=1024)
-    device_uuid: constr(max_length=50)
+    profile_name: LongString
+    cartridge_name: LongString
+    bullet_name: LongString
+    short_name_top: ShortString
+    short_name_bot: ShortString
+    caliber: LongString
+    device_uuid: LongString
+    user_note: Text
 
     # zeroing props
-    zero_x: conint(ge=-200 * 1000, le=200 * 1000)
-    zero_y: conint(ge=-200 * 1000, le=200 * 1000)
+    zero_x: Zeroing
+    zero_y: Zeroing
 
     # barrel params
-    sc_height: conint(ge=-5000, le=5000)
-    r_twist: conint(ge=0, le=100 * 100)
+    sc_height: SightHeight
+    r_twist: Twist
     twist_dir: TwistDir
 
     # muzzle velocity
-    c_muzzle_velocity: conint(ge=-10 * 10, le=3000 * 10)
+    c_muzzle_velocity: Velocity
+    c_t_coeff: TCoeff
 
     # zero environment props
-    c_zero_temperature: conint(ge=-100, le=100)
-    c_t_coeff: conint(ge=0, le=5 * 1000)
-    c_zero_air_temperature: conint(ge=-100, le=100)
-    c_zero_air_pressure: conint(ge=300 * 10, le=1500 * 10)
-    c_zero_air_humidity: conint(ge=0, le=100)
-    c_zero_p_temperature: conint(ge=-100, le=100)
-    c_zero_w_pitch: conint(ge=-90 * 10, le=90 * 10)
+    c_zero_temperature: Temperature
+    c_zero_air_temperature: Temperature
+    c_zero_p_temperature: Temperature
+    c_zero_air_pressure: Pressure
+    c_zero_air_humidity: Humidity
+    c_zero_w_pitch: Pitch
 
     # bullet params
-    b_diameter: conint(ge=int(0.001 * 1000), le=int(50.0 * 1000))
-    b_weight: conint(ge=int(1.0 * 10), le=int(6553.5 * 10))
-    b_length: conint(ge=int(0.01 * 1000), le=int(200.0 * 1000))
+    b_diameter: Diameter
+    b_weight: Weight
+    b_length: Length
 
-    switches: conlist(Switch, min_length=4)
-    distances: conlist(conint(ge=int(1.0 * 100), le=int(3000.0 * 100)), min_length=1, max_length=200)
-    c_zero_distance_idx: Annotated[conint(ge=0, le=200), AfterValidator(validate_c_zero_distance_idx)]
+    switches: SwitchesList
+    distances: DistancesList
+    c_zero_distance_idx: ZeroDistanceIdx
     bc_type: BCType
-    coef_rows: Annotated[Union[List[BcMvRows], List[CdMaRows]], BeforeValidator(validate_coef_rows_based_on_bc_type)]
+    coef_rows: CoefRowsList
 
     @field_validator('profile_name',
                      'cartridge_name',
@@ -272,6 +286,53 @@ class Profile(BaseModel):
         if not value in [TwistDir.RIGHT, TwistDir.LEFT]:
             raise ValueError("Input should be 'RIGHT' or 'LEFT'")
         return trigger_confield_validation(cls, value, info)
+
+    @field_validator('distances', mode='before')
+    @on_restore(handler=restore_distances)
+    def validate_distances(cls, value, info: FieldValidationInfo):
+
+        if not isinstance(value, list):
+            raise ValueError("Input should be a valid list")
+
+        validator = pre_validate_conint(*get_args(Distance))
+
+        for d in value:
+            try:
+                validator(d)
+            except (TypeError, ValueError) as err:
+                raise ValueError("Invalid values found: %s" % err)
+
+        if len(value) < 1:
+            raise ValueError("List should have at least 1 item after validation, not %s" % len(value))
+        elif len(value) > 200:
+            raise ValueError("List should have at most 200 items after validation, not  %s" % len(value))
+
+        if len(value) != len(set(value)):
+            repeated_items = list(set([item for item in value if value.count(item) > 1]))
+
+            raise ValueError("Non unique values found in a list %s" % repeated_items)
+
+        return value
+
+    @field_validator('c_zero_distance_idx', mode='before')
+    @on_restore(handler=restore_default(0))
+    def validate_c_zero_distance_idx(cls, value, info: FieldValidationInfo):
+
+        # Retrieve 'distances' from the model's data
+        distances = info.data.get('distances')
+
+        # If distances is None, raise an error since validation cannot proceed
+        if distances is None:
+            raise ValueError("c_zero_distance_idx cannot be valid if distances are invalid or missing")
+
+        # If distances is a list or tuple, and value is not None, validate the index
+        if isinstance(distances, (list, tuple)) and value is not None:
+            if value >= len(distances):  # Check if index is out of bounds
+                raise ValueError(
+                    f"c_zero_distance_idx must be less than the length of distances (length={len(distances)})"
+                )
+
+        return value
 
 
 class Payload(BaseModel):
