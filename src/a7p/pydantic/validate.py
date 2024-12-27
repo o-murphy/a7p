@@ -83,37 +83,56 @@ def recursive_recover(path: str, old_value: Any) -> Any:
 
 
 def recover(payload_dict: Dict[str, Any], violations: List[exceptions.Violation]) -> List[RecoverResult]:
-    results: List[RecoverResult] = []
+    try:
+        Payload.model_validate(payload_dict, context={"recovery": PAYLOAD_RECOVERY_SCHEMA})
+    except ValidationError as err:
+        violations = []
+        for error in err.errors():
+            field_path = '.'.join(map(str, error.get('loc', tuple())))
+            violations.append(
+                exceptions.Violation(
+                    path=field_path,
+                    value=error.get('input', None),
+                    reason=error.get('msg', "Undefined error")
+                )
+            )
+        raise exceptions.A7PValidationError(
+            "Pydantic validation error",
+            payload=a7p.from_dict(payload_dict),
+            violations=violations
+        )
 
-    for violation in violations:
-        path = violation.path
-        try:
-            old_value = get_dict_field(payload_dict, path)
-
-            try:
-                new_value = recursive_recover(path, old_value)
-                set_dict_field(payload_dict, path, new_value)
-                results.append(RecoverResult(
-                    recovered=True,
-                    path=path,
-                    old_value=old_value,
-                    new_value=new_value,
-                ))
-            except (KeyError, ValueError, AttributeError) as e:
-                # Log the error if needed
-                results.append(RecoverResult(
-                    recovered=False,
-                    path=path,
-                    old_value=old_value,
-                    new_value=None,
-                ))
-        except KeyError as e:
-            # Log missing keys
-            results.append(RecoverResult(
-                recovered=False,
-                path=path,
-                old_value=None,
-                new_value=None,
-            ))
-
-    return results
+    # results: List[RecoverResult] = []
+    #
+    # for violation in violations:
+    #     path = violation.path
+    #     try:
+    #         old_value = get_dict_field(payload_dict, path)
+    #
+    #         try:
+    #             new_value = recursive_recover(path, old_value)
+    #             set_dict_field(payload_dict, path, new_value)
+    #             results.append(RecoverResult(
+    #                 recovered=True,
+    #                 path=path,
+    #                 old_value=old_value,
+    #                 new_value=new_value,
+    #             ))
+    #         except (KeyError, ValueError, AttributeError) as e:
+    #             # Log the error if needed
+    #             results.append(RecoverResult(
+    #                 recovered=False,
+    #                 path=path,
+    #                 old_value=old_value,
+    #                 new_value=None,
+    #             ))
+    #     except KeyError as e:
+    #         # Log missing keys
+    #         results.append(RecoverResult(
+    #             recovered=False,
+    #             path=path,
+    #             old_value=None,
+    #             new_value=None,
+    #         ))
+    #
+    # return results
