@@ -5,8 +5,8 @@ from pydantic import BaseModel, ValidationError, conint, constr, conlist, Before
 from pydantic_core.core_schema import FieldValidationInfo
 from typing_extensions import List, Union, Annotated
 
-from a7p import A7PFactory
 from a7p.pydantic.correction import on_restore, trigger_confield_validation, pre_validate_conint
+from a7p.pydantic.template import PAYLOAD_RECOVERY_SCHEMA
 
 
 def validate_coef_rows_based_on_bc_type(v, info: FieldValidationInfo):
@@ -153,9 +153,8 @@ DistanceIdx = conint(ge=0, le=200, strict=True)
 ZeroDistanceIdx = DistanceIdx
 CoefRowsList = Annotated[Union[List[BcMvRows], List[CdMaRows]], BeforeValidator(validate_coef_rows_based_on_bc_type)]
 
-
-def restore_distances(cls: type, value: Any, info: FieldValidationInfo, err: Exception):
-    return [int(d * 100) for d in A7PFactory.DistanceTable.LONG_RANGE.value]
+DEFAULT_DISTANCES = PAYLOAD_RECOVERY_SCHEMA['profile']['distances']
+DEFAULT_SWITCHES = PAYLOAD_RECOVERY_SCHEMA['profile']['switches']
 
 
 class Profile(BaseModel):
@@ -288,11 +287,21 @@ class Profile(BaseModel):
         return trigger_confield_validation(cls, value, info)
 
     @field_validator('distances', mode='before')
-    @on_restore(handler=restore_distances)
+    @on_restore(handler=restore_default(DEFAULT_DISTANCES))
     def validate_distances(cls, value, info: FieldValidationInfo):
 
         if not isinstance(value, list):
             raise ValueError("Input should be a valid list")
+
+        if len(value) < 1:
+            raise ValueError("List should have at least 1 item after validation, not %s" % len(value))
+        if len(value) > 200:
+            raise ValueError("List should have at most 200 items after validation, not  %s" % len(value))
+
+        if len(value) != len(set(value)):
+            repeated_items = list(set([item for item in value if value.count(item) > 1]))
+
+            raise ValueError("Non unique values found in a list %s" % repeated_items)
 
         validator = pre_validate_conint(*get_args(Distance))
 
@@ -301,16 +310,6 @@ class Profile(BaseModel):
                 validator(d)
             except (TypeError, ValueError) as err:
                 raise ValueError("Invalid values found: %s" % err)
-
-        if len(value) < 1:
-            raise ValueError("List should have at least 1 item after validation, not %s" % len(value))
-        elif len(value) > 200:
-            raise ValueError("List should have at most 200 items after validation, not  %s" % len(value))
-
-        if len(value) != len(set(value)):
-            repeated_items = list(set([item for item in value if value.count(item) > 1]))
-
-            raise ValueError("Non unique values found in a list %s" % repeated_items)
 
         return value
 
@@ -331,6 +330,25 @@ class Profile(BaseModel):
                 raise ValueError(
                     f"c_zero_distance_idx must be less than the length of distances (length={len(distances)})"
                 )
+
+        return value
+
+    @field_validator('switches', mode='before')
+    @on_restore(handler=restore_default(DEFAULT_SWITCHES))
+    def validate_switches(cls, value, info: FieldValidationInfo):
+        value.append(value[0])
+        value[0]['c_idx'] = 500
+        if not isinstance(value, list):
+            raise ValueError("Input should be a valid list")
+
+        if len(value) < 4:
+            raise ValueError("List should have at least 4 item after validation, not %s" % len(value))
+
+        for item in value:
+            try:
+                Switch.model_validate(item, context=info.context)
+            except ValidationError as err:
+                raise ValueError("Invalid values found: %s" % err)
 
         return value
 
