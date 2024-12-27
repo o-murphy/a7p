@@ -181,12 +181,11 @@ class Profile(BaseModel):
     b_weight: conint(ge=int(1.0 * 10), le=int(6553.5 * 10))
     b_length: conint(ge=int(0.01 * 1000), le=int(200.0 * 1000))
 
-    bc_type: BCType
     switches: conlist(Switch, min_length=4)
     distances: conlist(conint(ge=int(1.0 * 100), le=int(3000.0 * 100)), min_length=1, max_length=200)
-    coef_rows: Annotated[Union[List[BcMvRows], List[CdMaRows]], BeforeValidator(validate_coef_rows_based_on_bc_type)]
     c_zero_distance_idx: Annotated[conint(ge=0, le=200), AfterValidator(validate_c_zero_distance_idx)]
-
+    bc_type: BCType
+    coef_rows: Annotated[Union[List[BcMvRows], List[CdMaRows]], BeforeValidator(validate_coef_rows_based_on_bc_type)]
 
     @field_validator('profile_name',
                      'cartridge_name',
