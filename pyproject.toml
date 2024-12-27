@@ -60,4 +60,4 @@ version = {file = "VERSION"}
 
 [project.scripts]
 a7p = "a7p.__main__:main"
-a7p-recover = "a7p.pydantic.recover_tool:main"
+a7p-restore = "a7p.pydantic.restore_tool:main"
