@@ -1,5 +1,3 @@
-from a7p import A7PFactory
-
 PAYLOAD_RECOVERY_SCHEMA = {
     "profile": {
         "profile_name": "nil",
