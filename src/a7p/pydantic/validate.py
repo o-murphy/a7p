@@ -7,7 +7,6 @@ import a7p
 from a7p import exceptions, profedit_pb2
 from a7p.pydantic.models import Payload
 from a7p.pydantic.template import PAYLOAD_RECOVERY_SCHEMA
-from a7p.recover import RecoverResult
 
 
 def get_dict_field(payload_dict: Dict[str, Any], field_path: str):
@@ -21,7 +20,7 @@ def get_dict_field(payload_dict: Dict[str, Any], field_path: str):
             current = current.get(part)  # Access dict by key (assuming proto_obj is a dict)
 
         if current is None:  # If the field doesn't exist
-            raise KeyError(f"Field not found: {field_path}")
+            raise KeyError(f"Field not found: %s" % field_path)
 
     return current  # Return the final value
 
@@ -38,7 +37,7 @@ def set_dict_field(payload_dict: Dict[str, Any], field_path: str, value: Any):
             current = current.get(part)  # Access field using attribute name
 
         if current is None:
-            raise KeyError(f"Field not found: {field_path}")
+            raise KeyError(f"Field not found: %s" % field_path)
 
     # Now we're at the last part, set the value
     last_part = loc[-1]
@@ -54,10 +53,12 @@ def validate(payload: profedit_pb2.Payload, restore=False):
         "restore": restore,
         "restored": []
     }
+    model = None
+    violations = []
+
     try:
-        Payload.model_validate(payload_dict, context=context)
+        model = Payload.model_validate(payload_dict, context=context)
     except ValidationError as err:
-        violations = []
         for error in err.errors():
             field_path = '.'.join(map(str, error.get('loc', tuple())))
             violations.append(
@@ -67,13 +68,13 @@ def validate(payload: profedit_pb2.Payload, restore=False):
                     reason=error.get('msg', "Undefined error")
                 )
             )
-        raise exceptions.A7PValidationError(
-            "Pydantic validation error",
-            payload=a7p.from_dict(payload_dict),
-            violations=violations
-        )
-    finally:
-        print(context.get('restored'))
+        # raise exceptions.A7PValidationError(
+        #     "Pydantic validation error",
+        #     payload=a7p.from_dict(payload_dict),
+        #     violations=violations
+        # )
+        return model, context.get("restored"), violations
+    return model, context.get("restored"), violations
 
 
 def recursive_recover(path: str, old_value: Any) -> Any:
@@ -89,7 +90,7 @@ def recursive_recover(path: str, old_value: Any) -> Any:
     return recover_value
 
 
-def recover(payload_dict: Dict[str, Any], violations: List[exceptions.Violation]) -> List[RecoverResult]:
+def recover(payload_dict: Dict[str, Any], violations: List[exceptions.Violation]):
     try:
         Payload.model_validate(payload_dict, context={"recovery": PAYLOAD_RECOVERY_SCHEMA})
     except ValidationError as err:

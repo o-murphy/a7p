@@ -6,6 +6,7 @@ from annotated_types import Interval, MultipleOf
 from pydantic import StringConstraints
 from pydantic_core.core_schema import FieldValidationInfo
 from typing_extensions import get_args
+from a7p.logger import logger
 
 from a7p.recover import RecoverResult
 
@@ -24,13 +25,13 @@ def pre_validate_interval(value: Any, interval: Optional[Interval]) -> None:
     if interval is None:
         return
     if interval.ge is not None and value < interval.ge:
-        raise ValueError(f"value must be greater than or equal to {interval.ge}")
+        raise ValueError(f"value must be greater than or equal to %s" % interval.ge)
     if interval.le is not None and value > interval.le:
-        raise ValueError(f"value must be less than or equal to {interval.le}")
+        raise ValueError(f"value must be less than or equal to %s" % interval.le)
     if interval.gt is not None and value <= interval.gt:
-        raise ValueError(f"value must be greater than {interval.gt}")
+        raise ValueError(f"value must be greater than %s" % interval.gt)
     if interval.lt is not None and value >= interval.lt:
-        raise ValueError(f"value must be less than {interval.lt}")
+        raise ValueError(f"value must be less than %s" % interval.lt)
 
 
 def pre_validate_multiple_of(value: Any, multiple_of: Optional[MultipleOf]) -> None:
@@ -46,7 +47,7 @@ def pre_validate_multiple_of(value: Any, multiple_of: Optional[MultipleOf]) -> N
     """
     if multiple_of is not None and multiple_of.multiple_of is not None:
         if value % multiple_of.multiple_of != 0:
-            raise ValueError(f"value must be a multiple of {multiple_of.multiple_of}")
+            raise ValueError(f"value must be a multiple of %s" % multiple_of.multiple_of)
 
 
 def pre_validate_conint(
@@ -67,7 +68,7 @@ def pre_validate_conint(
 
     def validate(value: Any) -> Any:
         if strict and not isinstance(value, type_):
-            raise TypeError(f"value must be of type {type_}")
+            raise TypeError(f"value must be of type %s" % type_)
         value = type_(value)
         pre_validate_interval(value, interval)
         pre_validate_multiple_of(value, multiple_of)
@@ -95,7 +96,7 @@ def pre_validate_confloat(
 
     def validate(value: Any) -> Any:
         if strict and not isinstance(value, type_):
-            raise TypeError(f"value must be of type {type_}")
+            raise TypeError(f"value must be of type %s" % type_)
 
         value = type_(value)
         pre_validate_interval(value, interval)
@@ -130,9 +131,9 @@ def pre_validate_constr(type_: type, str_constraints: Optional[StringConstraints
                 value: str = type_(value)
 
             if str_constraints.min_length is not None and len(value) < str_constraints.min_length:
-                raise ValueError(f"Value error, String have been longer than {str_constraints.min_length}")
+                raise ValueError(f"Value error, String have been longer than %s" % str_constraints.min_length)
             if str_constraints.max_length is not None and len(value) > str_constraints.max_length:
-                raise ValueError(f"Value error, String have been shorter than {str_constraints.max_length}")
+                raise ValueError(f"Value error, String have been shorter than %s" % str_constraints.max_length)
 
             return value
         return type_(value)
@@ -157,7 +158,7 @@ def retrieve_confield_validator(cls: type, field_name: str) -> Callable[[Any], A
     """
     field = cls.__annotations__.get(field_name, None)
     if field is None:
-        raise AttributeError(f"Field '{field_name}' is not defined")
+        raise AttributeError(f"Field '%s' is not defined" % field_name)
 
     args = get_args(field)
 
@@ -174,9 +175,9 @@ def retrieve_confield_validator(cls: type, field_name: str) -> Callable[[Any], A
         elif type_ is str:
             return pre_validate_constr(*args)
         else:
-            raise TypeError(f"Can't validate field type '{type_}'")
+            raise TypeError(f"Can't validate field type '%s'" % type_)
     except TypeError as err:
-        raise TypeError(f"Field '{field_name}' is not valid confield") from err
+        raise TypeError(f"Field '%s' is not valid confield" % field_name) from err
 
 
 def trigger_confield_validation(cls, value, info: FieldValidationInfo):
@@ -205,13 +206,13 @@ def on_restore(handler: Callable[[type, Any, FieldValidationInfo, Exception], An
                 try:
                     return func(cls, value, info)
                 except (TypeError, ValueError) as err:
-                    print(f"Validation of field '{info.field_name}' failed with error: {err}")
+                    logger.debug(f"Validation of field '{info.field_name}' failed with error: {err}")
 
                     if 'restored' not in info.context:
                         info.context['restored'] = {}
 
                     if callable(handler):
-                        print("Invoking handler")
+                        logger.debug("Invoking handler")
                         result = handler(cls, value, info, err)
                         info.context['restored'].append(RecoverResult(
                             recovered=True,
@@ -242,7 +243,7 @@ def example_handler(cls: type, value: Any, info: FieldValidationInfo, err: Excep
     Returns:
         Any: The corrected value.
     """
-    print(f"Handler modifying value: {value} due to error: {err}")
+    logger.debug(f"Handler modifying value: {value} due to error: {err}")
     if 'restored' not in info.context:
         info.context['restored'] = {}
     info.context['restored'][info.field_name] = err

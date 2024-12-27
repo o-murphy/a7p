@@ -9,42 +9,6 @@ from a7p.pydantic.correction import on_restore, trigger_confield_validation, pre
 from a7p.pydantic.template import PAYLOAD_RECOVERY_SCHEMA
 
 
-def validate_coef_rows_based_on_bc_type(v, info: FieldValidationInfo):
-    # Convert dictionaries to model instances based on bc_type
-    bc_type = info.data.get('bc_type')
-
-    try:
-        if bc_type == BCType.G1 or bc_type == BCType.G7:
-            if len(v) < 1:
-                raise ValueError('coef_rows should have at least 1 item when bc_type is {bc_type}')
-            if len(v) > 5:
-                raise ValueError('coef_rows should have maximum 5 items when bc_type is {bc_type}')
-
-            # Ensure coef_rows contains BcMvRows instances
-            v = [BcMvRows(**row) if isinstance(row, dict) else row for row in v]
-            if not all(isinstance(row, BcMvRows) for row in v):
-                raise ValueError(f'coef_rows must contain BcMvRows when bc_type is {bc_type}')
-        elif bc_type == BCType.CUSTOM:
-
-            if len(v) < 1:
-                raise ValueError('coef_rows should have at least 1 item when bc_type is {bc_type}')
-            if len(v) > 200:
-                raise ValueError('coef_rows should have maximum 200 items when bc_type is {bc_type}')
-
-            # Ensure coef_rows contains CdMaRows instances
-            v = [CdMaRows(**row) if isinstance(row, dict) else row for row in v]
-            if not all(isinstance(row, CdMaRows) for row in v):
-                raise ValueError(f'coef_rows must contain CdMaRows when bc_type is {bc_type}')
-        else:
-            raise ValueError(f"Unsupported bc_type: {bc_type}")
-
-    except ValidationError as e:
-        # raise e
-        # Handle the validation error gracefully
-        raise ProfileValidationError(f"Validation error while processing coef_rows for bc_type {bc_type}", str(e))
-
-    return v
-
 
 def validate_c_idx(v):
     if not (0 <= v <= 200 or v == 255):
@@ -151,10 +115,12 @@ DistancesList = conlist(Distance, min_length=1, max_length=200)
 
 DistanceIdx = conint(ge=0, le=200, strict=True)
 ZeroDistanceIdx = DistanceIdx
-CoefRowsList = Annotated[Union[List[BcMvRows], List[CdMaRows]], BeforeValidator(validate_coef_rows_based_on_bc_type)]
+# CoefRowsList = Annotated[Union[List[BcMvRows], List[CdMaRows]], BeforeValidator(validate_coef_rows_based_on_bc_type)]
+CoefRowsList = Union[List[BcMvRows], List[CdMaRows]]
 
 DEFAULT_DISTANCES = PAYLOAD_RECOVERY_SCHEMA['profile']['distances']
 DEFAULT_SWITCHES = PAYLOAD_RECOVERY_SCHEMA['profile']['switches']
+DEFAULT_COEF_ROWS = PAYLOAD_RECOVERY_SCHEMA['profile']['coef_rows']
 
 
 class Profile(BaseModel):
@@ -280,11 +246,11 @@ class Profile(BaseModel):
         return trigger_confield_validation(cls, value, info)
 
     @field_validator('twist_dir', mode='before')
-    @on_restore(handler=restore_default(TwistDir.RIGHT))
+    @on_restore(handler=restore_default(TwistDir.RIGHT.value))
     def validate_twist_dir(cls, value, info: FieldValidationInfo):
-        if not value in [TwistDir.RIGHT, TwistDir.LEFT]:
+        if value not in [TwistDir.RIGHT, TwistDir.LEFT]:
             raise ValueError("Input should be 'RIGHT' or 'LEFT'")
-        return trigger_confield_validation(cls, value, info)
+        return value
 
     @field_validator('distances', mode='before')
     @on_restore(handler=restore_default(DEFAULT_DISTANCES))
@@ -349,6 +315,51 @@ class Profile(BaseModel):
                 Switch.model_validate(item, context=info.context)
             except ValidationError as err:
                 raise ValueError("Invalid values found: %s" % err)
+
+        return value
+
+    @field_validator('bc_type', mode='before')
+    @on_restore(handler=restore_default(BCType.G7))
+    def validate_bc_type(cls, value, info: FieldValidationInfo):
+        if value not in [BCType.G1, BCType.G7, BCType.CUSTOM]:
+            raise ValueError("Input should be 'G1', 'G7' or 'CUSTOM'")
+        return value
+
+    @field_validator('coef_rows', mode='before')
+    @on_restore(handler=restore_default(DEFAULT_COEF_ROWS))
+    def validate_coef_rows_based_on_bc_type(cls, value, info: FieldValidationInfo):
+        # Convert dictionaries to model instances based on bc_type
+        bc_type = info.data.get('bc_type')
+        value[0]['bc_cd'] = 300000
+        try:
+            if bc_type in [BCType.G1, BCType.G7]:
+                if len(value) < 1:
+                    raise ValueError('coef_rows should have at least 1 item when bc_type is %s' % bc_type)
+                if len(value) > 5:
+                    raise ValueError('coef_rows should have maximum 5 items when bc_type is %s' % bc_type)
+
+                # Ensure coef_rows contains BcMvRows instances
+                value = [BcMvRows(**row) if isinstance(row, dict) else row for row in value]
+                if not all(isinstance(row, BcMvRows) for row in value):
+                    raise ValueError(f'coef_rows must contain BcMvRows when bc_type is %s' % bc_type)
+            elif bc_type == BCType.CUSTOM:
+
+                if len(value) < 1:
+                    raise ValueError('coef_rows should have at least 1 item when bc_type is {bc_type}')
+                if len(value) > 200:
+                    raise ValueError('coef_rows should have maximum 200 items when bc_type is {bc_type}')
+
+                # Ensure coef_rows contains CdMaRows instances
+                value = [CdMaRows(**row) if isinstance(row, dict) else row for row in value]
+                if not all(isinstance(row, CdMaRows) for row in value):
+                    raise ValueError(f'coef_rows must contain CdMaRows when bc_type is %s' % bc_type)
+            else:
+                raise ValueError(f"Unsupported bc_type: %s" % bc_type)
+
+        except ValidationError as e:
+            # raise e
+            # Handle the validation error gracefully
+            raise ValueError(f"Validation error while processing coef_rows for bc_type %s" % bc_type)
 
         return value
 
