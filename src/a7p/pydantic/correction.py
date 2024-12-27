@@ -213,12 +213,12 @@ def on_restore(handler: Callable[[type, Any, FieldValidationInfo, Exception], An
                     if callable(handler):
                         print("Invoking handler")
                         result = handler(cls, value, info, err)
-                        info.context['restored'][info.field_name] = RecoverResult(
+                        info.context['restored'].append(RecoverResult(
                             recovered=True,
                             path=info.field_name,
                             old_value=value,
                             new_value=result
-                        )
+                        ))
                         return result
                     return value
 

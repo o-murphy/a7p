@@ -6,7 +6,7 @@ from pydantic_core.core_schema import FieldValidationInfo
 from typing_extensions import List, Union, Annotated
 
 from a7p import A7PFactory
-from a7p.pydantic.correct import on_restore, trigger_confield_validation, pre_validate_conint
+from a7p.pydantic.correction import on_restore, trigger_confield_validation, pre_validate_conint
 
 
 def validate_coef_rows_based_on_bc_type(v, info: FieldValidationInfo):

@@ -52,7 +52,7 @@ def validate(payload: profedit_pb2.Payload, restore=False):
     payload_dict = a7p.to_dict(payload)
     context = {
         "restore": restore,
-        "restored": {}
+        "restored": []
     }
     try:
         Payload.model_validate(payload_dict, context=context)
@@ -72,6 +72,8 @@ def validate(payload: profedit_pb2.Payload, restore=False):
             payload=a7p.from_dict(payload_dict),
             violations=violations
         )
+    finally:
+        print(context.get('restored'))
 
 
 def recursive_recover(path: str, old_value: Any) -> Any:
