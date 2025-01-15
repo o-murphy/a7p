@@ -27,7 +27,13 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: Implementation :: CPython",
 ]
-dependencies = ["google", "protobuf==4.25.2", "cel-python", "tqdm"]
+dependencies = [
+    "google==3.0.0",
+    "protobuf==4.25.2",
+    "cel-python==0.1.5",
+    "tqdm==4.67.1",
+    "typing_extensions==4.12.2",
+]
 dynamic = ["version"]
 
 
@@ -42,10 +48,16 @@ where = ["src"]
 include = ["a7p*"]
 
 [project.optional-dependencies]
-dev = ["build", "protovalidate"]
+pydantic = ['pydantic==2.10.4']
+dev = [
+    "build",
+    "protovalidate==0.6.0",
+    'pydantic==2.10.4',
+]
 
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}
 
 [project.scripts]
 a7p = "a7p.__main__:main"
+a7p-restore = "a7p.pydantic.restore_tool:main"

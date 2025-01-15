@@ -1,1 +1,1 @@
-from .recover import Recover, RecoverSpec, RecoverProto, recover_spec, recover_proto
+from .recover import Recover, RecoverSpec, RecoverProto, RecoverResult, recover_spec, recover_proto

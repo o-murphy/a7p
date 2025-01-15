@@ -126,7 +126,9 @@ def to_json(payload: profedit_pb2.Payload) -> str:
     Returns:
         str: The JSON string representation of the Payload object.
     """
-    return MessageToJson(payload)
+    return MessageToJson(payload,
+                         including_default_value_fields=True,
+                         preserving_proto_field_name=True)
 
 
 def from_json(json_data: str) -> profedit_pb2.Payload:
@@ -152,7 +154,9 @@ def to_dict(payload: profedit_pb2.Payload) -> dict:
     Returns:
         dict: The dictionary representation of the Payload object.
     """
-    return MessageToDict(payload, including_default_value_fields=True)
+    return MessageToDict(payload,
+                         including_default_value_fields=True,
+                         preserving_proto_field_name=True)
 
 
 def from_dict(data: dict) -> profedit_pb2.Payload:
