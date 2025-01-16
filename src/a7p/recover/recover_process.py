@@ -1,13 +1,12 @@
 from a7p import exceptions, validate
 from a7p.exceptions import A7PValidationError, Violation
-from a7p.recover import recover_spec, recover_proto
+from a7p.recover import recover_spec, recover_proto, RecoverResult
 from a7p.logger import color_print, logger, color_fmt
-from a7p.recover.recover import RecoverResult
 
 
 def _print_recover_results_count(violations: list[Violation], results: list[RecoverResult]):
     total = len(violations)
-    recovered = sum(1 for r in results if r.is_recovered)
+    recovered = sum(1 for r in results if r.recovered)
     strings = [
         color_fmt(f"Total: {total}"),
         color_fmt(f"Recovered: {recovered}", levelname="INFO"),

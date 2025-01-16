@@ -1,35 +1,21 @@
-import re
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 
 from google._upb._message import RepeatedScalarContainer, RepeatedCompositeContainer
+from typing_extensions import Any
 
 from a7p import profedit_pb2, A7PFactory
 from a7p.factory import Switches
 from a7p.logger import color_fmt, logger
 
-def camel_to_snake(camel_case_str):
-    """
-    Convert a camelCase string to snake_case.
-
-    Parameters:
-        camel_case_str (str): The camelCase string to convert.
-
-    Returns:
-        str: The converted snake_case string.
-    """
-    # Replace any uppercase letter preceded by a lowercase letter or a digit with an underscore followed by the lowercase version of the letter
-    snake_case_str = re.sub(r'(?<!^)(?<!_)([A-Z])', r'_\1', camel_case_str).lower()
-    return snake_case_str
-
 
 @dataclass
 class RecoverResult:
-    is_recovered: bool
+    recovered: bool
     path: Path | str
     old_value: str | None = None
-    new_value: str | None = None
+    new_value: Any = None
 
     def print(self):
 
@@ -42,12 +28,12 @@ class RecoverResult:
             path_string = path_string[:27] + "..."
         path_string = path_string.ljust(30)
 
-        if self.is_recovered:
+        if self.recovered:
             prefix = color_fmt("Recovered".ljust(10), levelname="INFO")
         else:
             prefix = color_fmt("Skipped".ljust(10), levelname="WARNING")
 
-        def truncate_list(_value):
+        def truncate_list(_value: Any) -> str:
             if isinstance(_value, (RepeatedScalarContainer, RepeatedCompositeContainer, list, tuple)):
                 _value = [str(v) for v in _value]
                 if len(_value) > 6:
@@ -56,7 +42,7 @@ class RecoverResult:
                     _value = f'[ {",".join(_value)} ]'
             return _value
 
-        def truncate(string):
+        def truncate(string: str):
             string = str(string).replace("\n", " ")
             if len(string) > 50:
                 # string = f'[ {string[:25]} ... {string[-25:]} ]'
@@ -300,7 +286,7 @@ class RecoverSpec(Recover):
 
     @staticmethod
     def split_path(path: Path | str) -> list:
-        return [camel_to_snake(i) for i in Path(path).as_posix().split("/")[1:]]
+        return Path(path).as_posix().split("/")[1:]
 
 
 def _recover_spec_bullet_name(payload):
@@ -432,37 +418,37 @@ def _recover_spec_distances(payload):
 
 recover_spec = RecoverSpec()
 
-recover_spec.register("~/profile/profileName", _recover_spec_profile_name)
-recover_spec.register("~/profile/cartridgeName", _recover_spec_cartridge_name)
-recover_spec.register("~/profile/bulletName", _recover_spec_bullet_name)
-recover_spec.register("~/profile/userNote", _recover_spec_user_note)
-recover_spec.register("~/profile/deviceUuid", _recover_spec_uuid)
-recover_spec.register("~/profile/shortNameTop", _recover_spec_short_name_top)
-recover_spec.register("~/profile/shortNameBot", _recover_spec_short_name_bot)
+recover_spec.register("~/profile/profile_name", _recover_spec_profile_name)
+recover_spec.register("~/profile/cartridge_name", _recover_spec_cartridge_name)
+recover_spec.register("~/profile/bullet_name", _recover_spec_bullet_name)
+recover_spec.register("~/profile/user_note", _recover_spec_user_note)
+recover_spec.register("~/profile/device_uuid", _recover_spec_uuid)
+recover_spec.register("~/profile/short_name_top", _recover_spec_short_name_top)
+recover_spec.register("~/profile/short_name_bot", _recover_spec_short_name_bot)
 
-recover_spec.register("~/profile/zeroX", _recover_spec_zero_x)
-recover_spec.register("~/profile/zeroY", _recover_spec_zero_y)
+recover_spec.register("~/profile/zero_x", _recover_spec_zero_x)
+recover_spec.register("~/profile/zero_y", _recover_spec_zero_y)
 
-recover_spec.register("~/profile/scHeight", _recover_spec_sc_height)
-recover_spec.register("~/profile/rTwist", _recover_spec_r_twist)
+recover_spec.register("~/profile/sc_height", _recover_spec_sc_height)
+recover_spec.register("~/profile/r_twist", _recover_spec_r_twist)
 
-recover_spec.register("~/profile/cMuzzleVelocity", _recover_spec_c_muzzle_velocity)
-recover_spec.register("~/profile/cZeroTemperature", _recover_spec_c_zero_temperature)
-recover_spec.register("~/profile/cTCoeff", _recover_spec_c_t_coeff)
-recover_spec.register("~/profile/cZeroDistanceIdx", _recover_spec_c_zero_distance_idx)
-recover_spec.register("~/profile/cZeroAirTemperature", _recover_spec_c_zero_air_temperature)
-recover_spec.register("~/profile/cZeroAirPressure", _recover_spec_c_zero_air_pressure)
-recover_spec.register("~/profile/cZeroAirHumidity", _recover_spec_c_zero_air_humidity)
-recover_spec.register("~/profile/cZeroWPitch", _recover_spec_c_zero_w_pitch)
-recover_spec.register("~/profile/cZeroPTemperature", _recover_spec_c_zero_p_temperature)
+recover_spec.register("~/profile/c_muzzle_velocity", _recover_spec_c_muzzle_velocity)
+recover_spec.register("~/profile/c_zero_temperature", _recover_spec_c_zero_temperature)
+recover_spec.register("~/profile/c_t_coeff", _recover_spec_c_t_coeff)
+recover_spec.register("~/profile/c_zero_distance_idx", _recover_spec_c_zero_distance_idx)
+recover_spec.register("~/profile/c_zero_air_temperature", _recover_spec_c_zero_air_temperature)
+recover_spec.register("~/profile/c_zero_air_pressure", _recover_spec_c_zero_air_pressure)
+recover_spec.register("~/profile/c_zero_air_humidity", _recover_spec_c_zero_air_humidity)
+recover_spec.register("~/profile/c_zero_w_pitch", _recover_spec_c_zero_w_pitch)
+recover_spec.register("~/profile/c_zero_p_temperature", _recover_spec_c_zero_p_temperature)
 
-recover_spec.register("~/profile/bDiameter", _recover_spec_b_diameter)
-recover_spec.register("~/profile/bWeight", _recover_spec_b_weight)
-recover_spec.register("~/profile/bLength", _recover_spec_b_length)
+recover_spec.register("~/profile/b_diameter", _recover_spec_b_diameter)
+recover_spec.register("~/profile/b_weight", _recover_spec_b_weight)
+recover_spec.register("~/profile/b_length", _recover_spec_b_length)
 
-recover_spec.register("~/profile/twistDir", _recover_spec_twist_dir)
-recover_spec.register("~/profile/bcType", _recover_spec_bc_type)
+recover_spec.register("~/profile/twist_dir", _recover_spec_twist_dir)
+recover_spec.register("~/profile/bc_type", _recover_spec_bc_type)
 
 recover_spec.register("~/profile/distances", _recover_spec_distances)
 recover_spec.register("~/profile/switches", _recover_spec_switches)
-recover_spec.register("~/profile/coefRows", _recover_spec_coef_rows)
+recover_spec.register("~/profile/coef_rows", _recover_spec_coef_rows)
