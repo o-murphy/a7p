@@ -102,6 +102,11 @@ zeroing_exclusive_group.add_argument('-zo', '--zero-offset', action='store', nar
 # zeroing_exclusive_group.add_argument('-cs', '--clicks-switch', action='store', nargs=4, help="Switch clicks sizes",
 #                                      metavar=("CUR_X", "NEW_X", "CUR_Y", "NEW_Y"))
 
+# Switches group (Archer devices specific)
+switches_group = parser.add_argument_group("Switches")
+switches_exclusive_group = switches_group.add_mutually_exclusive_group()
+switches_exclusive_group.add_argument('-cps', '--copy-switches-from', action='store', type=Path,
+                                      help="Copy switches from other a7p file.", dest="copy_switches")
 
 # parser.add_argument('--max-threads', action='store', type=int, default=5)
 
@@ -118,6 +123,7 @@ class Result:
     zero_distance: str = None
     recover: bool = False
     payload: profedit_pb2.Payload = None
+    switches: bool = False
 
     def reset_errors(self):
         self.error = None
@@ -142,6 +148,8 @@ class Result:
             color_print("\tNew range: {}".format(self.distances), levelname='LIGHT_BLUE')
         if self.zero_distance:
             color_print("\tNew zero distance: {}".format(self.zero_distance), levelname='LIGHT_BLUE')
+        if self.switches:
+            color_print("\tSwitches copied", levelname='LIGHT_BLUE')
 
         if self.validation_error and verbose:
             for violation in self.validation_error.all_violations:
@@ -200,9 +208,16 @@ def update_zeroing(payload, zero_offset=None, zero_sync=None):
         payload.profile.zero_y = y_zero
 
 
-def update_data(payload, distances, zero_distance, zero_offset, zero_sync):
+def update_switches(payload, switches):
+    if switches:
+        del payload.profile.switches[:]
+        payload.profile.switches.extend(switches)
+
+
+def update_data(payload, distances, zero_distance, zero_offset, zero_sync, copy_switches):
     update_distances(payload, distances, zero_distance)
     update_zeroing(payload, zero_offset, zero_sync)
+    update_switches(payload, copy_switches)
 
 
 def get_zero_to_sync(path, validate):
@@ -210,6 +225,15 @@ def get_zero_to_sync(path, validate):
         with open(path, 'rb') as f:
             payload = a7p.load(f, validate_=validate, fail_fast=True)
         return payload.profile.zero_x, payload.profile.zero_y
+    except (IOError, exceptions.A7PDataError) as e:
+        parser.error(e)
+
+
+def get_switches_to_copy(path, validate):
+    try:
+        with open(path, 'rb') as f:
+            payload = a7p.load(f, validate_=validate, fail_fast=True)
+        return payload.profile.switches
     except (IOError, exceptions.A7PDataError) as e:
         parser.error(e)
 
@@ -223,14 +247,12 @@ def process_file(
         zero_sync=None,
         verbose=False,
         recover=False,
+        copy_switches=None,
 ):
     if path.suffix != ".a7p":
         return
     result = Result(
         path,
-        distances=distances,
-        zero_distance=zero_distance,
-        zero_update=any([zero_offset, zero_sync])
     )
     try:
         with open(path, 'rb') as fp:
@@ -246,8 +268,8 @@ def process_file(
         return result
 
     result.zero = (payload.profile.zero_x / 1000, payload.profile.zero_y / 1000)
-    if distances or zero_distance or result.zero_update:
-        update_data(payload, distances, zero_distance, zero_offset, zero_sync)
+    if distances or zero_distance or result.zero_update or copy_switches:
+        update_data(payload, distances, zero_distance, zero_offset, zero_sync, copy_switches)
 
     result.new_zero = (payload.profile.zero_x / 1000, payload.profile.zero_y / 1000)
 
@@ -255,6 +277,11 @@ def process_file(
 
     if recover:
         recover_payload(result)
+
+    result.distances = distances
+    result.zero_distance = zero_distance
+    result.zero_update = any([zero_offset, zero_sync])
+    result.switches = copy_switches is not None
 
     return result
 
@@ -308,6 +335,7 @@ async def process_files(
         zero_offset: tuple[float, float] = None,
         zero_sync: Path = None,
         recover: bool = False,
+        copy_switches: Path = None,
 ):
     if not Path.exists(path):
         parser.warning(f"The '{path}' is not a valid path")
@@ -322,12 +350,15 @@ async def process_files(
     if zero_sync:
         zero_sync = get_zero_to_sync(zero_sync, validate)
 
+    if copy_switches:
+        copy_switches = get_switches_to_copy(copy_switches, validate)
+
     if not path.is_dir():
         if path and recover:
 
             invalid_options_for_recover = [
                 recursive, unsafe, distances, zero_distance, json,
-                verbose, force, zero_offset, zero_sync
+                verbose, force, zero_offset, zero_sync, copy_switches,
             ]
 
             if any(invalid_options_for_recover):
@@ -338,7 +369,7 @@ async def process_files(
         results = [await asyncio.to_thread(process_file,
                                            path, validate, distances,
                                            zero_distance, zero_offset, zero_sync,
-                                           verbose, recover
+                                           verbose, recover, copy_switches
                                            )]
     else:
         if recover:
@@ -352,12 +383,12 @@ async def process_files(
                 if item.is_file():
                     tasks.append(limited_to_thread(
                         process_file, item, validate, distances,
-                        zero_distance, zero_offset, zero_sync))
+                        zero_distance, zero_offset, zero_sync, copy_switches))
         else:
             for item in path.iterdir():
                 if item.is_file():
                     tasks.append(limited_to_thread(process_file, item, validate, distances,
-                                                   zero_distance, zero_offset, zero_sync))
+                                                   zero_distance, zero_offset, zero_sync, copy_switches))
 
         results: tuple[Result] | list[Result] = await tqdm_asyncio.gather(*tasks)
 
