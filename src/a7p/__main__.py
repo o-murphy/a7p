@@ -253,6 +253,10 @@ def process_file(
         return
     result = Result(
         path,
+        distances=distances,
+        zero_distance=zero_distance,
+        zero_update=any([zero_offset, zero_sync]),
+        switches = copy_switches is not None
     )
     try:
         with open(path, 'rb') as fp:
@@ -268,11 +272,6 @@ def process_file(
         return result
 
     result.zero = (payload.profile.zero_x / 1000, payload.profile.zero_y / 1000)
-    result.distances = distances
-    result.zero_distance = zero_distance
-    result.zero_update = any([zero_offset, zero_sync])
-    result.switches = copy_switches is not None
-
     if distances or zero_distance or result.zero_update or copy_switches:
         update_data(payload, distances, zero_distance, zero_offset, zero_sync, copy_switches)
 
