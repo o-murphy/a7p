@@ -41,12 +41,14 @@ jobs:
       run: make
 
     - name: List dist directory contents
+      if: runner.os == 'Windows'
       run: |
-        if [ $RUNNER_OS == "Windows" ]; then
-            dir dist
-        else
-            ls -la dist/
-        fi
+        dir dist
+
+    - name: List dist directory contents
+      if: runner.os != 'Windows'
+      run: |
+        ls -la dist/
 
     - name: Upload Binary as Artifact
       if: success()
