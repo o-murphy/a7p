@@ -30,7 +30,6 @@ build: generate
 	@echo "Building for OS: $(GOOS)"
 	@for arch in $(GOARCH_LIST); do \
 		GOOS=$(GOOS) GOARCH=$$arch go build -o $(DIST_DIR)/$(BINARY)-$(GOOS)-$$arch; \
-		# Add .exe only for Windows\
 		if [ "$(GOOS)" = "windows" ]; then \
 			mv $(DIST_DIR)/$(BINARY)-$(GOOS)-$$arch $(DIST_DIR)/$(BINARY)-$(GOOS)-$$arch.exe; \
 		fi; \
