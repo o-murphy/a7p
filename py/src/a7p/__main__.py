@@ -268,6 +268,11 @@ def process_file(
         return result
 
     result.zero = (payload.profile.zero_x / 1000, payload.profile.zero_y / 1000)
+    result.distances = distances
+    result.zero_distance = zero_distance
+    result.zero_update = any([zero_offset, zero_sync])
+    result.switches = copy_switches is not None
+
     if distances or zero_distance or result.zero_update or copy_switches:
         update_data(payload, distances, zero_distance, zero_offset, zero_sync, copy_switches)
 
@@ -277,11 +282,6 @@ def process_file(
 
     if recover:
         recover_payload(result)
-
-    result.distances = distances
-    result.zero_distance = zero_distance
-    result.zero_update = any([zero_offset, zero_sync])
-    result.switches = copy_switches is not None
 
     return result
 
