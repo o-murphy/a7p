@@ -68,10 +68,39 @@ ARCHER device specific:
 
 ## Build
 
-#### Prerequisites
-* Go (download from [golang.org](https://golang.org/dl/))
-* Git (download from [git-scm.com](https://git-scm.com/))
-* Make (usually pre-installed on Linux/macOS, or can be installed via package manager; on Windows, you can use [chocolatey](https://chocolatey.org/) to install it)
+### Prerequisites
+
+1. **Go**  
+   Download and install Go from [golang.org](https://golang.org/dl/).
+
+2. **Git**  
+   Download and install Git from [git-scm.com](https://git-scm.com/).
+
+3. **Make**  
+   - On **Linux/macOS**, `make` is typically pre-installed. If it's not, install it using a package manager:
+     - **Linux**: `sudo apt-get install make`
+     - **macOS**: `brew install make`
+   - On **Windows**, you can install Make using [Chocolatey](https://chocolatey.org/):
+     ```bash
+     choco install make
+     ```
+
+4. **Protoc (Protocol Buffers Compiler)**  
+   - **Linux**: Install `protoc` using `apt`:
+     ```bash
+     sudo apt-get install -y protobuf-compiler
+     ```
+   - **macOS**: Install `protoc` using Homebrew:
+     ```bash
+     brew install protobuf
+     ```
+   - **Windows**: Use [Chocolatey](https://chocolatey.org/) to install `protoc`:
+     ```bash
+     choco install protoc
+     ```
+
+This ensures you have all the necessary tools to build and work with Go, Git, Make, and Protocol Buffers.
+
 <!-- * GCC compiler (only required if using cgo or specific C libraries, not needed for most Go projects) -->
 
 #### Build Instructions

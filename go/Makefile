@@ -42,7 +42,6 @@ build: generate
 	done
 
 	@echo "Build successful. Binaries placed at: $(DIST_DIR)"
-	@ls -la $(DIST_DIR)
 
 # Generate protobuf Go code
 generate: install-tools
