@@ -1,21 +1,18 @@
 package main
 
 import (
-	"a7p/a7p"
-	"a7p/log"
-	"a7p/profedit"
+	a7p "a7p-go/a7p"
+	profedit "a7p-go/a7p/profedit"
+	log "a7p-go/log"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/alexflint/go-arg"
+	arg "github.com/alexflint/go-arg"
 )
 
-const __version__ = "1.0.0"
-
-const fileExtension = ".a7p"
-const SwitchesMaxCount = 4
+const Version = "0.0.0"
 
 var argParser *arg.Parser
 
@@ -26,22 +23,54 @@ type arguments struct {
 	Version   bool   `arg:"-V, --version" help:"Display the current version of the tool"`
 	Recursive bool   `arg:"-r, --recursive" help:"Recursively process files in the specified directory"`
 	Force     bool   `arg:"-F, --force" help:"Force saving changes without confirmation"`
-	Unsafe    bool   `arg:"--unsafe" help:"Skip data validation (use with caution)"`
+	Unsafe    bool   `arg:"--unsafe" help:"Skip data validation (use with caution)\n\nSingle-file-only:"`
 
 	// Single file specific options
 	Verbose bool `arg:"--verbose" help:"Enable verbose output for detailed logs. This option is only allowed for a single file."`
-	Recover bool `arg:"--recover" help:"Attempt to recover from errors found in a file. This option is only allowed for a single file."`
+	Recover bool `arg:"--recover" help:"Attempt to recover from errors found in a file. This option is only allowed for a single file.\n\nDistances:"`
 
 	// Distances group options
 	ZeroDistance int    `arg:"--zero-distance" help:"Set the zero distance in meters."`
-	DistanceType string `arg:"--distances" choices:"subsonic,low,medium,long,ultra" help:"Specify the distance range: 'subsonic', 'low', 'medium', 'long', or 'ultra'."`
+	DistanceType string `arg:"--distances" choices:"subsonic,low,medium,long,ultra" help:"Specify the distance range: 'subsonic', 'low', 'medium', 'long', or 'ultra'.\n\nZeroing:"`
 
 	// Zeroing group options
 	ZeroSync   string    `arg:"--zero-sync" help:"Synchronize zero using a specified configuration file."`
-	ZeroOffset []float64 `arg:"--zero-offset" help:"Set the offset for zeroing in clicks (X_OFFSET and Y_OFFSET)."`
+	ZeroOffset []float64 `arg:"--zero-offset" help:"Set the offset for zeroing in clicks (X_OFFSET and Y_OFFSET).\n\nARCHER-device-specific:"`
 
 	// Switches group options (Archer devices specific)
 	CopySwitchesFrom string `arg:"--copy-switches-from" help:"Copy switches from another a7p file."`
+}
+
+type zeros struct {
+	x int32
+	y int32
+}
+
+type result struct {
+	Path            string
+	Error           any
+	ValidationError any
+	Zero            zeros
+	NewZero         zeros
+	ZeroUpdate      bool
+	Distances       string
+	ZeroDistance    string
+	Recover         string
+	Payload         profedit.Payload
+	Switches        bool
+}
+
+func (r *result) resetErrors() {
+	r.Error = nil
+	r.ValidationError = nil
+}
+
+func (r *result) print() {
+	// ...
+}
+
+func (r *result) saveChanges() {
+
 }
 
 func getFilesWithExtension(dir string, ext string) []string {
@@ -88,11 +117,6 @@ func getFilesWithExtensionRecursive(dir string, ext string) []string {
 	}
 
 	return files
-}
-
-type zeros struct {
-	x int32
-	y int32
 }
 
 func getZeroToSync(path string, validate bool) *zeros {
@@ -168,33 +192,6 @@ func pathStatus(path string) string {
 	return "file"
 }
 
-type result struct {
-	Path            string
-	Error           any
-	ValidationError any
-	Zero            zeros
-	NewZero         zeros
-	ZeroUpdate      bool
-	Distances       string
-	ZeroDistance    string
-	Recover         string
-	Payload         profedit.Payload
-	Switches        bool
-}
-
-func (r *result) resetErrors() {
-	r.Error = nil
-	r.ValidationError = nil
-}
-
-func (r *result) print() {
-	// ...
-}
-
-func (r *result) saveChanges() {
-
-}
-
 func processFile(path string, args arguments) result {
 	if args.Recover {
 		args.Verbose = true
@@ -231,9 +228,9 @@ func processFiles(args arguments) {
 		}
 
 		if args.Recursive {
-			files = getFilesWithExtensionRecursive(args.Path, fileExtension)
+			files = getFilesWithExtensionRecursive(args.Path, a7p.FileExtension)
 		} else {
-			files = getFilesWithExtension(args.Path, fileExtension)
+			files = getFilesWithExtension(args.Path, a7p.FileExtension)
 		}
 
 	}
@@ -255,7 +252,7 @@ func main() {
 	// Check if the version flag is set
 	if args.Version {
 		// Print the version and exit
-		fmt.Println("Current version:", __version__)
+		fmt.Println("Current version:", Version)
 		os.Exit(0)
 	}
 

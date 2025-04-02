@@ -1,11 +1,13 @@
 package a7p
 
 import (
-	"a7p/profedit"
+	profedit "a7p-go/a7p/profedit"
 	"fmt"
 
-	"github.com/bufbuild/protovalidate-go"
+	protovalidate "github.com/bufbuild/protovalidate-go"
 )
+
+const SwitchesMaxCount = 4
 
 // Validate checks the content using protovalidate.
 func ValidateProto(payload *profedit.Payload) error {

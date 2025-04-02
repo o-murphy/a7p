@@ -1,11 +1,13 @@
 package a7p
 
 import (
-	"a7p/profedit"
+	profedit "a7p-go/a7p/profedit"
 	"fmt"
 	"io"
 	"os"
 )
+
+const FileExtension = ".a7p"
 
 // OpenFile reads the content of a file and returns it as a byte slice.
 func OpenFile(filename string) ([]byte, error) {

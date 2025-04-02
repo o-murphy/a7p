@@ -1,12 +1,12 @@
 package a7p
 
 import (
-	"a7p/profedit"
+	profedit "a7p-go/a7p/profedit"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
 
-	"google.golang.org/protobuf/proto"
+	proto "google.golang.org/protobuf/proto"
 )
 
 // AddMD5Sum computes the MD5 checksum of the given content and

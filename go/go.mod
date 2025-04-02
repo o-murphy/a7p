@@ -1,16 +1,16 @@
-module a7p
+module a7p-go
 
 go 1.22.3
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.5-20250130201111-63bb56e20495.1
+	github.com/alexflint/go-arg v1.5.1
 	github.com/bufbuild/protovalidate-go v0.9.2
 	google.golang.org/protobuf v1.36.5
 )
 
 require (
 	cel.dev/expr v0.19.1 // indirect
-	github.com/alexflint/go-arg v1.5.1 // indirect
 	github.com/alexflint/go-scalar v1.2.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/google/cel-go v0.23.2 // indirect

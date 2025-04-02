@@ -1,7 +1,7 @@
 package tests
 
 import (
-	"a7p/a7p"
+	a7p "a7p-go/a7p"
 	"bytes"
 	"fmt"
 	"testing"
