@@ -30,21 +30,6 @@ jobs:
     - name: Install dependencies
       run: make install-tools
 
-    - name: Install protoc
-      run: |
-        if [ ${{ matrix.os }} == 'ubuntu-latest' ]; then
-          sudo apt-get install -y protobuf-compiler
-        elif [ ${{ matrix.os }} == 'macos-latest' ]; then
-          brew install protobuf
-        elif [ ${{ matrix.os }} == 'windows-latest' ]; then
-          choco install protoc
-        fi
-
-    # - name: Install Protoc
-    #   uses: arduino/setup-protoc@v3
-    #   with:
-    #     version: "23.x"
-
     - name: Run Go version
       run: go version
 
