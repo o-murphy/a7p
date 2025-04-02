@@ -30,8 +30,8 @@ type arguments struct {
 	Recover bool `arg:"--recover" help:"Attempt to recover from errors found in a file. This option is only allowed for a single file.\n\nDistances:"`
 
 	// Distances group options
-	ZeroDistance int    `arg:"--zero-distance" help:"Set the zero distance in meters."`
-	DistanceType string `arg:"--distances" choices:"subsonic,low,medium,long,ultra" help:"Specify the distance range: 'subsonic', 'low', 'medium', 'long', or 'ultra'.\n\nZeroing:"`
+	ZeroDistance int32  `arg:"--zero-distance" help:"Set the zero distance in meters."`
+	Distances    string `arg:"--distances" choices:"subsonic,low,medium,long,ultra" help:"Specify the distance range: 'subsonic', 'low', 'medium', 'long', or 'ultra'.\n\nZeroing:"`
 
 	// Zeroing group options
 	ZeroSync   string    `arg:"--zero-sync" help:"Synchronize zero using a specified configuration file."`
@@ -46,9 +46,9 @@ type zeros struct {
 	y int32
 }
 
-type result struct {
+type resultT struct {
 	Path            string
-	Error           any
+	Error           error
 	ValidationError any
 	Zero            zeros
 	NewZero         zeros
@@ -56,20 +56,22 @@ type result struct {
 	Distances       string
 	ZeroDistance    string
 	Recover         string
-	Payload         profedit.Payload
+	Payload         *profedit.Payload
 	Switches        bool
 }
 
-func (r *result) resetErrors() {
+func (r *resultT) resetErrors() {
 	r.Error = nil
 	r.ValidationError = nil
 }
 
-func (r *result) print() {
-	// ...
+func (r *resultT) print() {
+	fmt.Println("Path:", r.Path)
+	fmt.Println("Err:", r.Error)
+	fmt.Println()
 }
 
-func (r *result) saveChanges() {
+func (r *resultT) saveChanges() {
 
 }
 
@@ -144,24 +146,22 @@ func getSwitchesToCopy(path string, validate bool) []*profedit.SwPos {
 	return payload.Profile.Switches
 }
 
-func updateDistances(payload *profedit.Payload, distances string, zero_distance int32) {
+func updateDistances(payload *profedit.Payload, args arguments) {
 	// ...
 }
 
-func updateZeroing(payload *profedit.Payload, zeroOffset []int32, zeroSync zeros) {
-	// ...
+func updateZeroing(payload *profedit.Payload, args arguments, validate bool) {
+	// zeroSyncData := getZeroToSync(args.ZeroSync, validate)
 }
 
-func updateSwitches(payload *profedit.Payload, switches []*profedit.SwPos) {
-	// ...
+func updateSwitches(payload *profedit.Payload, args arguments, validate bool) {
+	// copySwitches := getSwitchesToCopy(args.CopySwitchesFrom, validate)
 }
 
-func updateData(payload *profedit.Payload) {
-	// ...
-}
-
-func printResultAndSave(results []result, verbose, force bool) {
-
+func printResultAndSave(results []resultT, verbose, force bool) {
+	for _, r := range results {
+		r.print()
+	}
 }
 
 // pathStatus returns the status of the path: directory, file, or nonexistent.
@@ -192,29 +192,58 @@ func pathStatus(path string) string {
 	return "file"
 }
 
-func processFile(path string, args arguments) result {
-	if args.Recover {
-		args.Verbose = true
-		argParser.Fail("Not implemented yet [--recover]") // FIXME
+func processFile(path string, args arguments, validate bool) resultT {
+	payload, err := a7p.Load(path, validate)
+	result := resultT{
+		Path:       path,
+		Error:      err,
+		Payload:    payload,
+		Zero:       zeros{payload.Profile.ZeroX, payload.Profile.ZeroY},
+		Distances:  args.Distances,
+		ZeroUpdate: len(args.ZeroOffset) == 2 || args.ZeroSync != "",
+		// NewZero: ,  // FIXME
+		Switches: args.CopySwitchesFrom != "",
 	}
-	return result{Path: path}
+	if result.Error != nil {
+		return result
+	}
+
+	if result.Distances != "" {
+		updateDistances(result.Payload, args)
+	}
+	if result.ZeroUpdate {
+		updateZeroing(result.Payload, args, validate)
+	}
+	if result.Switches {
+		updateSwitches(result.Payload, args, validate)
+	}
+
+	return result
 }
 
 func processFiles(args arguments) {
 	validate := !args.Unsafe
 
 	var files []string
-	var results []result
+	var results []resultT
 
 	// Check if the path is a directory
 	pStatus := pathStatus(args.Path)
 
-	zeroSync := getZeroToSync(args.ZeroSync, validate)
-	// copySwitches := getSwitchesToCopy(args.CopySwitchesFrom, validate)[:SwitchesMaxCount]
-	copySwitches := getSwitchesToCopy(args.CopySwitchesFrom, validate)
+	if args.ZeroSync != "" {
+		if len(args.ZeroOffset) == 2 {
+			argParser.Fail("--zero-offset and --zero-sync should be used mutually exclusive")
+		}
+	} else if len(args.ZeroOffset) > 0 && len(args.ZeroOffset) != 2 {
+		argParser.Fail("--zero-offset require a pair of floats")
+	}
 
 	switch pStatus {
 	case "file":
+		if args.Recover {
+			args.Verbose = true
+			argParser.Fail("Not implemented yet [--recover]") // FIXME
+		}
 		files = []string{args.Path}
 
 	case "dir":
@@ -235,11 +264,10 @@ func processFiles(args arguments) {
 
 	}
 	for _, file := range files {
-		results = append(results, processFile(file, args))
+		results = append(results, processFile(file, args, validate))
 	}
 
-	fmt.Println(files, zeroSync, copySwitches)
-	fmt.Println(results)
+	printResultAndSave(results, args.Verbose, args.Force)
 }
 
 func main() {
@@ -258,6 +286,5 @@ func main() {
 
 	argParser = arg.MustParse(&args)
 
-	fmt.Println(args)
 	processFiles(args)
 }
