@@ -12,21 +12,14 @@
 
 ## Description
 
-Simple Go-lang wrapper for .a7p files \
+Simple Go-lang wrapper for .a7p files
 
 ## Instalation
-```bash
-go install a7p-go
-# or 
-go get a7p-go
-```
-
-#### or latest from repository:
 
 ```bash
-go install github.com/o-murphy/a7p-go
-# or
-go get github.com/o-murphy/a7p-go
+git clone https://github.com/o-murphy/a7p-go.git
+cd a7p-go
+go install .
 ```
 
 ## Usage

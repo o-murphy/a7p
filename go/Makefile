@@ -9,7 +9,7 @@ else
     BINARY=dist/a7p
 endif
 
-.PHONY: all build generate install-tools clean
+.PHONY: all build generate install-tools clean test
 
 all: build
 
@@ -17,7 +17,7 @@ all: build
 build: generate
 	@echo "Building Go project..."
 	@mkdir -p dist  # Ensure the dist directory exists
-	@set -e; GOFLAGS="-mod=readonly" go build -o $(BINARY) -ldflags "-X main.Version=0.0.0".
+	@GOFLAGS="-mod=readonly" go build -o $(BINARY) -ldflags "-X main.Version=0.0.0" .
 	@echo "Build successful. Binary placed at: $(BINARY)"
 
 # Generate protobuf Go code
@@ -34,6 +34,12 @@ install-tools:
 		google.golang.org/protobuf/cmd/protoc-gen-go@latest
 	@GOBIN=$$(go env GOPATH)/bin go install \
 		google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+# Test
+test: install-tools generate
+	@echo "Running tests..."
+	go test ./tests
+	@echo "Tests complete"
 
 # Remove generated files and binaries
 clean:
