@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	arg "github.com/alexflint/go-arg"
 )
@@ -225,7 +226,6 @@ func processFiles(args arguments) {
 	validate := !args.Unsafe
 
 	var files []string
-	var results []resultT
 
 	// Check if the path is a directory
 	pStatus := pathStatus(args.Path)
@@ -263,8 +263,27 @@ func processFiles(args arguments) {
 		}
 
 	}
+
+	var wg sync.WaitGroup
+	resultsChan := make(chan resultT, len(files)) // Channel to collect results
+
 	for _, file := range files {
-		results = append(results, processFile(file, args, validate))
+		wg.Add(1)
+		go func(file string) {
+			defer wg.Done()
+			// Process the file and send the result to the channel
+			result := processFile(file, args, validate)
+			resultsChan <- result
+		}(file)
+	}
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+	close(resultsChan)
+
+	var results []resultT
+	for result := range resultsChan {
+		results = append(results, result)
 	}
 
 	printResultAndSave(results, args.Verbose, args.Force)

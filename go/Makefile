@@ -29,7 +29,7 @@ build: generate
 	@mkdir -p $(DIST_DIR)  # Ensure the dist directory exists
 	@echo "Building for OS: $(GOOS)"
 	@for arch in $(GOARCH_LIST); do \
-		GOOS=$(GOOS) GOARCH=$$arch go build -o $(DIST_DIR)/$(BINARY)-$(GOOS)-$$arch; \
+		GOOS=$(GOOS) GOARCH=$$arch go build -o $(DIST_DIR)/$(BINARY)-$(GOOS)-$$arch; -ldflags="-s -w"\
 		if [ "$(GOOS)" = "windows" ]; then \
 			mv $(DIST_DIR)/$(BINARY)-$(GOOS)-$$arch $(DIST_DIR)/$(BINARY)-$(GOOS)-$$arch.exe; \
 		fi; \
