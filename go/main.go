@@ -16,6 +16,7 @@ import (
 const Version = "0.0.0"
 
 var argParser *arg.Parser
+var args arguments
 
 // Define a struct to hold the command-line arguments
 // Arguments struct with fields for path and version flag
@@ -31,8 +32,8 @@ type arguments struct {
 	Recover bool `arg:"--recover" help:"Attempt to recover from errors found in a file. This option is only allowed for a single file.\n\nDistances:"`
 
 	// Distances group options
-	ZeroDistance int32  `arg:"--zero-distance" help:"Set the zero distance in meters."`
-	Distances    string `arg:"--distances" choices:"subsonic,low,medium,long,ultra" help:"Specify the distance range: 'subsonic', 'low', 'medium', 'long', or 'ultra'.\n\nZeroing:"`
+	ZeroDistance int32        `arg:"--zero-distance" default:-1 help:"Set the zero distance in meters."`
+	Distances    DistanceType `arg:"--distances" choices:"subsonic,low,medium,long,ultra" help:"Specify the distance range: 'subsonic', 'low', 'medium', 'long', or 'ultra'.\n\nZeroing:"`
 
 	// Zeroing group options
 	ZeroSync   string    `arg:"--zero-sync" help:"Synchronize zero using a specified configuration file."`
@@ -47,18 +48,27 @@ type zeros struct {
 	y int32
 }
 
+type DistanceType string
+
+const (
+	Subsonic DistanceType = "subsonic"
+	Low                   = "low"
+	Medium                = "medium"
+	Long                  = "long"
+	Ultra                 = "ultra"
+)
+
 type resultT struct {
 	Path            string
 	Error           error
 	ValidationError any
-	Zero            zeros
-	NewZero         zeros
-	ZeroUpdate      bool
-	Distances       string
-	ZeroDistance    string
+	Zero            *zeros
+	NewZero         *zeros
+	Distances       DistanceType
+	ZeroDistance    int32
 	Recover         string
 	Payload         *profedit.Payload
-	Switches        bool
+	Switches        []*profedit.SwPos
 }
 
 func (r *resultT) resetErrors() {
@@ -67,9 +77,38 @@ func (r *resultT) resetErrors() {
 }
 
 func (r *resultT) print() {
-	fmt.Println("Path:", r.Path)
-	fmt.Println("Err:", r.Error)
-	fmt.Println()
+
+	if r.Error != nil {
+		log.Err(fmt.Sprintf("Invalid (%s): File: %s", r.Error, r.Path))
+	} else {
+		log.Info(fmt.Sprintf("Valid: File: %s", r.Path))
+	}
+
+	if r.Zero != nil {
+		fmt.Printf("\tZero:\tX: %.2f,\tY: %.2f\n", float64(-r.Zero.x)/1000, float64(r.Zero.y)/1000)
+	}
+	if r.NewZero != nil {
+		log.LightBlue(
+			fmt.Sprintf("\tNew zero:\tX: %.2f,\tY: %.2f", float64(-r.NewZero.x)/1000, float64(r.NewZero.y)/1000),
+		)
+	}
+	if r.Distances != "" {
+		log.LightBlue(
+			fmt.Sprintf("\tNew range:\t%s", r.Distances),
+		)
+	}
+	if r.ZeroDistance >= 0 {
+		log.LightBlue(
+			fmt.Sprintf("\tNew zero distance:\t%d", r.ZeroDistance),
+		)
+	}
+	if r.Switches != nil {
+		log.LightBlue("\tSwitches copied")
+	}
+
+	if r.ValidationError != nil && args.Verbose {
+		log.Err("Not implemented")
+	}
 }
 
 func (r *resultT) saveChanges() {
@@ -147,19 +186,19 @@ func getSwitchesToCopy(path string, validate bool) []*profedit.SwPos {
 	return payload.Profile.Switches
 }
 
-func updateDistances(payload *profedit.Payload, args arguments) {
+func updateDistances(payload *profedit.Payload) {
 	// ...
 }
 
-func updateZeroing(payload *profedit.Payload, args arguments, validate bool) {
+func updateZeroing(payload *profedit.Payload, validate bool) {
 	// zeroSyncData := getZeroToSync(args.ZeroSync, validate)
 }
 
-func updateSwitches(payload *profedit.Payload, args arguments, validate bool) {
+func updateSwitches(payload *profedit.Payload, validate bool) {
 	// copySwitches := getSwitchesToCopy(args.CopySwitchesFrom, validate)
 }
 
-func printResultAndSave(results []resultT, verbose, force bool) {
+func printResultAndSave(results []resultT, force bool) {
 	for _, r := range results {
 		r.print()
 	}
@@ -196,27 +235,27 @@ func pathStatus(path string) string {
 func processFile(path string, args arguments, validate bool) resultT {
 	payload, err := a7p.Load(path, validate)
 	result := resultT{
-		Path:       path,
-		Error:      err,
-		Payload:    payload,
-		Zero:       zeros{payload.Profile.ZeroX, payload.Profile.ZeroY},
-		Distances:  args.Distances,
-		ZeroUpdate: len(args.ZeroOffset) == 2 || args.ZeroSync != "",
-		// NewZero: ,  // FIXME
-		Switches: args.CopySwitchesFrom != "",
+		Path:         path,
+		Error:        err,
+		Payload:      payload,
+		Zero:         &zeros{payload.Profile.ZeroX, payload.Profile.ZeroY},
+		Distances:    args.Distances,
+		ZeroDistance: args.ZeroDistance,
+		NewZero:      getZeroToSync(args.ZeroSync, validate),
+		Switches:     getSwitchesToCopy(args.CopySwitchesFrom, validate),
 	}
 	if result.Error != nil {
 		return result
 	}
 
 	if result.Distances != "" {
-		updateDistances(result.Payload, args)
+		updateDistances(result.Payload)
 	}
-	if result.ZeroUpdate {
-		updateZeroing(result.Payload, args, validate)
+	if result.NewZero != nil {
+		updateZeroing(result.Payload, validate)
 	}
-	if result.Switches {
-		updateSwitches(result.Payload, args, validate)
+	if result.Switches != nil {
+		updateSwitches(result.Payload, validate)
 	}
 
 	return result
@@ -236,6 +275,13 @@ func processFiles(args arguments) {
 		}
 	} else if len(args.ZeroOffset) > 0 && len(args.ZeroOffset) != 2 {
 		argParser.Fail("--zero-offset require a pair of floats")
+	}
+
+	switch args.Distances {
+	case Subsonic, Low, Medium, Long, Ultra, "":
+
+	default:
+		argParser.Fail("Invalid --distances")
 	}
 
 	switch pStatus {
@@ -286,14 +332,12 @@ func processFiles(args arguments) {
 		results = append(results, result)
 	}
 
-	printResultAndSave(results, args.Verbose, args.Force)
+	printResultAndSave(results, args.Verbose)
 }
 
 func main() {
 
 	// Initialize the argument parser
-	var args arguments
-
 	arg.Parse(&args)
 
 	// Check if the version flag is set
