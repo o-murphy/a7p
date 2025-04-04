@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/akamensky/argparse"
 	arg "github.com/alexflint/go-arg"
 )
 
@@ -58,30 +59,30 @@ func init() {
 		2020, 2025, 2030, 2035, 2040, 2045, 2050, 2055, 2060, 2065}
 }
 
-// Define a struct to hold the command-line arguments
-// Arguments struct with fields for path and version flag
-type arguments struct {
-	Path      string `arg:"positional,required" help:"Path to the directory or a .a7p file to process"`
-	Version   bool   `arg:"-V, --version" help:"Display the current version of the tool"`
-	Recursive bool   `arg:"-r, --recursive" help:"Recursively process files in the specified directory"`
-	Force     bool   `arg:"-F, --force" help:"Force saving changes without confirmation"`
-	Unsafe    bool   `arg:"--unsafe" help:"Skip data validation (use with caution)\n\nSingle-file-only:"`
+// // Define a struct to hold the command-line arguments
+// // Arguments struct with fields for path and version flag
+// type arguments struct {
+// 	Path      string `arg:"positional,required" help:"Path to the directory or a .a7p file to process"`
+// 	Version   bool   `arg:"-V, --version" help:"Display the current version of the tool"`
+// 	Recursive bool   `arg:"-r, --recursive" help:"Recursively process files in the specified directory"`
+// 	Force     bool   `arg:"-F, --force" help:"Force saving changes without confirmation"`
+// 	Unsafe    bool   `arg:"--unsafe" help:"Skip data validation (use with caution)\n\nSingle-file-only:"`
 
-	// Single file specific options
-	Verbose bool `arg:"--verbose" help:"Enable verbose output for detailed logs. This option is only allowed for a single file."`
-	Recover bool `arg:"--recover" help:"Attempt to recover from errors found in a file. This option is only allowed for a single file.\n\nDistances:"`
+// 	// Single file specific options
+// 	Verbose bool `arg:"--verbose" help:"Enable verbose output for detailed logs. This option is only allowed for a single file."`
+// 	Recover bool `arg:"--recover" help:"Attempt to recover from errors found in a file. This option is only allowed for a single file.\n\nDistances:"`
 
-	// Distances group options
-	ZeroDistance int32        `arg:"--zero-distance" default:"-1" help:"Set the zero distance in meters."`
-	Distances    distanceType `arg:"--distances" choices:"subsonic,low,medium,long,ultra" help:"Specify the distance range: 'subsonic', 'low', 'medium', 'long', or 'ultra'.\n\nZeroing:"`
+// 	// Distances group options
+// 	ZeroDistance int32        `arg:"--zero-distance" default:"-1" help:"Set the zero distance in meters."`
+// 	Distances    distanceType `arg:"--distances" choices:"subsonic,low,medium,long,ultra" help:"Specify the distance range: 'subsonic', 'low', 'medium', 'long', or 'ultra'.\n\nZeroing:"`
 
-	// Zeroing group options
-	ZeroSync   string    `arg:"--zero-sync" help:"Synchronize zero using a specified configuration file."`
-	ZeroOffset []float64 `arg:"--zero-offset" help:"Set the offset for zeroing in clicks (X_OFFSET and Y_OFFSET).\n\nARCHER-device-specific:"`
+// 	// Zeroing group options
+// 	ZeroSync   string    `arg:"--zero-sync" help:"Synchronize zero using a specified configuration file."`
+// 	ZeroOffset []float64 `arg:"--zero-offset" help:"Set the offset for zeroing in clicks (X_OFFSET and Y_OFFSET).\n\nARCHER-device-specific:"`
 
-	// Switches group options (Archer devices specific)
-	CopySwitchesFrom string `arg:"--copy-switches-from" help:"Copy switches from another a7p file."`
-}
+// 	// Switches group options (Archer devices specific)
+// 	CopySwitchesFrom string `arg:"--copy-switches-from" help:"Copy switches from another a7p file."`
+// }
 
 type zeros struct {
 	x int32
@@ -151,7 +152,7 @@ func (r *resultT) print() {
 
 	fmt.Println(log.FmtBlue(strings.Join(updates, "\n")))
 
-	if r.validationError != nil && args.Verbose {
+	if r.validationError != nil && *args.Verbose {
 		log.Err("Not implemented")
 	}
 }
@@ -160,7 +161,7 @@ func (r *resultT) saveChanges(validate bool) {
 	hasChanges := r.zeroDistance > 0 || r.distances != "" || r.newZero != nil || r.switches != nil
 
 	if hasChanges {
-		if !args.Force {
+		if !*args.Force {
 			var yesNo string
 			fmt.Println(log.FmtYellow("Do you want to save changes? (Y/N): "))
 			fmt.Scanln(&yesNo)
@@ -382,12 +383,12 @@ func processFile(path string, args arguments, validate bool) resultT {
 }
 
 func processFiles(args arguments) {
-	validate := !args.Unsafe
+	validate := !*args.Unsafe
 
 	var files []string
 
 	// Check if the path is a directory
-	pStatus := pathStatus(args.Path)
+	pStatus := pathStatus(*args.Path)
 
 	if args.ZeroSync != "" {
 		if len(args.ZeroOffset) == 2 {
@@ -406,26 +407,26 @@ func processFiles(args arguments) {
 
 	switch pStatus {
 	case "file":
-		if args.Recover {
-			args.Verbose = true
+		if *args.Recover {
+			*args.Verbose = true
 			argParser.Fail("Not implemented yet [--recover]") // FIXME
 		}
-		files = []string{args.Path}
+		files = []string{*args.Path}
 
 	case "dir":
-		if args.Recover {
+		if *args.Recover {
 			log.Warn("The '--recover' option is supported only when processing a single file.")
-			args.Recover = false
+			*args.Recover = false
 		}
-		if args.Verbose {
+		if *args.Verbose {
 			log.Warn("The '--verbose' option is supported only when processing a single file.")
-			args.Verbose = false
+			*args.Verbose = false
 		}
 
-		if args.Recursive {
-			files = getFilesWithExtensionRecursive(args.Path, a7p.FileExtension)
+		if *args.Recursive {
+			files = getFilesWithExtensionRecursive(*args.Path, a7p.FileExtension)
 		} else {
-			files = getFilesWithExtension(args.Path, a7p.FileExtension)
+			files = getFilesWithExtension(*args.Path, a7p.FileExtension)
 		}
 
 	}
@@ -458,17 +459,65 @@ func processFiles(args arguments) {
 	printResultAndSave(results, validate)
 }
 
-func main() {
-	// Initialize the argument parser
-	arg.Parse(&args)
+// Define a struct to hold the command-line arguments
+// Arguments struct with fields for path and version flag
+type arguments struct {
+	Path      *string
+	Version   *bool
+	Recursive *bool
+	Force     *bool
+	Unsafe    *bool
 
-	// Check if the version flag is set
-	if args.Version {
+	// Single file specific options
+	Verbose *bool
+	Recover *bool
+
+	// Distances group options
+	ZeroDistance int32
+	Distances    distanceType
+
+	// Zeroing group options
+	ZeroSync   string
+	ZeroOffset []float64
+
+	// Switches group options (Archer devices specific)
+	CopySwitchesFrom string
+}
+
+func main() {
+	// // Initialize the argument parser
+	// arg.Parse(&args)
+
+	// // Check if the version flag is set
+	// if args.Version {
+	// 	// Print the version and exit
+	// 	fmt.Println("Current version:", Version)
+	// 	os.Exit(0)
+	// }
+
+	// argParser = arg.MustParse(&args)
+	// processFiles(args)
+
+	parser := argparse.NewParser("a7p", Version)
+	args.Path = parser.StringPositional(&argparse.Options{Required: true, Help: "Path to the directory or a .a7p file to process"})
+	args.Version = parser.Flag("V", "version", &argparse.Options{Required: false, Help: "Display the current version of the tool"})
+	args.Recursive = parser.Flag("r", "recursive", &argparse.Options{Required: false, Help: "Recursively process files in the specified directory"})
+	args.Force = parser.Flag("F", "force", &argparse.Options{Required: false, Help: "Force saving changes without confirmation"})
+	args.Unsafe = parser.Flag("", "unsafe", &argparse.Options{Required: false, Help: "Skip data validation (use with caution)\n\nSingle-file-only:"})
+
+	err := parser.Parse(os.Args)
+	if err != nil {
+		// In case of error print error and print usage
+		// This can also be done by passing -h or --help flags
+		fmt.Print(parser.Usage(err))
+	}
+
+	if *args.Version {
 		// Print the version and exit
 		fmt.Println("Current version:", Version)
 		os.Exit(0)
 	}
 
-	argParser = arg.MustParse(&args)
-	processFiles(args)
+	fmt.Println(args)
+
 }

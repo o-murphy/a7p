@@ -11,6 +11,7 @@ require (
 
 require (
 	cel.dev/expr v0.19.1 // indirect
+	github.com/akamensky/argparse v1.4.0 // indirect
 	github.com/alexflint/go-scalar v1.2.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/google/cel-go v0.23.2 // indirect
