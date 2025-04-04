@@ -481,7 +481,7 @@ func main() {
 	args.ZeroSync = argParser.String("", "zero-sync", &argparse.Options{Help: "Synchronize zero using a specified configuration file."})
 	args.ZeroOffset = argParser.FloatList("", "zero-offset", &argparse.Options{Help: "Set the offset for zeroing in clicks (X_OFFSET and Y_OFFSET).\n\nARCHER-device-specific:"})
 
-	args.CopySwitchesFrom = argParser.String("", "copy-switched-from", &argparse.Options{Help: "Copy switches from another a7p file."})
+	args.CopySwitchesFrom = argParser.String("", "copy-switches-from", &argparse.Options{Help: "Copy switches from another a7p file."})
 
 	err := argParser.Parse(os.Args)
 	if err != nil {
