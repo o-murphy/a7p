@@ -3,17 +3,29 @@ package log
 import "fmt"
 
 func Info(msg string) {
-	fmt.Printf("\033[32mInfo: %s\033[0m\n", msg)
+	fmt.Println(FmtGreen("Info: " + msg))
 }
 
 func Warn(msg string) {
-	fmt.Printf("\033[1;33mWarning: %s\033[0m\n", msg)
+	fmt.Println(FmtYellow("Warning: " + msg))
 }
 
 func Err(msg string) {
-	fmt.Printf("\033[1;31mError: %s\033[0m\n", msg)
+	fmt.Println(FmtRed("Error: " + msg))
 }
 
-func LightBlue(msg string) {
-	fmt.Printf("\033[94m%s\033[0m\n", msg)
+func FmtBlue(msg string) string {
+	return fmt.Sprintf("\033[94m%s\033[0m", msg)
+}
+
+func FmtGreen(msg string) string {
+	return fmt.Sprintf("\033[32m%s\033[0m", msg)
+}
+
+func FmtYellow(msg string) string {
+	return fmt.Sprintf("\033[1;33m%s\033[0m", msg)
+}
+
+func FmtRed(msg string) string {
+	return fmt.Sprintf("\033[1;31m%s\033[0m", msg)
 }

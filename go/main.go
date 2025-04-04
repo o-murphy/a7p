@@ -110,7 +110,7 @@ type resultT struct {
 	newZero         *zeros
 	distances       distanceType
 	zeroDistance    int32
-	recover         string
+	recover         bool
 	payload         *profedit.Payload
 	switches        []*profedit.SwPos
 }
@@ -123,9 +123,11 @@ func (r *resultT) resetErrors() {
 func (r *resultT) print() {
 
 	if r.err != nil {
-		log.Err(fmt.Sprintf("Invalid (%s): File: %s", r.err, r.path))
+		msg := log.FmtRed(fmt.Sprintf("Invalid (%s):", r.err))
+		fmt.Printf("%s File: %s\n", msg, r.path)
 	} else {
-		log.Info(fmt.Sprintf("Valid: File: %s", r.path))
+		msg := log.FmtGreen("Valid:")
+		fmt.Printf("%s File: %s\n", msg, r.path)
 	}
 
 	if r.zero != nil {
@@ -147,15 +149,46 @@ func (r *resultT) print() {
 		updates = append(updates, "\tSwitches copied")
 	}
 
-	log.LightBlue(strings.Join(updates, "\n"))
+	fmt.Println(log.FmtBlue(strings.Join(updates, "\n")))
 
 	if r.validationError != nil && args.Verbose {
 		log.Err("Not implemented")
 	}
 }
 
-func (r *resultT) saveChanges() {
+func (r *resultT) saveChanges(validate bool) {
+	hasChanges := r.zeroDistance > 0 || r.distances != "" || r.newZero != nil || r.switches != nil
 
+	if hasChanges {
+		if !args.Force {
+			var yesNo string
+			fmt.Println(log.FmtYellow("Do you want to save changes? (Y/N): "))
+			fmt.Scanln(&yesNo)
+			yesNo = strings.TrimSpace(strings.ToUpper(yesNo))
+			if yesNo != "Y" {
+				log.Info("No changes have been saved.")
+				return
+			}
+		}
+
+		if r.recover {
+			ext := filepath.Ext(r.path)
+			base := strings.TrimSuffix(r.path, ext)
+			r.path = base + "_recovered" + ext
+		}
+
+		if _, err := a7p.Dumps(r.payload, validate); err != nil {
+			log.Warn("The data is invalid. Changes have not been saved.")
+			return
+		}
+		if err := a7p.Dump(r.path, r.payload, validate); err != nil {
+			log.Warn(fmt.Sprintf("An error occurred while saving: %s", err.Error()))
+			return
+		}
+		log.Info(fmt.Sprintf("Changes have been saved successfully to %s.", r.path))
+		fmt.Println(r.newZero)
+		fmt.Println(r.payload.Profile.ZeroX, r.payload.Profile.ZeroY)
+	}
 }
 
 func getFilesWithExtension(dir string, ext string) []string {
@@ -243,8 +276,9 @@ func updateDistances(result *resultT) {
 		result.payload.Profile.Distances = distances[result.distances]
 	}
 
-	// FIXME: required unique values
-	result.payload.Profile.Distances = append(result.payload.Profile.Distances, curZeroDistance)
+	if slices.Index(result.payload.Profile.Distances, curZeroDistance) < 0 {
+		result.payload.Profile.Distances = append(result.payload.Profile.Distances, curZeroDistance)
+	}
 	slices.Sort(result.payload.Profile.Distances)
 	result.payload.Profile.CZeroDistanceIdx = int32(slices.Index(result.payload.Profile.Distances, curZeroDistance))
 }
@@ -261,9 +295,10 @@ func updateZeroing(result *resultT, validate bool) {
 	}
 
 	if result.newZero != nil {
-		result.payload.Profile.ZeroX = result.zero.x
-		result.payload.Profile.ZeroY = result.zero.y
+		result.payload.Profile.ZeroX = result.newZero.x
+		result.payload.Profile.ZeroY = result.newZero.y
 	}
+	fmt.Println("ZZ", result.payload.Profile.ZeroX, result.payload.Profile.ZeroY)
 }
 
 func updateSwitches(result *resultT) {
@@ -272,10 +307,29 @@ func updateSwitches(result *resultT) {
 	}
 }
 
-func printResultAndSave(results []resultT, force bool) {
-	for _, r := range results {
-		r.print()
+func printResultAndSave(results []*resultT, validate bool) {
+
+	countErrors := 0
+
+	for _, result := range results {
+		if result != nil {
+			result.print()
+			fmt.Println()
+			result.saveChanges(validate)
+
+			if result.err != nil {
+				countErrors++
+			}
+		}
 	}
+
+	outStrings := []string{
+		fmt.Sprintf("Files checked: %d", len(results)),
+		log.FmtGreen(fmt.Sprintf("Ok: %d", len(results)-countErrors)),
+		log.FmtRed(fmt.Sprintf("Failed: %d", countErrors)),
+	}
+	fmt.Println(strings.Join(outStrings, ", "))
+
 }
 
 // pathStatus returns the status of the path: directory, file, or nonexistent.
@@ -379,7 +433,7 @@ func processFiles(args arguments) {
 
 	// async file processing
 	var wg sync.WaitGroup
-	resultsChan := make(chan resultT, len(files)) // Channel to collect results
+	resultsChan := make(chan *resultT, len(files)) // Channel to collect results
 
 	for _, file := range files {
 		wg.Add(1)
@@ -387,7 +441,7 @@ func processFiles(args arguments) {
 			defer wg.Done()
 			// Process the file and send the result to the channel
 			result := processFile(file, args, validate)
-			resultsChan <- result
+			resultsChan <- &result
 		}(file)
 	}
 
@@ -395,12 +449,14 @@ func processFiles(args arguments) {
 	wg.Wait()
 	close(resultsChan)
 
-	var results []resultT
+	var results []*resultT
 	for result := range resultsChan {
-		results = append(results, result)
+		if result != nil {
+			results = append(results, result)
+		}
 	}
 
-	printResultAndSave(results, args.Verbose)
+	printResultAndSave(results, validate)
 }
 
 func main() {

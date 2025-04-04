@@ -4,8 +4,15 @@ import (
 	a7p "a7p-go/a7p"
 	"bytes"
 	"fmt"
+	"slices"
 	"testing"
 )
+
+func TestSlice(t *testing.T) {
+	s := []int32{100, 200}
+	i := slices.Index(s, 0)
+	fmt.Println("I", i)
+}
 
 func TestA7p(t *testing.T) {
 	payload, err := a7p.Loads(TestingData, true)
