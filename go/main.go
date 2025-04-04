@@ -298,7 +298,6 @@ func updateZeroing(result *resultT, validate bool) {
 		result.payload.Profile.ZeroX = result.newZero.x
 		result.payload.Profile.ZeroY = result.newZero.y
 	}
-	fmt.Println("ZZ", result.payload.Profile.ZeroX, result.payload.Profile.ZeroY)
 }
 
 func updateSwitches(result *resultT) {
