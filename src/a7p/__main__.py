@@ -156,7 +156,7 @@ class Result:
                 color_print(violation.format(), levelname='WARNING')
 
     def save_changes(self, force=False):
-        if self.zero_distance or self.distances or self.zero_update or self.recover:
+        if self.zero_distance or self.distances or self.zero_update or self.recover or self.switches:
             if not force:
                 yes_no = input(color_fmt("Do you want to save changes? (Y/N): ", levelname="LIGHT_YELLOW"))
                 if yes_no.lower() != "y":
