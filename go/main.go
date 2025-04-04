@@ -58,31 +58,6 @@ func init() {
 		2020, 2025, 2030, 2035, 2040, 2045, 2050, 2055, 2060, 2065}
 }
 
-// // Define a struct to hold the command-line arguments
-// // Arguments struct with fields for path and version flag
-// type arguments struct {
-// 	Path      string `arg:"positional,required" help:"Path to the directory or a .a7p file to process"`
-// 	Version   bool   `arg:"-V, --version" help:"Display the current version of the tool"`
-// 	Recursive bool   `arg:"-r, --recursive" help:"Recursively process files in the specified directory"`
-// 	Force     bool   `arg:"-F, --force" help:"Force saving changes without confirmation"`
-// 	Unsafe    bool   `arg:"--unsafe" help:"Skip data validation (use with caution)\n\nSingle-file-only:"`
-
-// 	// Single file specific options
-// 	Verbose bool `arg:"--verbose" help:"Enable verbose output for detailed logs. This option is only allowed for a single file."`
-// 	Recover bool `arg:"--recover" help:"Attempt to recover from errors found in a file. This option is only allowed for a single file.\n\nDistances:"`
-
-// 	// Distances group options
-// 	ZeroDistance int32        `arg:"--zero-distance" default:"-1" help:"Set the zero distance in meters."`
-// 	Distances    distanceType `arg:"--distances" choices:"subsonic,low,medium,long,ultra" help:"Specify the distance range: 'subsonic', 'low', 'medium', 'long', or 'ultra'.\n\nZeroing:"`
-
-// 	// Zeroing group options
-// 	ZeroSync   string    `arg:"--zero-sync" help:"Synchronize zero using a specified configuration file."`
-// 	ZeroOffset []float64 `arg:"--zero-offset" help:"Set the offset for zeroing in clicks (X_OFFSET and Y_OFFSET).\n\nARCHER-device-specific:"`
-
-// 	// Switches group options (Archer devices specific)
-// 	CopySwitchesFrom string `arg:"--copy-switches-from" help:"Copy switches from another a7p file."`
-// }
-
 type zeros struct {
 	x int32
 	y int32
@@ -110,9 +85,9 @@ type resultT struct {
 	newZero         *zeros
 	distances       *string
 	zeroDistance    *int
-	recover         bool
-	payload         *profedit.Payload
-	switches        []*profedit.SwPos
+	// recover         bool
+	payload  *profedit.Payload
+	switches []*profedit.SwPos
 }
 
 func (r *resultT) resetErrors() {
@@ -171,11 +146,11 @@ func (r *resultT) saveChanges(validate bool) {
 			}
 		}
 
-		if r.recover {
-			ext := filepath.Ext(r.path)
-			base := strings.TrimSuffix(r.path, ext)
-			r.path = base + "_recovered" + ext
-		}
+		// if r.recover {
+		// 	ext := filepath.Ext(r.path)
+		// 	base := strings.TrimSuffix(r.path, ext)
+		// 	r.path = base + "_recovered" + ext
+		// }
 
 		if _, err := a7p.Dumps(r.payload, validate); err != nil {
 			log.Warn("The data is invalid. Changes have not been saved.")
@@ -407,17 +382,17 @@ func processFiles() {
 
 	switch pStatus {
 	case "file":
-		if *args.Recover {
-			*args.Verbose = true
-			Fail("Not implemented yet [--recover]") // FIXME
-		}
+		// if *args.Recover {
+		// 	*args.Verbose = true
+		// 	Fail("Not implemented yet [--recover]") // FIXME
+		// }
 		files = []string{*args.Path}
 
 	case "dir":
-		if *args.Recover {
-			log.Warn("The '--recover' option is supported only when processing a single file.")
-			*args.Recover = false
-		}
+		// if *args.Recover {
+		// 	log.Warn("The '--recover' option is supported only when processing a single file.")
+		// 	*args.Recover = false
+		// }
 		if *args.Verbose {
 			log.Warn("The '--verbose' option is supported only when processing a single file.")
 			*args.Verbose = false
@@ -470,7 +445,7 @@ type arguments struct {
 
 	// Single file specific options
 	Verbose *bool
-	Recover *bool
+	// Recover *bool
 
 	// Distances group options
 	ZeroDistance *int
@@ -498,7 +473,7 @@ func main() {
 	args.Unsafe = argParser.Flag("", "unsafe", &argparse.Options{Help: "Skip data validation (use with caution)\n\nSingle-file-only:"})
 
 	args.Verbose = argParser.Flag("", "verbose", &argparse.Options{Help: "Enable verbose output for detailed logs. This option is only allowed for a single file."})
-	args.Recover = argParser.Flag("", "recover", &argparse.Options{Help: "Attempt to recover from errors found in a file. This option is only allowed for a single file.\n\nDistances:"})
+	// args.Recover = argParser.Flag("", "recover", &argparse.Options{Help: "Attempt to recover from errors found in a file. This option is only allowed for a single file.\n\nDistances:"})
 
 	args.ZeroDistance = argParser.Int("", "zero-distance", &argparse.Options{Help: "Set the zero distance in meters."})
 	args.Distances = argParser.Selector("", "distances", []string{"subsonic", "low", "medium", "long", "ultra"}, &argparse.Options{Help: "Specify the distance range: 'subsonic', 'low', 'medium', 'long', or 'ultra'.\n\nZeroing:"})
