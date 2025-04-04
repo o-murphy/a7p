@@ -94,7 +94,7 @@ type swPosT struct {
 
 type coefRowT struct {
 	bcCd int32
-	mv   int32
+	mv   int32 `validate:"unique"`
 }
 
 type profileT struct {
@@ -103,26 +103,26 @@ type profileT struct {
 	bulletName    string `validate:"max=50"`
 	shortNameTop  string `validate:"max=8"`
 	shortNameBot  string `validate:"max=8"`
-	userNote      string `validate:"max=250"`
+	userNote      string `validate:"max=1024"` // max=250
 
-	zeroX    int32 `validate:"gte=-600000,lte=600000"`
-	zeroY    int32 `validate:"gte=-600000,lte=600000"`
+	zeroX    int32 `validate:"gte=-200000,lte=200000"` // gte=-600000,lte=600000
+	zeroY    int32 `validate:"gte=-200000,lte=200000"` // gte=-600000,lte=600000
 	scHeight int32 `validate:"gte=-5000,lte=5000"`
 	rTwist   int32 `validate:"gte=0,lte=10000"`
 
 	cMuzzleVelocity     int32 `validate:"gte=100,lte=30000"`
 	cZeroTemperature    int32 `validate:"gte=-100,lte=100"`
-	cTCoeff             int32 `validate:"gte=2,lte=3000"`
+	cTCoeff             int32 `validate:"gte=0,lte=5000"` // gte=2,lte=3000
 	cZeroDistanceIdx    int32 `validate:"gte=0,lte=200"`
 	cZeroAirTemperature int32 `validate:"gte=-100,lte=100"`
-	cZeroAirPressure    int32 `validate:"required"`
+	cZeroAirPressure    int32 `validate:"gte=3000,lte=15000"` // required
 	cZeroAirHumidity    int32 `validate:"gte=0,lte=100"`
-	cZeroWPitch         int32 `validate:"gte=-90,lte=90"`
+	cZeroWPitch         int32 `validate:"gte=-900,lte=900"` // gte=-90,lte=90
 	cZeroPTemperature   int32 `validate:"gte=-100,lte=100"`
 
-	bDiameter int32 `validate:"gte=1,lte=65535"`
+	bDiameter int32 `validate:"gte=1,lte=50000"` // gte=1,lte=65535
 	bWeight   int32 `validate:"gte=10,lte=65535"`
-	bLength   int32 `validate:"gte=1,lte=10000"`
+	bLength   int32 `validate:"gte=10,lte=200000"` // gte=1,lte=10000
 
 	twistDir   profedit.TwistDir `validate:""`
 	bcType     profedit.GType    `validate:""`
