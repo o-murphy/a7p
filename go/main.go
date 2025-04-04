@@ -12,12 +12,11 @@ import (
 	"sync"
 
 	"github.com/akamensky/argparse"
-	arg "github.com/alexflint/go-arg"
 )
 
 const Version = "0.0.0"
 
-var argParser *arg.Parser
+var argParser = argparse.NewParser("a7p", Version)
 var args arguments
 
 var distances = make(map[distanceType][]int32)
@@ -109,8 +108,8 @@ type resultT struct {
 	validationError any
 	zero            *zeros
 	newZero         *zeros
-	distances       distanceType
-	zeroDistance    int32
+	distances       *string
+	zeroDistance    *int
 	recover         bool
 	payload         *profedit.Payload
 	switches        []*profedit.SwPos
@@ -140,11 +139,11 @@ func (r *resultT) print() {
 	if r.newZero != nil {
 		updates = append(updates, fmt.Sprintf("\tNew zero:\t%s", r.newZero))
 	}
-	if r.distances != "" {
+	if *r.distances != "" {
 		updates = append(updates, fmt.Sprintf("\tNew range:\t%s", r.distances))
 	}
-	if r.zeroDistance > -1 {
-		updates = append(updates, fmt.Sprintf("\tNew zero distance:\t%d", r.zeroDistance))
+	if *r.zeroDistance > -1 {
+		updates = append(updates, fmt.Sprintf("\tNew zero distance:\t%d", *r.zeroDistance))
 	}
 	if r.switches != nil {
 		updates = append(updates, "\tSwitches copied")
@@ -158,7 +157,7 @@ func (r *resultT) print() {
 }
 
 func (r *resultT) saveChanges(validate bool) {
-	hasChanges := r.zeroDistance > 0 || r.distances != "" || r.newZero != nil || r.switches != nil
+	hasChanges := *r.zeroDistance > 0 || *r.distances != "" || r.newZero != nil || r.switches != nil
 
 	if hasChanges {
 		if !*args.Force {
@@ -198,7 +197,7 @@ func getFilesWithExtension(dir string, ext string) []string {
 	// Read the directory contents
 	dirContents, err := os.ReadDir(dir)
 	if err != nil {
-		argParser.Fail(err.Error())
+		Fail(err.Error())
 	}
 
 	// Loop through the directory contents and filter files with the specified extension
@@ -232,7 +231,7 @@ func getFilesWithExtensionRecursive(dir string, ext string) []string {
 	})
 
 	if err != nil {
-		argParser.Fail(err.Error())
+		Fail(err.Error())
 	}
 
 	return files
@@ -244,7 +243,7 @@ func getZeroToSync(path string, validate bool) *zeros {
 	}
 	payload, err := a7p.Load(path, validate)
 	if err != nil {
-		argParser.Fail(err.Error())
+		Fail(err.Error())
 	}
 	return &zeros{
 		x: payload.Profile.ZeroX,
@@ -258,7 +257,7 @@ func getSwitchesToCopy(path string, validate bool) []*profedit.SwPos {
 	}
 	payload, err := a7p.Load(path, validate)
 	if err != nil {
-		argParser.Fail(err.Error())
+		Fail(err.Error())
 	}
 	return payload.Profile.Switches
 }
@@ -266,15 +265,16 @@ func getSwitchesToCopy(path string, validate bool) []*profedit.SwPos {
 func updateDistances(result *resultT) {
 	var curZeroDistance int32
 
-	if result.zeroDistance < 0 {
+	if *result.zeroDistance < 0 {
 		curZeroDistance = result.payload.Profile.Distances[result.payload.Profile.CZeroDistanceIdx]
 	} else {
-		curZeroDistance = result.zeroDistance * 100
+		curZeroDistance = int32(*result.zeroDistance) * 100
 	}
 
-	switch result.distances {
+	dType := distanceType(*result.distances)
+	switch dType {
 	case subsonicRange, lowRange, mediumRange, longRange, ultraRange:
-		result.payload.Profile.Distances = distances[result.distances]
+		result.payload.Profile.Distances = distances[dType]
 	}
 
 	if slices.Index(result.payload.Profile.Distances, curZeroDistance) < 0 {
@@ -286,12 +286,12 @@ func updateDistances(result *resultT) {
 
 func updateZeroing(result *resultT, validate bool) {
 
-	if args.ZeroSync != "" {
-		result.newZero = getZeroToSync(args.ZeroSync, validate)
-	} else if len(args.ZeroOffset) == 2 {
+	if *args.ZeroSync != "" {
+		result.newZero = getZeroToSync(*args.ZeroSync, validate)
+	} else if len(*args.ZeroOffset) == 2 {
 		result.newZero = &zeros{
-			x: result.zero.x + int32(args.ZeroOffset[0]*-1000),
-			y: result.zero.y + int32(args.ZeroOffset[1]*1000),
+			x: result.zero.x + int32((*args.ZeroOffset)[0]*-1000),
+			y: result.zero.y + int32((*args.ZeroOffset)[1]*1000),
 		}
 	}
 
@@ -348,7 +348,7 @@ func pathStatus(path string) string {
 			// Other errors (such as incorrect function on Windows)
 			err = fmt.Errorf("error accessing '%s': %s", path, err)
 		}
-		argParser.Fail(err.Error())
+		Fail(err.Error())
 	}
 
 	// Check if it's a directory
@@ -369,7 +369,7 @@ func processFile(path string, args arguments, validate bool) resultT {
 		zero:         &zeros{payload.Profile.ZeroX, payload.Profile.ZeroY},
 		distances:    args.Distances,
 		zeroDistance: args.ZeroDistance,
-		switches:     getSwitchesToCopy(args.CopySwitchesFrom, validate),
+		switches:     getSwitchesToCopy(*args.CopySwitchesFrom, validate),
 	}
 	if result.err != nil {
 		return *result
@@ -382,7 +382,7 @@ func processFile(path string, args arguments, validate bool) resultT {
 	return *result
 }
 
-func processFiles(args arguments) {
+func processFiles() {
 	validate := !*args.Unsafe
 
 	var files []string
@@ -390,26 +390,26 @@ func processFiles(args arguments) {
 	// Check if the path is a directory
 	pStatus := pathStatus(*args.Path)
 
-	if args.ZeroSync != "" {
-		if len(args.ZeroOffset) == 2 {
-			argParser.Fail("--zero-offset and --zero-sync should be used mutually exclusive")
+	if *args.ZeroSync != "" {
+		if len(*args.ZeroOffset) == 2 {
+			Fail("--zero-offset and --zero-sync should be used mutually exclusive")
 		}
-	} else if len(args.ZeroOffset) > 0 && len(args.ZeroOffset) != 2 {
-		argParser.Fail("--zero-offset require a pair of floats")
+	} else if len(*args.ZeroOffset) > 0 && len(*args.ZeroOffset) != 2 {
+		Fail("--zero-offset require a pair of floats")
 	}
 
-	switch args.Distances {
+	switch distanceType(*args.Distances) {
 	case subsonicRange, lowRange, mediumRange, longRange, ultraRange, "":
 
 	default:
-		argParser.Fail("Invalid --distances")
+		Fail("Invalid --distances")
 	}
 
 	switch pStatus {
 	case "file":
 		if *args.Recover {
 			*args.Verbose = true
-			argParser.Fail("Not implemented yet [--recover]") // FIXME
+			Fail("Not implemented yet [--recover]") // FIXME
 		}
 		files = []string{*args.Path}
 
@@ -473,43 +473,47 @@ type arguments struct {
 	Recover *bool
 
 	// Distances group options
-	ZeroDistance int32
-	Distances    distanceType
+	ZeroDistance *int
+	Distances    *string
 
 	// Zeroing group options
-	ZeroSync   string
-	ZeroOffset []float64
+	ZeroSync   *string
+	ZeroOffset *[]float64
 
 	// Switches group options (Archer devices specific)
-	CopySwitchesFrom string
+	CopySwitchesFrom *string
+}
+
+func Fail(msg string) {
+	log.Err(msg)
+	os.Exit(1)
 }
 
 func main() {
-	// // Initialize the argument parser
-	// arg.Parse(&args)
 
-	// // Check if the version flag is set
-	// if args.Version {
-	// 	// Print the version and exit
-	// 	fmt.Println("Current version:", Version)
-	// 	os.Exit(0)
-	// }
+	args.Path = argParser.StringPositional(&argparse.Options{Required: true, Help: "Path to the directory or a .a7p file to process"})
+	args.Version = argParser.Flag("V", "version", &argparse.Options{Help: "Display the current version of the tool"})
+	args.Recursive = argParser.Flag("r", "recursive", &argparse.Options{Help: "Recursively process files in the specified directory"})
+	args.Force = argParser.Flag("F", "force", &argparse.Options{Help: "Force saving changes without confirmation"})
+	args.Unsafe = argParser.Flag("", "unsafe", &argparse.Options{Help: "Skip data validation (use with caution)\n\nSingle-file-only:"})
 
-	// argParser = arg.MustParse(&args)
-	// processFiles(args)
+	args.Verbose = argParser.Flag("", "verbose", &argparse.Options{Help: "Enable verbose output for detailed logs. This option is only allowed for a single file."})
+	args.Recover = argParser.Flag("", "recover", &argparse.Options{Help: "Attempt to recover from errors found in a file. This option is only allowed for a single file.\n\nDistances:"})
 
-	parser := argparse.NewParser("a7p", Version)
-	args.Path = parser.StringPositional(&argparse.Options{Required: true, Help: "Path to the directory or a .a7p file to process"})
-	args.Version = parser.Flag("V", "version", &argparse.Options{Required: false, Help: "Display the current version of the tool"})
-	args.Recursive = parser.Flag("r", "recursive", &argparse.Options{Required: false, Help: "Recursively process files in the specified directory"})
-	args.Force = parser.Flag("F", "force", &argparse.Options{Required: false, Help: "Force saving changes without confirmation"})
-	args.Unsafe = parser.Flag("", "unsafe", &argparse.Options{Required: false, Help: "Skip data validation (use with caution)\n\nSingle-file-only:"})
+	args.ZeroDistance = argParser.Int("", "zero-distance", &argparse.Options{Help: "Set the zero distance in meters."})
+	args.Distances = argParser.Selector("", "distances", []string{"subsonic", "low", "medium", "long", "ultra"}, &argparse.Options{Help: "Specify the distance range: 'subsonic', 'low', 'medium', 'long', or 'ultra'.\n\nZeroing:"})
 
-	err := parser.Parse(os.Args)
+	args.ZeroSync = argParser.String("", "zero-sync", &argparse.Options{Help: "Synchronize zero using a specified configuration file."})
+	args.ZeroOffset = argParser.FloatList("", "zero-offset", &argparse.Options{Help: "Set the offset for zeroing in clicks (X_OFFSET and Y_OFFSET).\n\nARCHER-device-specific:"})
+
+	args.CopySwitchesFrom = argParser.String("", "copy-switched-from", &argparse.Options{Help: "Copy switches from another a7p file."})
+
+	err := argParser.Parse(os.Args)
 	if err != nil {
 		// In case of error print error and print usage
 		// This can also be done by passing -h or --help flags
-		fmt.Print(parser.Usage(err))
+		fmt.Print(argParser.Usage(err))
+		os.Exit(1)
 	}
 
 	if *args.Version {
@@ -517,7 +521,5 @@ func main() {
 		fmt.Println("Current version:", Version)
 		os.Exit(0)
 	}
-
-	fmt.Println(args)
-
+	processFiles()
 }
