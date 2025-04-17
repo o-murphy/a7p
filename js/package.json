@@ -8,7 +8,7 @@
   "scripts": {
     "build:proto": "npx pbjs -t static-module -w es6 -o src/profedit.js src/proto/profedit.proto && npx pbts -o src/profedit.d.ts src/profedit.js",
     "build:ts": "tsc",
-    "build:copy": "cpy 'src/profedit.*' 'dist/'",
+    "build:copy": "npx cpy 'src/profedit.*' 'dist/'",
     "build": "yarn build:ts && yarn build:copy"
   },
   "author": "o-murphy",

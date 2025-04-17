@@ -16,4 +16,5 @@ import * as $protobuf from "protobufjs/minimal"; -> import $protobuf from "proto
 Build
 ```shell
 yarn build
+npx cpy 'src/profedit.*' 'dist/'
 ```
