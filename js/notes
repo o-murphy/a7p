@@ -1,0 +1,3 @@
+    "gen:proto": "npx pbjs -t static-module -w es6 -o src/profedit.js proto/profedit.proto && npx pbts -o src/profedit.d.ts src/profedit.js",
+
+    protoc --plugin=protoc-gen-ts_proto=./node_modules/.bin/protoc-gen-ts_proto.cmd --ts_proto_out=./ ./src/proto/profedit.proto --ts_proto_opt=esModuleInterop=true,importSuffix=.js
