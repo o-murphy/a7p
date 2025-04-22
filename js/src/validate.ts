@@ -53,7 +53,7 @@ export const schema = yup.object().shape({
         // bullet
         bDiameter: yup.number().min(1).max(50000).integer().required(),
         bWeight: yup.number().min(10).max(65535).integer().required(),
-        bLength: yup.number().min(1).max(50000).integer().required(),
+        bLength: yup.number().min(1).max(200000).integer().required(),
 
         // drag model
         bcType: yup.mixed().oneOf([BcType.G1, BcType.G7, BcType.CUSTOM]).required(),
@@ -65,7 +65,7 @@ export const schema = yup.object().shape({
 const coefRowsStandard = yup.array().of(
     yup.object().shape({
         bcCd: yup.number().min(0).max(10000).integer(),
-        mv: yup.number().min(0).max(10000).integer(),
+        mv: yup.number().min(0).max(30000).integer(),
     })
 ).min(1).max(5).required('For G1 or G7, coefRows must contain between 1 and 5 items')
     .test('unique-mv', 'mv values must be unique, except for mv == 0', (value) => {
@@ -81,8 +81,8 @@ const coefRowsStandard = yup.array().of(
 // Schema for coefRows when bcType is 'CUSTOM'
 const coefRowsCustom = yup.array().of(
     yup.object().shape({
-        bcCd: yup.number().min(0).max(100000).integer(),
-        mv: yup.number().min(0).max(100000).integer()
+        bcCd: yup.number().min(0).max(10000).integer(),
+        mv: yup.number().min(0).max(10000).integer()
     })
 ).min(1).max(200).required('For CUSTOM, coefRows must contain between 1 and 200 items')
     .test('unique-mv', 'mv values must be unique, except for mv == 0', (value) => {
