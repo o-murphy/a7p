@@ -5,6 +5,28 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./errors": {
+      "import": "./dist/errors.js",
+      "types": "./dist/errors.d.ts"
+    },
+    "./validate": {
+      "import": "./dist/validate.js",
+      "types": "./dist/validate.d.ts"
+    },
+    "./types": {
+      "import": "./dist/types.js",
+      "types": "./dist/types.d.ts"
+    },
+    "./profedit": {
+      "import": "./dist/profedit.js",
+      "types": "./dist/profedit.d.ts"
+    }
+  },
   "scripts": {
     "build:proto": "npx pbjs -t static-module -w es6 -o src/profedit.js src/proto/profedit.proto && npx pbts -o src/profedit.d.ts src/profedit.js",
     "build:ts": "tsc",
