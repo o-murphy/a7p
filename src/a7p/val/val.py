@@ -49,7 +49,7 @@ class Schema:
     def optional(self) -> bool:
         return self._optional
 
-    def required(self, message: ErrorMessage = "required") -> Self:
+    def required(self, message: ErrorMessage = "required") -> Self:  # FIXME
         self._optional = False
         return self
 
