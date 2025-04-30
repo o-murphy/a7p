@@ -714,7 +714,7 @@ class ConstraintFactory:
                 continue
             if field.message_type.GetOptions().map_entry:
                 value_field = field.message_type.fields_by_name["value"]
-                if value_field.type != descriptor.FieldDescriptor.TYPE_MESSAGE:
+                if value_field._type != descriptor.FieldDescriptor.TYPE_MESSAGE:
                     continue
                 result.append(MapValMsgConstraint(self, field, value_field))
             elif field.label == descriptor.FieldDescriptor.LABEL_REPEATED:
