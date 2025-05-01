@@ -1,13 +1,14 @@
+from google.protobuf.json_format import MessageToDict
+from yupy import mapping, array, string, number, mixed, ValidationError, Constraint
+
 from a7p import profedit_pb2
-from a7p.a7p import to_dict
-from yup import obj, array, string, number, mixed, ValidationError, Constraint
 
 __all__ = (
     'validate',
 )
 
-_schema = obj().shape({
-    'profile': obj().shape({
+_schema = mapping().shape({
+    'profile': mapping().shape({
         # descriptor
         'profile_name': string().max(50).required('Profile name is required'),
         'cartridge_name': string().max(50).required('Cartridge name is required'),
@@ -25,7 +26,7 @@ _schema = obj().shape({
         # lists
         'distances': array().of(number().ge(100).le(300000).integer().required()).min(1).max(200),
         'switches': array().of(
-            obj().shape({
+            mapping().shape({
                 'c_idx': number().ge(0).le(255).integer().required(),
                 'distance_from': mixed().one_of(['INDEX', 'VALUE']).required(),
                 'distance': number().ge(100).le(300000).integer().required(),
@@ -87,7 +88,7 @@ def _corf_rows_mv_test(rows):
 
 
 _coef_rows_std_schema = array().of(
-    obj().shape({
+    mapping().shape({
         'bc_cd': number().ge(0).le(10000).integer(),
         'mv': number().ge(0).le(30000).integer(),
     })
@@ -96,8 +97,8 @@ _coef_rows_std_schema = array().of(
 ).test(_corf_rows_mv_test)
 
 _coef_rows_custom_schema = array().of(
-    obj().shape({
-        'bcCd': number().ge(0).le(10000).integer(),
+    mapping().shape({
+        'bc_cd': number().ge(0).le(10000).integer(),
         'mv': number().ge(0).le(10000).integer()
     })
 ).min(1).max(200).required(
@@ -105,8 +106,10 @@ _coef_rows_custom_schema = array().of(
 ).test(_corf_rows_mv_test)
 
 
-def validate(payload: profedit_pb2.Payload, fail_fast: bool = True):
-    data = to_dict(payload)
+def validate(payload: profedit_pb2.Payload, fail_fast: bool = False):
+    data = MessageToDict(payload,
+                         including_default_value_fields=True,
+                         preserving_proto_field_name=True)
     _schema.validate(data, fail_fast, "<payload>")
 
     bc_type = data['profile']['bc_type']

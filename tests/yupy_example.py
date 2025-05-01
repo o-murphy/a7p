@@ -1,5 +1,5 @@
-from yup import mixed
-from yup.validation_error import ValidationError
+from yupy import mixed, string, number, array, mapping
+from yupy.validation_error import ValidationError
 
 if __name__ == "__main__":
 
@@ -10,18 +10,18 @@ if __name__ == "__main__":
     s.validate("ab")
     n.validate(60)
 
-    shp = obj().shape(
+    shp = mapping().shape(
         {
             "email": string().email().required(),
             "s": s,
             "n": n,
-            "shp": obj()
+            "shp": mapping()
             .shape(
                 {
                     "s": s,
                     "n": n,
                     # 'l': l,
-                    "o": obj().shape({"n": l}),
+                    "o": mapping().shape({"n": l}),
                 }
             )
             .required(),

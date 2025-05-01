@@ -53,6 +53,7 @@ dev = [
     "build",
     "protovalidate==0.6.0",
     'pydantic==2.10.4',
+    'yupy'
 ]
 
 [tool.setuptools.dynamic]
