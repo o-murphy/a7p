@@ -1,12 +1,10 @@
-import asyncio
 import sys
 from argparse import ArgumentParser
-from asyncio import Semaphore
 from dataclasses import dataclass
 from importlib import metadata
 from pathlib import Path
 
-from tqdm.asyncio import tqdm_asyncio
+import tqdm
 
 import a7p
 from a7p import exceptions, profedit_pb2
@@ -20,10 +18,6 @@ try:
 except metadata.PackageNotFoundError:
     __version__ = "undefined version"
 
-# Define a global Semaphore with a maximum number of threads
-MAX_THREADS = 5  # Set the maximum number of threads
-semaphore = Semaphore(MAX_THREADS)
-
 DISTANCES = {
     'subsonic': DistanceTable.SUBSONIC.value,
     'low': DistanceTable.LOW_RANGE.value,
@@ -31,12 +25,6 @@ DISTANCES = {
     'long': DistanceTable.LONG_RANGE.value,
     'ultra': DistanceTable.ULTRA_RANGE.value
 }
-
-
-async def limited_to_thread(func, *args):
-    """Run a function in a thread, limited by the semaphore."""
-    async with semaphore:  # Acquire the semaphore
-        return await asyncio.to_thread(func, *args)
 
 
 class CustomArgumentParser(ArgumentParser):
@@ -98,7 +86,6 @@ zeroing_exclusive_group.add_argument('-zo', '--zero-offset', action='store', nar
                                      metavar=("X_OFFSET", "Y_OFFSET"),
                                      help="Set the offset for zeroing in clicks (X_OFFSET and Y_OFFSET).")
 
-
 # zeroing_exclusive_group.add_argument('-cs', '--clicks-switch', action='store', nargs=4, help="Switch clicks sizes",
 #                                      metavar=("CUR_X", "NEW_X", "CUR_Y", "NEW_Y"))
 
@@ -107,6 +94,7 @@ switches_group = parser.add_argument_group("Switches")
 switches_exclusive_group = switches_group.add_mutually_exclusive_group()
 switches_exclusive_group.add_argument('-cps', '--copy-switches-from', action='store', type=Path,
                                       help="Copy switches from other a7p file.", dest="copy_switches")
+
 
 # parser.add_argument('--max-threads', action='store', type=int, default=5)
 
@@ -256,7 +244,7 @@ def process_file(
         distances=distances,
         zero_distance=zero_distance,
         zero_update=any([zero_offset, zero_sync]),
-        switches = copy_switches is not None
+        switches=copy_switches is not None
     )
     try:
         with open(path, 'rb') as fp:
@@ -285,7 +273,7 @@ def process_file(
     return result
 
 
-async def print_results_and_save(results, verbose=False, force=False):
+def print_results_and_save(results, verbose=False, force=False):
     count_errors = 0
     results = sorted(filter(lambda x: x is not None, results),
                      key=lambda x: x.error is not None, reverse=False)
@@ -322,7 +310,7 @@ def recover_payload(result: Result):
         logger.info("No violations found")
 
 
-async def process_files(
+def process_files(
         path: Path = None,
         recursive: bool = False,
         unsafe: bool = False,
@@ -344,7 +332,6 @@ async def process_files(
         logger.warning("Use the 'force' option cautiously, only if you are certain about its effects.")
 
     validate = unsafe is False
-    tasks = []
 
     if zero_sync:
         zero_sync = get_zero_to_sync(zero_sync, validate)
@@ -365,39 +352,36 @@ async def process_files(
 
             verbose = True
 
-        results = [await asyncio.to_thread(process_file,
-                                           path, validate, distances,
-                                           zero_distance, zero_offset, zero_sync,
-                                           verbose, recover, copy_switches
-                                           )]
+        results = [process_file(
+            path, validate, distances,
+            zero_distance, zero_offset, zero_sync,
+            verbose, recover, copy_switches
+        )]
     else:
         if recover:
             parser.warning("The '--recover' option is supported only when processing a single file.")
         if verbose:
             parser.warning("The '--verbose' option is supported only when processing a single file.")
 
+        results: tuple[Result] | list[Result] = []
+
         if recursive:
-            item: Path
-            for item in path.rglob("*"):  # '*' matches all files and directories
-                if item.is_file():
-                    tasks.append(limited_to_thread(
-                        process_file, item, validate, distances,
-                        zero_distance, zero_offset, zero_sync, copy_switches))
+            paths = path.rglob("*")
         else:
-            for item in path.iterdir():
-                if item.is_file():
-                    tasks.append(limited_to_thread(process_file, item, validate, distances,
-                                                   zero_distance, zero_offset, zero_sync, copy_switches))
+            paths = path.iterdir()
 
-        results: tuple[Result] | list[Result] = await tqdm_asyncio.gather(*tasks)
+        files = tuple(p for p in paths if p.is_file())
+        for item in tqdm.tqdm(files):
+            results.append(process_file(item, validate, distances,
+                                        zero_distance, zero_offset, zero_sync, copy_switches=copy_switches))
 
-    await print_results_and_save(results, verbose=verbose, force=force)
+    print_results_and_save(results, verbose=verbose, force=force)
 
 
 def main():
     try:
         args = parser.parse_args()
-        asyncio.run(process_files(**args.__dict__))
+        process_files(**args.__dict__)
     except NotImplementedError as e:
         logger.error(e)
         sys.exit(0)
