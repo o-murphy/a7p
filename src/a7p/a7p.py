@@ -16,14 +16,24 @@ Functions:
 
 import hashlib
 import json
+import warnings
 from typing import BinaryIO
 
 from google.protobuf.json_format import MessageToJson, MessageToDict, Parse
 
+from a7p import exceptions
 from a7p import profedit_pb2
 from a7p import protovalidate
-from a7p import exceptions
 from a7p.spec_validator import validate_spec
+
+USE_PROTOVALIDATE = False
+
+
+def setUseProtovalidate(flag: bool):
+    if flag:
+        warnings.warn("protovalidate.validate", DeprecationWarning)
+    global USE_PROTOVALIDATE
+    USE_PROTOVALIDATE = flag
 
 
 def loads(string: bytes, validate_: bool = True, fail_fast: bool = False) -> profedit_pb2.Payload:
@@ -116,19 +126,20 @@ def dump(payload: profedit_pb2.Payload, file: BinaryIO, validate_: bool = True, 
     file.write(data)
 
 
-def to_json(payload: profedit_pb2.Payload) -> str:
+def to_json(payload: profedit_pb2.Payload, preserving_proto_field_name: bool = True) -> str:
     """
     Converts a Payload object to a JSON string.
 
     Args:
         payload (profedit_pb2.Payload): The Payload object to convert.
+        preserving_proto_field_name:
 
     Returns:
         str: The JSON string representation of the Payload object.
     """
     return MessageToJson(payload,
                          including_default_value_fields=True,
-                         preserving_proto_field_name=True)
+                         preserving_proto_field_name=preserving_proto_field_name)
 
 
 def from_json(json_data: str) -> profedit_pb2.Payload:
@@ -144,19 +155,20 @@ def from_json(json_data: str) -> profedit_pb2.Payload:
     return Parse(json_data, profedit_pb2.Payload())
 
 
-def to_dict(payload: profedit_pb2.Payload) -> dict:
+def to_dict(payload: profedit_pb2.Payload, preserving_proto_field_name: bool = True) -> dict:
     """
     Converts a Payload object to a dictionary.
 
     Args:
         payload (profedit_pb2.Payload): The Payload object to convert.
+        preserving_proto_field_name:
 
     Returns:
         dict: The dictionary representation of the Payload object.
     """
     return MessageToDict(payload,
                          including_default_value_fields=True,
-                         preserving_proto_field_name=True)
+                         preserving_proto_field_name=preserving_proto_field_name)
 
 
 def from_dict(data: dict) -> profedit_pb2.Payload:
@@ -179,6 +191,7 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
     Args:
         payload (profedit_pb2.Payload): The Payload object to validate.
         fail_fast (bool): Flag indicating whether to raise errors immediately on validation failure. Default is False.
+        _protovalidate (bool): DEPRECATED: Disabled by default, cause too slow and not effective
 
     Returns:
         None
@@ -194,25 +207,26 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
 
     is_errors = False
 
-    try:
-        protovalidate.validate(payload)
-    except protovalidate.ValidationError as err:
-        proto_error = exceptions.A7PProtoValidationError(
-            "Proto validation error",
-            payload,
-            err.violations
-        )
-        if fail_fast:
-            raise proto_error
-        is_errors = True
-        violations['proto_violations'] = proto_error.proto_violations
-        violations['violations'].append(
-            exceptions.Violation(
+    if USE_PROTOVALIDATE:
+        try:
+            protovalidate.validate(payload)
+        except protovalidate.ValidationError as err:
+            proto_error = exceptions.A7PProtoValidationError(
                 "Proto validation error",
-                "Validation failed during proto validation",
-                ""
+                payload,
+                err.violations
             )
-        )
+            if fail_fast:
+                raise proto_error
+            is_errors = True
+            violations['proto_violations'] = proto_error.proto_violations
+            violations['violations'].append(
+                exceptions.Violation(
+                    "Proto validation error",
+                    "Validation failed during proto validation",
+                    ""
+                )
+            )
 
     try:
         validate_spec(payload)
@@ -250,6 +264,7 @@ __all__ = (
     'from_dict',
     'to_dict',
     'validate',
+    'setUseProtovalidate',
 )
 
 if __name__ == '__main__':
