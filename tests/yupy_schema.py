@@ -65,14 +65,14 @@ _schema = mapping().shape({
 })
 
 
-def _corf_rows_mv_test(rows):
+def _coef_rows_mv_validator(rows):
     if not rows:
         raise ValidationError(
             Constraint(
                 'unique_mv',
-                None,
                 'Coefficient rows must not be empty'
-            )
+            ),
+            invalid_value=rows
         )
     mv_values = map(lambda x: x['mv'], rows)
     filtered = tuple(filter(lambda mv: mv != 0, mv_values))
@@ -81,11 +81,10 @@ def _corf_rows_mv_test(rows):
         raise ValidationError(
             Constraint(
                 'unique_mv',
-                None,
                 "'mv' values must be unique, except for mv == 0"
-            )
+            ),
+            invalid_value=rows
         )
-
 
 _coef_rows_std_schema = array().of(
     mapping().shape({
@@ -94,7 +93,7 @@ _coef_rows_std_schema = array().of(
     })
 ).min(1).max(5).required(
     'For G1 or G7, coefRows must contain between 1 and 5 items'
-).test(_corf_rows_mv_test)
+).test(_coef_rows_mv_validator)
 
 _coef_rows_custom_schema = array().of(
     mapping().shape({
@@ -103,28 +102,39 @@ _coef_rows_custom_schema = array().of(
     })
 ).min(1).max(200).required(
     'For CUSTOM, coefRows must contain between 1 and 200 items'
-).test(_corf_rows_mv_test)
+).test(_coef_rows_mv_validator)
 
 
 def validate(payload: profedit_pb2.Payload, fail_fast: bool = False):
     data = MessageToDict(payload,
                          including_default_value_fields=True,
                          preserving_proto_field_name=True)
-    _schema.validate(data, fail_fast, "<payload>")
+    errors = []
+    try:
+        _schema.validate(data, fail_fast, "<payload>")
+    except ValidationError as err:
+        if fail_fast:
+            raise err
+        errors.append(err)
 
-    bc_type = data['profile']['bc_type']
-    if bc_type in {'G1', 'G7'}:
-        _coef_rows_std_schema.validate(data['profile']['coef_rows'], fail_fast, path='<payload>.profile.coef_rows')
-    elif bc_type == 'CUSTOM':
-        _coef_rows_custom_schema.validate(data['profile']['coef_rows'], fail_fast, path='<payload>.profile.coef_rows')
-    else:
-        raise ValidationError(
-            Constraint(
-                'invalid_bc_type',
-                None,
-                'Invalid bc_type'
-            )
-        )
+    try:
+        bc_type = data['profile']['bc_type']
+        if bc_type in {'G1', 'G7'}:
+            _coef_rows_std_schema.validate(data['profile']['coef_rows'], fail_fast,
+                                           path='<payload>.profile.coef_rows')
+        elif bc_type == 'CUSTOM':
+            _coef_rows_custom_schema.validate(data['profile']['coef_rows'], fail_fast,
+                                              path='<payload>.profile.coef_rows')
+    except ValidationError as err:
+        if fail_fast:
+            raise err
+        errors.append(err)
+
+    if errors:
+        raise ValidationError(Constraint(
+            "invalid payload",
+            "invalid payload"
+        ), errors=errors, invalid_value=payload)
 
 
 if __name__ == '__main__':
@@ -158,3 +168,24 @@ if __name__ == '__main__':
 
     tpro = timeit.timeit(v_pro, number=num)
     print(tpro)  # 3.4331s
+
+
+    import tqdm
+    from pathlib import Path
+    d = Path('../gallery').rglob("*")
+    fs = [p for p in d if p.is_file()]
+    errs = []
+    for f in tqdm.tqdm(fs):
+        with open(f, 'rb') as fp:
+            p = load(fp, fail_fast=True, validate_=False)
+            try:
+                validate(p, fail_fast=False)
+            except ValidationError as err:
+                errs.append(err)
+
+    print(len(errs))
+    gen = errs[0].errors
+    next(gen)
+
+    print(next(gen).invalid_value)
+
