@@ -111,7 +111,7 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False):
                          preserving_proto_field_name=True)
     errors = []
     try:
-        _schema.validate(data, fail_fast, "<payload>")
+        _schema.validate(data, fail_fast, "~")
     except ValidationError as err:
         if fail_fast:
             raise err
@@ -121,10 +121,10 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False):
         bc_type = data['profile']['bc_type']
         if bc_type in {'G1', 'G7'}:
             _coef_rows_std_schema.validate(data['profile']['coef_rows'], fail_fast,
-                                           path='<payload>.profile.coef_rows')
+                                           path='~/profile/coef_rows')
         elif bc_type == 'CUSTOM':
             _coef_rows_custom_schema.validate(data['profile']['coef_rows'], fail_fast,
-                                              path='<payload>.profile.coef_rows')
+                                              path='~/profile/coef_rows')
     except ValidationError as err:
         if fail_fast:
             raise err
@@ -134,58 +134,6 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False):
         raise ValidationError(Constraint(
             "invalid payload",
             "invalid payload"
-        ), errors=errors, invalid_value=payload)
+        ), path="~", errors=errors, invalid_value=payload)
 
-
-if __name__ == '__main__':
-    from a7p import load
-    from a7p.spec_validator import validate_spec
-    from a7p.protovalidate import validate as proto_validate
-    import timeit
-
-    with open("../example.a7p", 'rb') as f:
-        p = load(f, fail_fast=True)
-
-
-    def v_old():
-        validate_spec(p)
-
-
-    def v_new():
-        validate(p)
-
-
-    def v_pro():
-        proto_validate(p)
-
-
-    num = 10
-    told = timeit.timeit(v_old, number=num)
-    print(told)  # 0.0601s
-
-    tnew = timeit.timeit(v_new, number=num)
-    print(tnew)  # 0.0059s
-
-    tpro = timeit.timeit(v_pro, number=num)
-    print(tpro)  # 3.4331s
-
-
-    import tqdm
-    from pathlib import Path
-    d = Path('../gallery').rglob("*")
-    fs = [p for p in d if p.is_file()]
-    errs = []
-    for f in tqdm.tqdm(fs):
-        with open(f, 'rb') as fp:
-            p = load(fp, fail_fast=True, validate_=False)
-            try:
-                validate(p, fail_fast=False)
-            except ValidationError as err:
-                errs.append(err)
-
-    print(len(errs))
-    gen = errs[0].errors
-    next(gen)
-
-    print(next(gen).invalid_value)
 
