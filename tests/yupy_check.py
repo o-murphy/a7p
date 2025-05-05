@@ -8,7 +8,7 @@ if __name__ == '__main__':
     import tqdm
     from pathlib import Path
 
-    with open("../example.a7p", 'rb') as f:
+    with open("example.a7p", 'rb') as f:
         p = load(f, fail_fast=True)
 
 
@@ -34,7 +34,7 @@ if __name__ == '__main__':
     tpro = timeit.timeit(v_pro, number=num)
     print(tpro)  # 3.4331s
 
-    d = Path('../gallery').rglob("*")
+    d = Path('../a7p-lib/gallery').rglob("*")
     fs = [p for p in d if p.is_file()]
     errs = []
     for f in tqdm.tqdm(fs):

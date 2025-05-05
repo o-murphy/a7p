@@ -4,7 +4,7 @@
 - [Instalation](#instalation)
 - [Usage](#usage)
 - [Dimensions](#dimensions)
-- [Gallery of .a7p ballistic profiles](https://o-murphy.github.io/a7pIndex/)
+- [Gallery of .a7p ballistic profiles](https://o-murphy.github.io/a7p-lib/gallery)
 
 ## Description
 
