@@ -1,3 +1,5 @@
+from typing import Dict
+
 from google.protobuf.json_format import MessageToDict
 from yupy import mapping, array, string, number, mixed, ValidationError, Constraint, required
 
@@ -8,7 +10,7 @@ __all__ = (
 )
 
 _schema = mapping().shape({
-    'profile': mapping().shape({
+    'profile': required(mapping().shape({
         # descriptor
         'profile_name': required(string().max(50), 'Profile name is required'),
         'cartridge_name': required(string().max(50), 'Cartridge name is required'),
@@ -61,7 +63,7 @@ _schema = mapping().shape({
         # drag model
         'bc_type': required(mixed().one_of(['G1', 'G7', 'CUSTOM'])),
         'coef_rows': required(array().min(1).max(200))
-    }),
+    }))
 })
 
 
@@ -107,6 +109,13 @@ _coef_rows_custom_schema = required(
     'For CUSTOM, coefRows must contain between 1 and 200 items'
 )
 
+def validate_coef_rows(data: Dict, fail_fast):
+    bc_type = data['profile']['bc_type']
+    match bc_type:
+        case 'G1' | 'G7':
+            _coef_rows_std_schema.validate(data['profile']['coef_rows'], fail_fast, path='~/profile/coef_rows')
+        case 'CUSTOM':
+            _coef_rows_custom_schema.validate(data['profile']['coef_rows'], fail_fast, path='~/profile/coef_rows')
 
 def validate(payload: profedit_pb2.Payload, fail_fast: bool = False):
     data = MessageToDict(payload,
@@ -121,13 +130,7 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False):
         errors.append(err)
 
     try:
-        bc_type = data['profile']['bc_type']
-        if bc_type in {'G1', 'G7'}:
-            _coef_rows_std_schema.validate(data['profile']['coef_rows'], fail_fast,
-                                           path='~/profile/coef_rows')
-        elif bc_type == 'CUSTOM':
-            _coef_rows_custom_schema.validate(data['profile']['coef_rows'], fail_fast,
-                                              path='~/profile/coef_rows')
+        validate_coef_rows(data, fail_fast)
     except ValidationError as err:
         if fail_fast:
             raise err

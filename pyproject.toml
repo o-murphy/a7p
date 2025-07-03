@@ -32,7 +32,8 @@ dependencies = [
     "protobuf==4.25.2",
     "cel-python==0.1.5",
     "tqdm==4.67.1",
-    "typing_extensions==4.12.2",
+    "typing_extensions==4.13.2",
+    "yupy[orjson]>=0.2.0b3",
 ]
 dynamic = ["version"]
 
@@ -53,7 +54,7 @@ dev = [
     "build",
     "protovalidate==0.6.0",
     'pydantic==2.10.4',
-    'yupy>=0.1.2'
+    'yupy>=0.2.0b3'
 ]
 
 [tool.setuptools.dynamic]
