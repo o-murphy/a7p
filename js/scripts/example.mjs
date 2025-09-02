@@ -14,7 +14,7 @@ async function readFileAsBytes(path) {
 }
 
 async function main() {
-    const bytes = await readFileAsBytes('./scripts/example.a7p').catch(err => console.log(err));
+    const bytes = await readFileAsBytes('./scripts/example2.a7p').catch(err => console.log(err));
 
     if (bytes) {
         try {
@@ -27,6 +27,9 @@ async function main() {
         } catch (error) {
             if (error instanceof ValidationError) {
                 console.log(error.errors)
+                error.errors.forEach(x => {
+                    console.log(x)
+                })
             }
         }
 

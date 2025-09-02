@@ -26,7 +26,11 @@ export const schema = object().shape({
             object().shape({
                 cIdx: number().min(0).max(255).integer().required(),
                 distanceFrom: mixed().oneOf(['INDEX', 'VALUE']).required(),
-                distance: number().min(100).max(300000).integer().required(),
+                distance: number().when('distanceFrom', {
+                    is: 'VALUE',
+                    then: (schema) => schema.min(100).max(300000).integer().required(),
+                    otherwise: (schema) => schema.min(0).max(255).integer().required(),
+                }),
                 reticleIdx: number().min(0).max(255).integer().required(),
                 zoom: number().min(0).max(255).integer().required(),
             })
