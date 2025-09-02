@@ -50,12 +50,6 @@ include = ["a7p*"]
 
 [project.optional-dependencies]
 pydantic = ['pydantic==2.10.4']
-dev = [
-    "build",
-    "protovalidate==0.6.0",
-    'pydantic==2.10.4',
-    'yupy>=0.2.0b3'
-]
 
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}
@@ -63,3 +57,34 @@ version = {file = "VERSION"}
 [project.scripts]
 a7p = "a7p.__main__:main"
 a7p-restore = "a7p.pydantic.restore_tool:main"
+
+[tool.pytest]
+testpaths = ["tests"]
+
+ # uncomment to configure ruff linter/formatter
+[tool.ruff]
+include = [
+    "pyproject.toml",
+    "src/**/*.py",
+]
+exclude = [
+    ".git",
+    "__pypackages__",
+    "*.egg-info",
+    ".ruff_cache",
+    "venv",
+    ".venv",
+    "__init__.py",
+    "src/**/*pb2.py",
+    "src/a7p/buf",
+    "src/a7p/protovalidate",
+]
+
+[dependency-groups]
+dev = [
+    "protovalidate>=0.6.0",
+    "pydantic>=2.10.4",
+    "pytest>=8.4.1",
+    "ruff>=0.12.11",
+    "yupy>=0.2.0b3",
+]

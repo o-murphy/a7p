@@ -1,18 +1,29 @@
 from enum import Enum
 from typing import Any, get_args
 
-from pydantic import BaseModel, ValidationError, conint, constr, conlist, BeforeValidator, field_validator
+from pydantic import (
+    BaseModel,
+    ValidationError,
+    conint,
+    constr,
+    conlist,
+    BeforeValidator,
+    field_validator,
+)
 from pydantic_core.core_schema import FieldValidationInfo
 from typing_extensions import List, Union, Annotated
 
-from a7p.pydantic.correction import on_restore, trigger_confield_validation, pre_validate_conint
+from a7p.pydantic.correction import (
+    on_restore,
+    trigger_confield_validation,
+    pre_validate_conint,
+)
 from a7p.pydantic.template import PAYLOAD_RECOVERY_SCHEMA
-
 
 
 def validate_c_idx(v):
     if not (0 <= v <= 200 or v == 255):
-        raise ValueError('c_idx must be between 0 and 200, or exactly 255')
+        raise ValueError("c_idx must be between 0 and 200, or exactly 255")
     # assert 0 <= v <= 200 or v == 255
     return v
 
@@ -21,20 +32,26 @@ def validate_distance_from(v):
     if isinstance(v, int):
         # Ensure the integer is within the allowed range
         if not (0 <= v <= 255):
-            raise ValueError("distance_from must be between 0 and 255 if it's an integer.")
+            raise ValueError(
+                "distance_from must be between 0 and 255 if it's an integer."
+            )
     elif isinstance(v, str):
         # Ensure the string is 'VALUE'
-        if v.lower() not in ['value', 'index']:
+        if v.lower() not in ["value", "index"]:
             raise ValueError("distance_from must be 'VALUE' if it's a string.")
     else:
-        raise ValueError("distance_from must be either an integer in range 0-255 or the string 'VALUE' or 'INDEX'.")
+        raise ValueError(
+            "distance_from must be either an integer in range 0-255 or the string 'VALUE' or 'INDEX'."
+        )
 
     return v
 
 
 def restore_str_len(max_len, default="nil"):
-    def decorator(cls: type, value: Any, info: FieldValidationInfo, err: Exception) -> Any:
-        if info.context.get('restore'):
+    def decorator(
+        cls: type, value: Any, info: FieldValidationInfo, err: Exception
+    ) -> Any:
+        if info.context.get("restore"):
             if isinstance(value, str):
                 return value[:max_len]
         return default[:max_len]
@@ -43,7 +60,9 @@ def restore_str_len(max_len, default="nil"):
 
 
 def restore_default(default):
-    def decorator(cls: type, value: Any, info: FieldValidationInfo, err: Exception) -> Any:
+    def decorator(
+        cls: type, value: Any, info: FieldValidationInfo, err: Exception
+    ) -> Any:
         return default
 
     return decorator
@@ -118,9 +137,9 @@ ZeroDistanceIdx = DistanceIdx
 # CoefRowsList = Annotated[Union[List[BcMvRows], List[CdMaRows]], BeforeValidator(validate_coef_rows_based_on_bc_type)]
 CoefRowsList = Union[List[BcMvRows], List[CdMaRows]]
 
-DEFAULT_DISTANCES = PAYLOAD_RECOVERY_SCHEMA['profile']['distances']
-DEFAULT_SWITCHES = PAYLOAD_RECOVERY_SCHEMA['profile']['switches']
-DEFAULT_COEF_ROWS = PAYLOAD_RECOVERY_SCHEMA['profile']['coef_rows']
+DEFAULT_DISTANCES = PAYLOAD_RECOVERY_SCHEMA["profile"]["distances"]
+DEFAULT_SWITCHES = PAYLOAD_RECOVERY_SCHEMA["profile"]["switches"]
+DEFAULT_COEF_ROWS = PAYLOAD_RECOVERY_SCHEMA["profile"]["coef_rows"]
 
 
 class Profile(BaseModel):
@@ -166,106 +185,107 @@ class Profile(BaseModel):
     bc_type: BCType
     coef_rows: CoefRowsList
 
-    @field_validator('profile_name',
-                     'cartridge_name',
-                     'bullet_name',
-                     'caliber',
-                     mode='before')
+    @field_validator(
+        "profile_name", "cartridge_name", "bullet_name", "caliber", mode="before"
+    )
     @on_restore(handler=restore_str_len(50))
     def validate_string_50(cls, value, info: FieldValidationInfo):
         return trigger_confield_validation(cls, value, info)
 
-    @field_validator('device_uuid', mode='before')
+    @field_validator("device_uuid", mode="before")
     @on_restore(handler=restore_str_len(50, ""))
     def validate_device_uuid(cls, value, info: FieldValidationInfo):
         return trigger_confield_validation(cls, value, info)
 
-    @field_validator('short_name_top',
-                     'short_name_bot',
-                     mode='before')
+    @field_validator("short_name_top", "short_name_bot", mode="before")
     @on_restore(handler=restore_str_len(8))
     def validate_string_8(cls, value, info: FieldValidationInfo):
         return trigger_confield_validation(cls, value, info)
 
-    @field_validator('user_note',
-                     mode='before')
+    @field_validator("user_note", mode="before")
     @on_restore(handler=restore_str_len(1024))
     def validate_user_note(cls, value, info: FieldValidationInfo):
         return trigger_confield_validation(cls, value, info)
 
-    @field_validator('zero_x',
-                     'zero_y',
-                     'c_zero_air_humidity',
-                     'c_zero_w_pitch',
-                     mode='before')
+    @field_validator(
+        "zero_x", "zero_y", "c_zero_air_humidity", "c_zero_w_pitch", mode="before"
+    )
     @on_restore(handler=restore_default(0))
     def validate_zero(cls, value, info: FieldValidationInfo):
         return trigger_confield_validation(cls, value, info)
 
-    @field_validator('sc_height', mode='before')
+    @field_validator("sc_height", mode="before")
     @on_restore(handler=restore_default(90))
     def validate_sc_height(cls, value, info: FieldValidationInfo):
         return trigger_confield_validation(cls, value, info)
 
-    @field_validator('c_muzzle_velocity', mode='before')
+    @field_validator("c_muzzle_velocity", mode="before")
     @on_restore(handler=restore_default(8000))
     def validate_c_muzzle_velocity(cls, value, info: FieldValidationInfo):
         return trigger_confield_validation(cls, value, info)
 
-    @field_validator('c_zero_temperature',
-                     'c_zero_air_temperature',
-                     'c_zero_p_temperature',
-                     mode='before')
+    @field_validator(
+        "c_zero_temperature",
+        "c_zero_air_temperature",
+        "c_zero_p_temperature",
+        mode="before",
+    )
     @on_restore(handler=restore_default(15))
     def validate_temperature(cls, value, info: FieldValidationInfo):
         return trigger_confield_validation(cls, value, info)
 
-    @field_validator('c_t_coeff', mode='before')
+    @field_validator("c_t_coeff", mode="before")
     @on_restore(handler=restore_default(1000))
     def validate_c_t_coeff(cls, value, info: FieldValidationInfo):
         return trigger_confield_validation(cls, value, info)
 
-    @field_validator('c_zero_air_pressure', mode='before')
+    @field_validator("c_zero_air_pressure", mode="before")
     @on_restore(handler=restore_default(10000))
     def validate_c_zero_pressure(cls, value, info: FieldValidationInfo):
         return trigger_confield_validation(cls, value, info)
 
-    @field_validator('b_weight', mode='before')
+    @field_validator("b_weight", mode="before")
     @on_restore(handler=restore_default(3000))
     def validate_b_weight(cls, value, info: FieldValidationInfo):
         return trigger_confield_validation(cls, value, info)
 
-    @field_validator('b_diameter', mode='before')
+    @field_validator("b_diameter", mode="before")
     @on_restore(handler=restore_default(1800))
     def validate_b_diameter(cls, value, info: FieldValidationInfo):
         return trigger_confield_validation(cls, value, info)
 
-    @field_validator('b_length', mode='before')
+    @field_validator("b_length", mode="before")
     @on_restore(handler=restore_default(338))
     def validate_b_length(cls, value, info: FieldValidationInfo):
         return trigger_confield_validation(cls, value, info)
 
-    @field_validator('twist_dir', mode='before')
+    @field_validator("twist_dir", mode="before")
     @on_restore(handler=restore_default(TwistDir.RIGHT.value))
     def validate_twist_dir(cls, value, info: FieldValidationInfo):
         if value not in [TwistDir.RIGHT, TwistDir.LEFT]:
             raise ValueError("Input should be 'RIGHT' or 'LEFT'")
         return value
 
-    @field_validator('distances', mode='before')
+    @field_validator("distances", mode="before")
     @on_restore(handler=restore_default(DEFAULT_DISTANCES))
     def validate_distances(cls, value, info: FieldValidationInfo):
-
         if not isinstance(value, list):
             raise ValueError("Input should be a valid list")
 
         if len(value) < 1:
-            raise ValueError("List should have at least 1 item after validation, not %s" % len(value))
+            raise ValueError(
+                "List should have at least 1 item after validation, not %s" % len(value)
+            )
         if len(value) > 200:
-            raise ValueError("List should have at most 200 items after validation, not  %s" % len(value))
+            raise ValueError(
+                "List should have at most 200 items after validation, not  %s"
+                % len(value)
+            )
 
         if len(value) != len(set(value)):
-            repeated_items = list(set([item for item in value if value.count(item) > 1]))
+            repeated_items = list(
+                set([item for item in value if value.count(item) > 1])
+            )
 
             raise ValueError("Non unique values found in a list %s" % repeated_items)
 
@@ -279,16 +299,17 @@ class Profile(BaseModel):
 
         return value
 
-    @field_validator('c_zero_distance_idx', mode='before')
+    @field_validator("c_zero_distance_idx", mode="before")
     @on_restore(handler=restore_default(0))
     def validate_c_zero_distance_idx(cls, value, info: FieldValidationInfo):
-
         # Retrieve 'distances' from the model's data
-        distances = info.data.get('distances')
+        distances = info.data.get("distances")
 
         # If distances is None, raise an error since validation cannot proceed
         if distances is None:
-            raise ValueError("c_zero_distance_idx cannot be valid if distances are invalid or missing")
+            raise ValueError(
+                "c_zero_distance_idx cannot be valid if distances are invalid or missing"
+            )
 
         # If distances is a list or tuple, and value is not None, validate the index
         if isinstance(distances, (list, tuple)) and value is not None:
@@ -299,16 +320,18 @@ class Profile(BaseModel):
 
         return value
 
-    @field_validator('switches', mode='before')
+    @field_validator("switches", mode="before")
     @on_restore(handler=restore_default(DEFAULT_SWITCHES))
     def validate_switches(cls, value, info: FieldValidationInfo):
         value.append(value[0])
-        value[0]['c_idx'] = 500
+        value[0]["c_idx"] = 500
         if not isinstance(value, list):
             raise ValueError("Input should be a valid list")
 
         if len(value) < 4:
-            raise ValueError("List should have at least 4 item after validation, not %s" % len(value))
+            raise ValueError(
+                "List should have at least 4 item after validation, not %s" % len(value)
+            )
 
         for item in value:
             try:
@@ -318,48 +341,67 @@ class Profile(BaseModel):
 
         return value
 
-    @field_validator('bc_type', mode='before')
+    @field_validator("bc_type", mode="before")
     @on_restore(handler=restore_default(BCType.G7))
     def validate_bc_type(cls, value, info: FieldValidationInfo):
         if value not in [BCType.G1, BCType.G7, BCType.CUSTOM]:
             raise ValueError("Input should be 'G1', 'G7' or 'CUSTOM'")
         return value
 
-    @field_validator('coef_rows', mode='before')
+    @field_validator("coef_rows", mode="before")
     @on_restore(handler=restore_default(DEFAULT_COEF_ROWS))
     def validate_coef_rows_based_on_bc_type(cls, value, info: FieldValidationInfo):
         # Convert dictionaries to model instances based on bc_type
-        bc_type = info.data.get('bc_type')
-        value[0]['bc_cd'] = 300000
+        bc_type = info.data.get("bc_type")
+        value[0]["bc_cd"] = 300000
         try:
             if bc_type in [BCType.G1, BCType.G7]:
                 if len(value) < 1:
-                    raise ValueError('coef_rows should have at least 1 item when bc_type is %s' % bc_type)
+                    raise ValueError(
+                        "coef_rows should have at least 1 item when bc_type is %s"
+                        % bc_type
+                    )
                 if len(value) > 5:
-                    raise ValueError('coef_rows should have maximum 5 items when bc_type is %s' % bc_type)
+                    raise ValueError(
+                        "coef_rows should have maximum 5 items when bc_type is %s"
+                        % bc_type
+                    )
 
                 # Ensure coef_rows contains BcMvRows instances
-                value = [BcMvRows(**row) if isinstance(row, dict) else row for row in value]
+                value = [
+                    BcMvRows(**row) if isinstance(row, dict) else row for row in value
+                ]
                 if not all(isinstance(row, BcMvRows) for row in value):
-                    raise ValueError(f'coef_rows must contain BcMvRows when bc_type is %s' % bc_type)
+                    raise ValueError(
+                        "coef_rows must contain BcMvRows when bc_type is %s" % bc_type
+                    )
             elif bc_type == BCType.CUSTOM:
-
                 if len(value) < 1:
-                    raise ValueError('coef_rows should have at least 1 item when bc_type is {bc_type}')
+                    raise ValueError(
+                        "coef_rows should have at least 1 item when bc_type is {bc_type}"
+                    )
                 if len(value) > 200:
-                    raise ValueError('coef_rows should have maximum 200 items when bc_type is {bc_type}')
+                    raise ValueError(
+                        "coef_rows should have maximum 200 items when bc_type is {bc_type}"
+                    )
 
                 # Ensure coef_rows contains CdMaRows instances
-                value = [CdMaRows(**row) if isinstance(row, dict) else row for row in value]
+                value = [
+                    CdMaRows(**row) if isinstance(row, dict) else row for row in value
+                ]
                 if not all(isinstance(row, CdMaRows) for row in value):
-                    raise ValueError(f'coef_rows must contain CdMaRows when bc_type is %s' % bc_type)
+                    raise ValueError(
+                        "coef_rows must contain CdMaRows when bc_type is %s" % bc_type
+                    )
             else:
-                raise ValueError(f"Unsupported bc_type: %s" % bc_type)
+                raise ValueError("Unsupported bc_type: %s" % bc_type)
 
-        except ValidationError as e:
+        except ValidationError:
             # raise e
             # Handle the validation error gracefully
-            raise ValueError(f"Validation error while processing coef_rows for bc_type %s" % bc_type)
+            raise ValueError(
+                "Validation error while processing coef_rows for bc_type %s" % bc_type
+            )
 
         return value
 

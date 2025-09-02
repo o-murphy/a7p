@@ -66,6 +66,7 @@ class ProtoViolation(Violation):
 
     Inherits all attributes and methods from Violation.
     """
+
     pass
     # def __init__(self, path: str, value: any, reason: str) -> None:
     #     self.path = Path("~/", *path.split("."))
@@ -80,6 +81,7 @@ class SpecViolation(Violation):
 
     Inherits all attributes and methods from Violation.
     """
+
     pass
 
 
@@ -89,6 +91,7 @@ class A7PError(RuntimeError):
 
     Inherits from RuntimeError.
     """
+
     pass
 
 
@@ -96,6 +99,7 @@ class A7PDataError(A7PError):
     """
     A subclass of A7PError that is raised for data-related errors.
     """
+
     pass
 
 
@@ -103,6 +107,7 @@ class A7PChecksumError(A7PDataError):
     """
     A subclass of A7PDataError for errors related to checksum validation.
     """
+
     pass
 
 
@@ -118,10 +123,14 @@ class A7PValidationError(A7PDataError):
         spec_violations (list[SpecViolation]): A list of specification validation violations.
     """
 
-    def __init__(self, msg: str, payload: profedit_pb2.Payload,
-                 violations: list[Violation] = None,
-                 proto_violations: list[ProtoViolation] = None,
-                 spec_violations: list[SpecViolation] = None):
+    def __init__(
+        self,
+        msg: str,
+        payload: profedit_pb2.Payload,
+        violations: list[Violation] = None,
+        proto_violations: list[ProtoViolation] = None,
+        spec_violations: list[SpecViolation] = None,
+    ):
         """
         Initializes the validation error with the provided message, payload, and violations.
 
@@ -159,7 +168,12 @@ class A7PProtoValidationError(A7PValidationError):
         violations (expression_pb2.Violations): The violations related to the protocol validation.
     """
 
-    def __init__(self, msg: str, payload: profedit_pb2.Payload, violations: expression_pb2.Violations):
+    def __init__(
+        self,
+        msg: str,
+        payload: profedit_pb2.Payload,
+        violations: expression_pb2.Violations,
+    ):
         """
         Initializes the protocol validation error with the provided message, payload, and violations.
 
@@ -168,7 +182,9 @@ class A7PProtoValidationError(A7PValidationError):
             payload (profedit_pb2.Payload): The payload data.
             violations (expression_pb2.Violations): The violations related to the protocol validation.
         """
-        super().__init__(msg, payload, proto_violations=_extract_protovalidate_violations(violations))
+        super().__init__(
+            msg, payload, proto_violations=_extract_protovalidate_violations(violations)
+        )
 
 
 class A7PSpecValidationError(A7PValidationError):
@@ -203,7 +219,9 @@ class A7PSpecTypeError(A7PDataError):
         message (str): The error message indicating the type mismatch.
     """
 
-    def __init__(self, expected_types: tuple[Type, ...] = None, actual_type: Type = None):
+    def __init__(
+        self, expected_types: tuple[Type, ...] = None, actual_type: Type = None
+    ):
         """
         Initializes the type error with the expected types, actual type, and an error message.
 
@@ -213,8 +231,10 @@ class A7PSpecTypeError(A7PDataError):
         """
         self.expected_types = expected_types or "UNKNOWN"
         self.actual_type = actual_type or "UNKNOWN"
-        self.message = f"expected value to be one of types: {[t.__name__ for t in expected_types]}, " \
-                       f"but got {actual_type.__name__} instead."
+        self.message = (
+            f"expected value to be one of types: {[t.__name__ for t in expected_types]}, "
+            f"but got {actual_type.__name__} instead."
+        )
         super().__init__(self.message, self.expected_types, self.actual_type)
 
 
@@ -232,7 +252,9 @@ def _extract_violation(violation: expression_pb2.Violation) -> ProtoViolation:
         TypeError: If the provided violation is not an instance of expression_pb2.Violation.
     """
     if not isinstance(violation, expression_pb2.Violation):
-        raise TypeError("Expected an instance of expression_pb2.Violation, but got a different type.")
+        raise TypeError(
+            "Expected an instance of expression_pb2.Violation, but got a different type."
+        )
 
     field_path = None
     constraint_id = None
@@ -254,7 +276,9 @@ def _extract_violation(violation: expression_pb2.Violation) -> ProtoViolation:
     return ProtoViolation(field_path, constraint_id, message)
 
 
-def _extract_protovalidate_violations(violations: expression_pb2.Violations) -> list[ProtoViolation]:
+def _extract_protovalidate_violations(
+    violations: expression_pb2.Violations,
+) -> list[ProtoViolation]:
     """
     Extracts a list of ProtoViolation from an expression_pb2.Violations object.
 
@@ -268,7 +292,9 @@ def _extract_protovalidate_violations(violations: expression_pb2.Violations) -> 
         TypeError: If the provided violations object is not an instance of expression_pb2.Violations.
     """
     if not isinstance(violations, expression_pb2.Violations):
-        raise TypeError("Expected an instance of expression_pb2.Violations, but got a different type.")
+        raise TypeError(
+            "Expected an instance of expression_pb2.Violations, but got a different type."
+        )
 
     extracted_violations = []
     for field, value in violations.ListFields():
@@ -282,14 +308,14 @@ def _extract_protovalidate_violations(violations: expression_pb2.Violations) -> 
 
 
 __all__ = [
-    'SpecViolation',
-    'A7PError',
-    'A7PDataError',
-    'A7PChecksumError',
-    'A7PValidationError',
-    'A7PProtoValidationError',
-    'A7PSpecValidationError',
-    'A7PSpecTypeError',
-    '_extract_violation',
-    '_extract_protovalidate_violations'
+    "SpecViolation",
+    "A7PError",
+    "A7PDataError",
+    "A7PChecksumError",
+    "A7PValidationError",
+    "A7PProtoValidationError",
+    "A7PSpecValidationError",
+    "A7PSpecTypeError",
+    "_extract_violation",
+    "_extract_protovalidate_violations",
 ]

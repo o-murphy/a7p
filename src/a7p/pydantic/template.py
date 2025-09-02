@@ -27,29 +27,29 @@ PAYLOAD_RECOVERY_SCHEMA = {
                 "zoom": 1,
                 "distance": 10000,
                 "reticle_idx": 0,
-                "distance_from": "VALUE"
+                "distance_from": "VALUE",
             },
             {
                 "c_idx": 255,
                 "zoom": 2,
                 "distance": 20000,
                 "reticle_idx": 0,
-                "distance_from": "VALUE"
+                "distance_from": "VALUE",
             },
             {
                 "c_idx": 255,
                 "zoom": 3,
                 "distance": 30000,
                 "reticle_idx": 0,
-                "distance_from": "VALUE"
+                "distance_from": "VALUE",
             },
             {
                 "c_idx": 255,
                 "zoom": 4,
                 "distance": 100000,
                 "reticle_idx": 0,
-                "distance_from": "VALUE"
-            }
+                "distance_from": "VALUE",
+            },
         ],
         "distances": [
             10000,
@@ -247,19 +247,16 @@ PAYLOAD_RECOVERY_SCHEMA = {
             168500,
             169000,
             169500,
-            170000
+            170000,
         ],
         "coef_rows": [
-            {
-                "bc_cd": 3820,
-                "mv": 0
-            },
+            {"bc_cd": 3820, "mv": 0},
         ],
         "caliber": "nil",
         "c_zero_distance_idx": 0,
         "c_zero_w_pitch": 0,
         "twist_dir": "RIGHT",
-        "device_uuid": ""
+        "device_uuid": "",
     }
 }
 
@@ -281,6 +278,4 @@ def _fix_str_len_type(string: str, expected_len: int, default: str = "nil"):
 # PAYLOAD_RECOVERY_SCHEMA['profile']['user_note'] = lambda value: _fix_str_len_type(value, 1024)
 # PAYLOAD_RECOVERY_SCHEMA['profile']['distances'] = [int(d * 100) for d in A7PFactory.DistanceTable.LONG_RANGE.value]
 
-__all__ = (
-    'PAYLOAD_RECOVERY_SCHEMA',
-)
+__all__ = ("PAYLOAD_RECOVERY_SCHEMA",)

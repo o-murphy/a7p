@@ -36,7 +36,9 @@ def setUseProtovalidate(flag: bool):
     USE_PROTOVALIDATE = flag
 
 
-def loads(string: bytes, validate_: bool = True, fail_fast: bool = False) -> profedit_pb2.Payload:
+def loads(
+    string: bytes, validate_: bool = True, fail_fast: bool = False
+) -> profedit_pb2.Payload:
     """
     Deserializes byte data into a Payload object and validates it.
 
@@ -64,7 +66,9 @@ def loads(string: bytes, validate_: bool = True, fail_fast: bool = False) -> pro
         raise exceptions.A7PChecksumError("Input data is missing for MD5 hashing")
 
 
-def load(file: BinaryIO, validate_: bool = True, fail_fast: bool = False) -> profedit_pb2.Payload:
+def load(
+    file: BinaryIO, validate_: bool = True, fail_fast: bool = False
+) -> profedit_pb2.Payload:
     """
     Reads a file, deserializes the contents into a Payload object, and validates it.
 
@@ -84,7 +88,9 @@ def load(file: BinaryIO, validate_: bool = True, fail_fast: bool = False) -> pro
     return loads(string, validate_, fail_fast)
 
 
-def dumps(payload: profedit_pb2.Payload, validate_: bool = True, fail_fast: bool = False) -> bytes:
+def dumps(
+    payload: profedit_pb2.Payload, validate_: bool = True, fail_fast: bool = False
+) -> bytes:
     """
     Serializes a Payload object into bytes, including an MD5 hash.
 
@@ -106,7 +112,12 @@ def dumps(payload: profedit_pb2.Payload, validate_: bool = True, fail_fast: bool
     return md5_hash + data
 
 
-def dump(payload: profedit_pb2.Payload, file: BinaryIO, validate_: bool = True, fail_fast: bool = False) -> None:
+def dump(
+    payload: profedit_pb2.Payload,
+    file: BinaryIO,
+    validate_: bool = True,
+    fail_fast: bool = False,
+) -> None:
     """
     Serializes a Payload object and writes it to a file.
 
@@ -126,7 +137,9 @@ def dump(payload: profedit_pb2.Payload, file: BinaryIO, validate_: bool = True, 
     file.write(data)
 
 
-def to_json(payload: profedit_pb2.Payload, preserving_proto_field_name: bool = True) -> str:
+def to_json(
+    payload: profedit_pb2.Payload, preserving_proto_field_name: bool = True
+) -> str:
     """
     Converts a Payload object to a JSON string.
 
@@ -137,9 +150,11 @@ def to_json(payload: profedit_pb2.Payload, preserving_proto_field_name: bool = T
     Returns:
         str: The JSON string representation of the Payload object.
     """
-    return MessageToJson(payload,
-                         including_default_value_fields=True,
-                         preserving_proto_field_name=preserving_proto_field_name)
+    return MessageToJson(
+        payload,
+        including_default_value_fields=True,
+        preserving_proto_field_name=preserving_proto_field_name,
+    )
 
 
 def from_json(json_data: str) -> profedit_pb2.Payload:
@@ -155,7 +170,9 @@ def from_json(json_data: str) -> profedit_pb2.Payload:
     return Parse(json_data, profedit_pb2.Payload())
 
 
-def to_dict(payload: profedit_pb2.Payload, preserving_proto_field_name: bool = True) -> dict:
+def to_dict(
+    payload: profedit_pb2.Payload, preserving_proto_field_name: bool = True
+) -> dict:
     """
     Converts a Payload object to a dictionary.
 
@@ -166,9 +183,11 @@ def to_dict(payload: profedit_pb2.Payload, preserving_proto_field_name: bool = T
     Returns:
         dict: The dictionary representation of the Payload object.
     """
-    return MessageToDict(payload,
-                         including_default_value_fields=True,
-                         preserving_proto_field_name=preserving_proto_field_name)
+    return MessageToDict(
+        payload,
+        including_default_value_fields=True,
+        preserving_proto_field_name=preserving_proto_field_name,
+    )
 
 
 def from_dict(data: dict) -> profedit_pb2.Payload:
@@ -201,9 +220,7 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
         A7PSpecValidationError: If there are spec validation errors.
         A7PValidationError: If there are any violations.
     """
-    violations = {
-        'violations': []
-    }
+    violations = {"violations": []}
 
     is_errors = False
 
@@ -212,19 +229,17 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
             protovalidate.validate(payload)
         except protovalidate.ValidationError as err:
             proto_error = exceptions.A7PProtoValidationError(
-                "Proto validation error",
-                payload,
-                err.violations
+                "Proto validation error", payload, err.violations
             )
             if fail_fast:
                 raise proto_error
             is_errors = True
-            violations['proto_violations'] = proto_error.proto_violations
-            violations['violations'].append(
+            violations["proto_violations"] = proto_error.proto_violations
+            violations["violations"].append(
                 exceptions.Violation(
                     "Proto validation error",
                     "Validation failed during proto validation",
-                    ""
+                    "",
                 )
             )
 
@@ -234,12 +249,10 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
         if fail_fast:
             raise err
         is_errors = True
-        violations['spec_violations'] = err.spec_violations
-        violations['violations'].append(
+        violations["spec_violations"] = err.spec_violations
+        violations["violations"].append(
             exceptions.Violation(
-                "Spec validation error",
-                "Validation failed during spec validation",
-                ""
+                "Spec validation error", "Validation failed during spec validation", ""
             )
         )
 
@@ -248,24 +261,24 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
         raise exceptions.A7PValidationError(
             "Validation error",
             payload,
-            violations=violations['violations'],  # Загальний список порушень
-            proto_violations=violations.get('proto_violations'),
-            spec_violations=violations.get('spec_violations')
+            violations=violations["violations"],  # Загальний список порушень
+            proto_violations=violations.get("proto_violations"),
+            spec_violations=violations.get("spec_violations"),
         )
 
 
 __all__ = (
-    'loads',
-    'dumps',
-    'load',
-    'dump',
-    'from_json',
-    'to_json',
-    'from_dict',
-    'to_dict',
-    'validate',
-    'setUseProtovalidate',
+    "loads",
+    "dumps",
+    "load",
+    "dump",
+    "from_json",
+    "to_json",
+    "from_dict",
+    "to_dict",
+    "validate",
+    "setUseProtovalidate",
 )
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass

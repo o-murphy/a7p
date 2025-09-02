@@ -41,7 +41,7 @@ from . import profedit_pb2
 from .exceptions import SpecViolation, A7PSpecTypeError, A7PSpecValidationError
 
 # Define a custom type for the return value
-SpecValidationResult = Tuple[bool, Union[str, List['SpecViolation']]]
+SpecValidationResult = Tuple[bool, Union[str, List["SpecViolation"]]]
 
 # Define the type annotation for the callable
 SpecValidatorFunction = Callable[[Any, Path, List[Any]], SpecValidationResult]
@@ -60,10 +60,13 @@ class SpecCriterion:
     Methods:
         validate(data, path, violations): Validates the data against the validation function and tracks violations.
     """
+
     path: Path
     validation_func: SpecFlexibleValidatorFunction
 
-    def validate(self, data: Any, path: Union[Path, str], violations: List['SpecViolation']) -> SpecValidationResult:
+    def validate(
+        self, data: Any, path: Union[Path, str], violations: List["SpecViolation"]
+    ) -> SpecValidationResult:
         """
         Validates the given data and records violations if any.
 
@@ -88,7 +91,9 @@ class SpecCriterion:
             return False, f"Type error: {err.message}"
 
 
-def assert_spec_type(*expected_types: Type) -> Callable[[SpecFlexibleValidatorFunction], SpecFlexibleValidatorFunction]:
+def assert_spec_type(
+    *expected_types: Type,
+) -> Callable[[SpecFlexibleValidatorFunction], SpecFlexibleValidatorFunction]:
     """
     Decorator to validate the type of the first argument of the decorated function.
 
@@ -107,10 +112,7 @@ def assert_spec_type(*expected_types: Type) -> Callable[[SpecFlexibleValidatorFu
             if args:
                 first_arg = args[0]
                 if not isinstance(first_arg, tuple(expected_types)):
-                    raise A7PSpecTypeError(
-                        tuple(expected_types),
-                        type(first_arg)
-                    )
+                    raise A7PSpecTypeError(tuple(expected_types), type(first_arg))
             return func(*args, **kwargs)
 
         return wrapper
@@ -136,7 +138,9 @@ def assert_shorter_le(string: str, max_len: int) -> SpecValidationResult:
 
 
 @assert_spec_type(float, int)
-def assert_float_range(value: float, min_value: float, max_value: float, divisor: float = 1) -> SpecValidationResult:
+def assert_float_range(
+    value: float, min_value: float, max_value: float, divisor: float = 1
+) -> SpecValidationResult:
     """
     Asserts that a value is within a specified range, optionally divided by a divisor.
 
@@ -150,12 +154,16 @@ def assert_float_range(value: float, min_value: float, max_value: float, divisor
         SpecValidationResult: A tuple containing a boolean indicating whether the value is within the range,
                               and a message if not.
     """
-    return (min_value <= value / divisor <= max_value,
-            f"expected value in range [{(min_value * divisor):.1f}, {(max_value * divisor):.1f}]")
+    return (
+        min_value <= value / divisor <= max_value,
+        f"expected value in range [{(min_value * divisor):.1f}, {(max_value * divisor):.1f}]",
+    )
 
 
 @assert_spec_type(int)
-def assert_int_range(value: int, min_value: int, max_value: int) -> SpecValidationResult:
+def assert_int_range(
+    value: int, min_value: int, max_value: int
+) -> SpecValidationResult:
     """
     Asserts that an integer value is within a specified range.
 
@@ -168,7 +176,10 @@ def assert_int_range(value: int, min_value: int, max_value: int) -> SpecValidati
         SpecValidationResult: A tuple containing a boolean indicating whether the value is within the range,
                               and a message if not.
     """
-    return min_value <= value <= max_value, f"expected integer value in range [{min_value}, {max_value}]"
+    return (
+        min_value <= value <= max_value,
+        f"expected integer value in range [{min_value}, {max_value}]",
+    )
 
 
 def assert_choice(value: Any, keys: List[Any]) -> SpecValidationResult:
@@ -187,7 +198,9 @@ def assert_choice(value: Any, keys: List[Any]) -> SpecValidationResult:
 
 
 @assert_spec_type(tuple, list)
-def assert_items_count(items: Union[tuple, list], min_count: int, max_count: int) -> SpecValidationResult:
+def assert_items_count(
+    items: Union[tuple, list], min_count: int, max_count: int
+) -> SpecValidationResult:
     """
     Asserts that the number of items in a tuple or list is within a specified range.
 
@@ -277,8 +290,12 @@ class SpecValidator:
             criterion = self.criteria.get(path.as_posix())
         return criterion
 
-    def validate(self, data: Any, path: Path = Path("~/"), violations: Optional[List[SpecViolation]] = None) -> Tuple[
-        bool, List[SpecViolation]]:
+    def validate(
+        self,
+        data: Any,
+        path: Path = Path("~/"),
+        violations: Optional[List[SpecViolation]] = None,
+    ) -> Tuple[bool, List[SpecViolation]]:
         """
         Validates the given data recursively according to the registered validation criteria.
 
@@ -375,12 +392,16 @@ def _check_r_twist(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
     return assert_float_range(x, 0.0, 100.0, 100)
 
 
-def _check_c_muzzle_velocity(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+def _check_c_muzzle_velocity(
+    x: float, *args: Any, **kwargs: Any
+) -> SpecValidationResult:
     """Validates that the muzzle velocity is in the range of [10.0, 3000.0] with a divisor of 10."""
     return assert_float_range(x, 10.0, 3000.0, 10)
 
 
-def _check_c_zero_temperature(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+def _check_c_zero_temperature(
+    x: float, *args: Any, **kwargs: Any
+) -> SpecValidationResult:
     """Validates that the zero temperature is in the range of [-100.0, 100.0]."""
     return assert_float_range(x, -100.0, 100.0)
 
@@ -390,17 +411,23 @@ def _check_c_t_coeff(x: float, *args: Any, **kwargs: Any) -> SpecValidationResul
     return assert_float_range(x, 0.0, 5.0, 1000)
 
 
-def _check_c_zero_air_temperature(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+def _check_c_zero_air_temperature(
+    x: float, *args: Any, **kwargs: Any
+) -> SpecValidationResult:
     """Validates that the zero air temperature is in the range of [-100.0, 100.0]."""
     return assert_float_range(x, -100.0, 100.0)
 
 
-def _check_c_zero_air_pressure(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+def _check_c_zero_air_pressure(
+    x: float, *args: Any, **kwargs: Any
+) -> SpecValidationResult:
     """Validates that the zero air pressure is in the range of [300.0, 1500.0] with a divisor of 10."""
     return assert_float_range(x, 300.0, 1500.0, 10)
 
 
-def _check_c_zero_air_humidity(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+def _check_c_zero_air_humidity(
+    x: float, *args: Any, **kwargs: Any
+) -> SpecValidationResult:
     """Validates that the zero air humidity is in the range of [0.0, 100.0]."""
     return assert_float_range(x, 0.0, 100.0)
 
@@ -410,7 +437,9 @@ def _check_c_zero_w_pitch(x: float, *args: Any, **kwargs: Any) -> SpecValidation
     return assert_float_range(x, -90.0, 90.0, 10)
 
 
-def _check_c_zero_p_temperature(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
+def _check_c_zero_p_temperature(
+    x: float, *args: Any, **kwargs: Any
+) -> SpecValidationResult:
     """Validates that the zero pressure temperature is in the range of [-100.0, 100.0]."""
     return assert_float_range(x, -100.0, 100.0)
 
@@ -432,11 +461,13 @@ def _check_b_length(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult
 
 def _check_twist_dir(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
     """Validates that the twist direction is either 'RIGHT' or 'LEFT'."""
-    return assert_choice(x, ['RIGHT', 'LEFT'])
+    return assert_choice(x, ["RIGHT", "LEFT"])
 
 
 # Validation functions for distances/c_zero_distance_idx section
-def _check_c_zero_distance_idx(x: int, *args: Any, **kwargs: Any) -> SpecValidationResult:
+def _check_c_zero_distance_idx(
+    x: int, *args: Any, **kwargs: Any
+) -> SpecValidationResult:
     """Validates that the zero distance index is in the range of [0, 200]."""
     return assert_int_range(x, 0, 200)
 
@@ -447,14 +478,19 @@ def _check_one_distance(x: float, *args: Any, **kwargs: Any) -> SpecValidationRe
 
 
 # Validation functions for switches section
-def _check_distance_from(x: Union[float, int, str], *args: Any, **kwargs: Any) -> SpecValidationResult:
+def _check_distance_from(
+    x: Union[float, int, str], *args: Any, **kwargs: Any
+) -> SpecValidationResult:
     """
     Validates that the distance value is within the range [1.0, 3000.0] (divisor of 100),
     or is a special value "VALUE".
     """
     if isinstance(x, (float, int)):
         return assert_float_range(x, 1.0, 3000.0, 100)
-    if isinstance(x, str) and x.lower() in ["value", "index"]:  # TODO: check special value
+    if isinstance(x, str) and x.lower() in [
+        "value",
+        "index",
+    ]:  # TODO: check special value
         return True, ""
     return False, "unexpected value or value type"
 
@@ -476,15 +512,20 @@ def _check_zoom(x: int, *args: Any, **kwargs: Any) -> SpecValidationResult:
     return assert_int_range(x, 0, 6)
 
 
-def _check_switches(switches: List[dict], path: Path, violations: List[SpecViolation], *args: Any,
-                    **kwargs: Any) -> SpecValidationResult:
+def _check_switches(
+    switches: List[dict],
+    path: Path,
+    violations: List[SpecViolation],
+    *args: Any,
+    **kwargs: Any,
+) -> SpecValidationResult:
     """
     Validates the switches list, ensuring it contains at least 4 items, and validates each switch
     based on specific criteria (c_idx, reticle_idx, zoom, distance_from).
     """
     criterion = SpecCriterion(
         path,
-        lambda x, *args, **kwargs: (x >= 4, f"expected minimum 4 items but got {x}")
+        lambda x, *args, **kwargs: (x >= 4, f"expected minimum 4 items but got {x}"),
     )
     criterion.validate(len(switches), path, violations)
 
@@ -502,7 +543,7 @@ def _check_switches(switches: List[dict], path: Path, violations: List[SpecViola
 # Validation functions for bc type and bc/cd/mv values section
 def _check_bc_type(x: str, *args: Any, **kwargs: Any) -> SpecValidationResult:
     """Validates that the ballistic coefficient type is one of 'G7', 'G1', or 'CUSTOM'."""
-    return assert_choice(x, ['G7', 'G1', 'CUSTOM'])
+    return assert_choice(x, ["G7", "G1", "CUSTOM"])
 
 
 def _check_bc_value(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult:
@@ -526,8 +567,13 @@ def _check_mv_value(x: float, *args: Any, **kwargs: Any) -> SpecValidationResult
 
 
 # Validation function for coef_rows
-def _check_coef_rows(profile: dict, path: Path, violations: List[SpecViolation], *args: Any, **kwargs: Any) -> Tuple[
-    bool, str]:
+def _check_coef_rows(
+    profile: dict,
+    path: Path,
+    violations: List[SpecViolation],
+    *args: Any,
+    **kwargs: Any,
+) -> Tuple[bool, str]:
     """
     Validates the 'coef_rows' field in the profile based on its 'bc_type'.
     The validation checks the number of coefficient rows and validates 'bc_cd' and 'mv' values
@@ -542,7 +588,7 @@ def _check_coef_rows(profile: dict, path: Path, violations: List[SpecViolation],
         Tuple[bool, str]: A tuple where the first element indicates if validation passed,
                            and the second element is a reason or message.
     """
-    bc_type = profile['bc_type']
+    bc_type = profile["bc_type"]
     bc_criterion = SpecCriterion(Path("bc_type"), _check_bc_type)
     coef_rows_violations = []
 
@@ -553,12 +599,16 @@ def _check_coef_rows(profile: dict, path: Path, violations: List[SpecViolation],
         v = SpecValidator()
 
         # Register validation rules based on bc_type
-        if bc_type in ['G7', 'G1']:
-            v.register("coef_rows", lambda x, *args, **kwargs: assert_items_count(x, 1, 5))
+        if bc_type in ["G7", "G1"]:
+            v.register(
+                "coef_rows", lambda x, *args, **kwargs: assert_items_count(x, 1, 5)
+            )
             v.register("bc_cd", _check_bc_value)
             v.register("mv", _check_mv_value)
-        elif bc_type == 'CUSTOM':
-            v.register("coef_rows", lambda x, *args, **kwargs: assert_items_count(x, 1, 200))
+        elif bc_type == "CUSTOM":
+            v.register(
+                "coef_rows", lambda x, *args, **kwargs: assert_items_count(x, 1, 200)
+            )
             v.register("bc_cd", _check_cd_value)
             v.register("mv", _check_ma_value)
         else:
@@ -566,7 +616,7 @@ def _check_coef_rows(profile: dict, path: Path, violations: List[SpecViolation],
                 SpecViolation(
                     path / "coef_rows",
                     "Validation skipped for coef_rows",
-                    f"Unsupported bc_type '{bc_type}'"
+                    f"Unsupported bc_type '{bc_type}'",
                 )
             )
 
@@ -577,18 +627,25 @@ def _check_coef_rows(profile: dict, path: Path, violations: List[SpecViolation],
     if len(coef_rows_violations) <= 12:
         violations.extend(coef_rows_violations)
     else:
-        violations.append(SpecViolation(
-            path / "coef_rows",
-            f"Too many errors in {path / 'coef_rows'}",
-            "More than 12 errors found, listing all is omitted"
-        ))
+        violations.append(
+            SpecViolation(
+                path / "coef_rows",
+                f"Too many errors in {path / 'coef_rows'}",
+                "More than 12 errors found, listing all is omitted",
+            )
+        )
 
     return True, ""
 
 
 # Validation function for distances
-def _check_distances(profile: dict, path: Path, violations: List[SpecViolation], *args: Any, **kwargs: Any) -> Tuple[
-    bool, str]:
+def _check_distances(
+    profile: dict,
+    path: Path,
+    violations: List[SpecViolation],
+    *args: Any,
+    **kwargs: Any,
+) -> Tuple[bool, str]:
     """
     Validates the 'distances' field and the 'c_zero_distance_idx' field in the profile.
     Ensures the zero distance index is valid and the distances are within the expected range.
@@ -607,46 +664,43 @@ def _check_distances(profile: dict, path: Path, violations: List[SpecViolation],
     idx = profile["c_zero_distance_idx"]
     distances = profile["distances"]
 
-    SpecCriterion(
-        path / "c_zero_distance_idx",
-        _check_c_zero_distance_idx
-    ).validate(
-        idx,
-        path / "c_zero_distance_idx",
-        distances_violations
+    SpecCriterion(path / "c_zero_distance_idx", _check_c_zero_distance_idx).validate(
+        idx, path / "c_zero_distance_idx", distances_violations
     )
 
     is_valid, reason = _check_dependency_distances(idx, distances)
     if not is_valid:
-        distances_violations.append(SpecViolation("Distances", "Distance dependency error", reason))
+        distances_violations.append(
+            SpecViolation("Distances", "Distance dependency error", reason)
+        )
 
     SpecCriterion(
-        path / "distances",
-        lambda x, *args, **kwargs: assert_items_count(x, 1, 200)
+        path / "distances", lambda x, *args, **kwargs: assert_items_count(x, 1, 200)
     ).validate(distances, path / "distances", distances_violations)
 
-    criterion = SpecCriterion(
-        path / "[:] ",
-        _check_one_distance
-    )
+    criterion = SpecCriterion(path / "[:] ", _check_one_distance)
 
     for i, d in enumerate(distances):
-        criterion.validate(d, path / 'distances' / f"[{i}]", distances_violations)
+        criterion.validate(d, path / "distances" / f"[{i}]", distances_violations)
 
     # Handle violations
     if len(distances_violations) <= 11:
         violations.extend(distances_violations)
     else:
-        violations.append(SpecViolation(
-            path / "distances",
-            f"Too many errors in {path / 'distances'}",
-            "More than 10 errors found, listing all is omitted"
-        ))
+        violations.append(
+            SpecViolation(
+                path / "distances",
+                f"Too many errors in {path / 'distances'}",
+                "More than 10 errors found, listing all is omitted",
+            )
+        )
 
     return True, ""
 
 
-def _check_dependency_distances(zero_distance_index: int, distances: List[int]) -> Tuple[bool, str]:
+def _check_dependency_distances(
+    zero_distance_index: int, distances: List[int]
+) -> Tuple[bool, str]:
     """
     Validates the dependency between 'c_zero_distance_idx' and the 'distances' list.
 
@@ -657,12 +711,19 @@ def _check_dependency_distances(zero_distance_index: int, distances: List[int]) 
     Returns:
         Tuple[bool, str]: A tuple indicating if the validation passed, and a reason message if failed.
     """
-    return 0 <= zero_distance_index < len(distances), "zero distance index > len(distances)"
+    return 0 <= zero_distance_index < len(
+        distances
+    ), "zero distance index > len(distances)"
 
 
 # Validation function for profile
-def _check_profile(profile: dict, path: Path, violations: List[SpecViolation], *args: Any, **kwargs: Any) -> Tuple[
-    bool, str]:
+def _check_profile(
+    profile: dict,
+    path: Path,
+    violations: List[SpecViolation],
+    *args: Any,
+    **kwargs: Any,
+) -> Tuple[bool, str]:
     """
     Validates the entire profile, including switches, distances, and coef_rows.
 
@@ -714,8 +775,7 @@ _default_validation_funcs: Dict[str, SpecValidationFunction] = {
     "b_weight": _check_b_weight,
     "b_diameter": _check_b_diameter,
     "twist_dir": _check_twist_dir,
-
-    "~/profile": _check_profile
+    "~/profile": _check_profile,
 }
 
 
@@ -752,16 +812,16 @@ def validate_spec(payload: profedit_pb2.Payload) -> None:
 
 
 __all__ = (
-    'SpecValidator',
-    'SpecCriterion',
-    'validate_spec',
-    'assert_spec_type',
-    'assert_items_count',
-    'assert_shorter_le',
-    'assert_float_range',
-    'assert_int_range',
-    'assert_choice',
-    'SpecValidationResult',
-    'SpecValidationFunction',
-    'SpecFlexibleValidatorFunction',
+    "SpecValidator",
+    "SpecCriterion",
+    "validate_spec",
+    "assert_spec_type",
+    "assert_items_count",
+    "assert_shorter_le",
+    "assert_float_range",
+    "assert_int_range",
+    "assert_choice",
+    "SpecValidationResult",
+    "SpecValidationFunction",
+    "SpecFlexibleValidatorFunction",
 )
