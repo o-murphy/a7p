@@ -25,6 +25,8 @@ from a7p import exceptions
 from a7p import profedit_pb2
 from a7p import protovalidate
 from a7p.spec_validator import validate_spec
+from a7p.yupy_schema import validate as validate_yupy
+from yupy import ValidationError as YupyValidationError
 
 USE_PROTOVALIDATE = False
 USE_SPEC_VALIDATOR = False
@@ -46,8 +48,6 @@ def setUseSpecValidator(flag: bool):
 
 
 def setUseYupyValidator(flag: bool):
-    if flag:
-        warnings.warn("yupy_validator", DeprecationWarning)
     global USE_YUPY_VALIDATOR
     USE_YUPY_VALIDATOR = flag
 
@@ -274,7 +274,25 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
             )
 
     if USE_YUPY_VALIDATOR:
-        raise NotImplementedError("yupy validation is not currently supported")
+        try:
+            validate_yupy(payload)
+        except YupyValidationError as error:
+            is_errors = True
+            yupy_violations = []
+            for err in error.errors:
+                yupy_violations.append(exceptions.Violation(
+                    err.path,
+                    err.invalid_value,
+                    err.message,
+                ))
+            violations["yupy_violations"] = yupy_violations
+            violations["violations"].append(
+                exceptions.Violation(
+                "Yupy validation error", "Validation failed during yupy schema validation", ""
+                )
+            )
+
+        # raise NotImplementedError("yupy validation is not currently supported")
 
     # Raise the final validation error if there are violations
     if is_errors:

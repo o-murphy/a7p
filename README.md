@@ -1,41 +1,46 @@
-# Table of Contents
+# Simple python3 wrapper for .a7p files
 
-- [Description](#description)
-- [Instalation](#instalation)
+`.a7p` is the most common ballistic profile format for the latest `Archer` thermal vision devices
+
+## Table of Contents
+
+- [Installation](#installation)
 - [Usage](#usage)
 - [Dimensions](#dimensions)
 - [Gallery of .a7p ballistic profiles](https://o-murphy.github.io/a7pIndex)
 - [.a7p ballistic profiles CDN](https://o-murphy.github.io/a7p-lib)
 
-## Description
+## Installation
 
-Simple python3 wrapper for .a7p files \
-
-## Instalation
-
-#### with pypx as a CLI-tool
+#### As CLI tool
 
 ```bash
+# with `uv`
+uv tool install a7p
+
+# with `pipx`
 pipx install a7p
 ```
 
-#### From PyPi:
+#### Installation to your project:
 
 ```bash
+# with `uv`
+uv add a7p
+
+# with `pip`
 pip install a7p
 ```
 
-#### or latest from repository:
-
-```bash
-pip install https://github.com/o-murphy/a7p
-```
+> [!TIP]
+> You can install [`orjson`](https://github.com/ijl/orjson) - the fast Rust-based JSON encoding backend
+> To install it together with `a7p` use optional dependencies group `a7p[orjson]`
 
 ## Usage
 
 #### CLI-tool
 
-```
+```bash
 a7p -h
 usage: a7p 1.0.0b3 [-h] [-V] [-r] [-F] [--unsafe] [--verbose] [--recover] [-zd ZERO_DISTANCE] [-d {subsonic,low,medium,long,ultra}] [-zs ZERO_SYNC | -zo X_OFFSET Y_OFFSET] path
 
@@ -64,6 +69,10 @@ Zeroing:
                         Synchronize zero using a specified configuration file.
   -zo X_OFFSET Y_OFFSET, --zero-offset X_OFFSET Y_OFFSET
                         Set the offset for zeroing in clicks (X_OFFSET and Y_OFFSET).
+                        
+Advanced:
+  --spec-validator      Use spec-based validator (deprecated).
+  --protovalidate       Use protovalidate (deprecated).
 ```
 
 #### Use as imported module
