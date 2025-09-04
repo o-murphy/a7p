@@ -8,12 +8,14 @@ Classes:
     Violation: Represents a violation with a specific path, value, and reason.
     ProtoViolation: Represents a violation extracted from protocol buffer data.
     SpecViolation: Represents a specification-related violation.
+    YupyViolation: Represents a yupy schema-related violation.
     A7PError: Base class for all A7P-related errors.
     A7PDataError: A subclass of A7PError related to data issues.
     A7PChecksumError: A subclass of A7PDataError for checksum-related errors.
     A7PValidationError: A subclass of A7PDataError for validation-related errors.
     A7PProtoValidationError: A subclass of A7PValidationError for protocol validation errors.
     A7PSpecValidationError: A subclass of A7PValidationError for specification validation errors.
+    A7PYupyValidationError: A subclass of A7PValidationError for yupy schema validation errors.
     A7PSpecTypeError: A subclass of A7PDataError for errors related to specification type mismatches.
 
 Functions:
@@ -85,6 +87,17 @@ class SpecViolation(Violation):
     pass
 
 
+@dataclass
+class YupyViolation(Violation):
+    """
+    Represents a specification-related violation, inheriting from Violation.
+
+    Inherits all attributes and methods from Violation.
+    """
+
+    pass
+
+
 class A7PError(RuntimeError):
     """
     Base class for all A7P-related errors.
@@ -121,6 +134,7 @@ class A7PValidationError(A7PDataError):
         violations (list[Violation]): A list of general violations.
         proto_violations (list[ProtoViolation]): A list of protocol validation violations.
         spec_violations (list[SpecViolation]): A list of specification validation violations.
+        yupy_violations (list[YupyViolation]): A list of yupy schema validation violations.
     """
 
     def __init__(
@@ -130,6 +144,7 @@ class A7PValidationError(A7PDataError):
         violations: list[Violation] = None,
         proto_violations: list[ProtoViolation] = None,
         spec_violations: list[SpecViolation] = None,
+        yupy_violations: list[YupyViolation] = None,
     ):
         """
         Initializes the validation error with the provided message, payload, and violations.
@@ -140,12 +155,14 @@ class A7PValidationError(A7PDataError):
             violations (list[Violation], optional): A list of violations.
             proto_violations (list[ProtoViolation], optional): A list of protocol validation violations.
             spec_violations (list[SpecViolation], optional): A list of specification validation violations.
+            yupy_violations (list[YupyViolation], optional): A list of yupy schema validation violations.
         """
         super().__init__(msg)
         self.payload = payload
         self.violations = violations or []
         self.proto_violations = proto_violations or []
         self.spec_violations = spec_violations or []
+        self.yupy_violations = yupy_violations or []
 
     @property
     def all_violations(self) -> list[Violation]:
@@ -155,7 +172,7 @@ class A7PValidationError(A7PDataError):
         Returns:
             list[Violation]: A combined list of violations.
         """
-        return self.violations + self.proto_violations + self.spec_violations
+        return self.violations + self.proto_violations + self.spec_violations + self.yupy_violations
 
 
 class A7PProtoValidationError(A7PValidationError):
@@ -207,6 +224,28 @@ class A7PSpecValidationError(A7PValidationError):
             violations (list[SpecViolation]): A list of specification violations.
         """
         super().__init__(msg, payload, spec_violations=violations)
+
+
+class A7PYupyValidationError(A7PValidationError):
+    """
+    A subclass of A7PValidationError for errors specifically related to yupy schema validation.
+
+    Args:
+        msg (str): The error message.
+        payload (any): The payload data associated with the error.
+        violations (list[SpecViolation]): A list of specification violations.
+    """
+
+    def __init__(self, msg: str, payload, violations: list[YupyViolation]):
+        """
+        Initializes the yupy schema validation error with the provided message, payload, and violations.
+
+        Args:
+            msg (str): The error message.
+            payload (any): The payload data.
+            violations (list[YupyViolation]): A list of specification violations.
+        """
+        super().__init__(msg, payload, yupy_violations=violations)
 
 
 class A7PSpecTypeError(A7PDataError):
@@ -308,13 +347,17 @@ def _extract_protovalidate_violations(
 
 
 __all__ = [
+    "Violation",
+    "ProtoViolation",
     "SpecViolation",
+    "YupyViolation",
     "A7PError",
     "A7PDataError",
     "A7PChecksumError",
     "A7PValidationError",
     "A7PProtoValidationError",
     "A7PSpecValidationError",
+    "A7PYupyValidationError",
     "A7PSpecTypeError",
     "_extract_violation",
     "_extract_protovalidate_violations",

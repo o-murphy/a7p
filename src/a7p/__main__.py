@@ -7,7 +7,8 @@ from pathlib import Path
 import tqdm
 
 import a7p
-from a7p import exceptions, profedit_pb2
+from a7p import exceptions, profedit_pb2, setUseProtovalidate
+from a7p.a7p import setUseSpecValidator
 from a7p.exceptions import A7PValidationError
 from a7p.factory import DistanceTable
 from a7p.logger import logger, color_print, color_fmt
@@ -143,6 +144,10 @@ switches_exclusive_group.add_argument(
     help="Copy switches from other a7p file.",
     dest="copy_switches",
 )
+
+advanced_group = parser.add_argument_group("Advanced")
+advanced_group.add_argument("--spec-validator", action="store_true", help="Use spec-based validator (deprecated).")
+advanced_group.add_argument("--protovalidate", action="store_true", help="Use protovalidate (deprecated).")
 
 
 # parser.add_argument('--max-threads', action='store', type=int, default=5)
@@ -495,11 +500,19 @@ def process_files(
 def main():
     try:
         args = parser.parse_args()
+
+        args_dict = args.__dict__
+        use_proto = args_dict.pop("protovalidate", False)
+        use_spec = args_dict.pop("spec_validator", False)
+        setUseProtovalidate(use_proto)
+        setUseSpecValidator(use_spec)
+
         process_files(**args.__dict__)
     except NotImplementedError as e:
         logger.error(e)
         sys.exit(0)
     except Exception as e:
+        logger.exception(e)
         logger.critical(e)
         sys.exit(1)
     except KeyboardInterrupt:

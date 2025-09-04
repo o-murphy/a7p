@@ -33,7 +33,7 @@ dependencies = [
     "cel-python==0.1.5",
     "tqdm==4.67.1",
     "typing_extensions==4.13.2",
-    "yupy[orjson]>=0.2.0b3",
+    "yupy>=0.2.0b3",
 ]
 dynamic = ["version"]
 
@@ -50,6 +50,7 @@ include = ["a7p*"]
 
 [project.optional-dependencies]
 pydantic = ['pydantic==2.10.4']
+orjson = ['orjson==2.10.4']
 
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}
@@ -86,5 +87,4 @@ dev = [
     "pydantic>=2.10.4",
     "pytest>=8.4.1",
     "ruff>=0.12.11",
-    "yupy>=0.2.0b3",
 ]

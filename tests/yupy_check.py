@@ -28,13 +28,8 @@ if __name__ == '__main__':
                 yupy_validate(p, fail_fast=False)
             except ValidationError as err:
                 errs.append(err)
-                # print("Error in file", f)
 
-    print(len(errs))
-    gen = errs[0].errors
-    next(gen)
-
-    print(next(gen).invalid_value)
+    print("errs:", len(errs))
 
     for e in errs[0].errors:
         print("Violation:")

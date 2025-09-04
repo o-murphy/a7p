@@ -25,15 +25,31 @@ from a7p import exceptions
 from a7p import profedit_pb2
 from a7p import protovalidate
 from a7p.spec_validator import validate_spec
+from a7p.yupy_schema import validate as validate_yupy
+from yupy import ValidationError as YupyValidationError
 
 USE_PROTOVALIDATE = False
+USE_SPEC_VALIDATOR = False
+USE_YUPY_VALIDATOR = True
 
 
 def setUseProtovalidate(flag: bool):
     if flag:
-        warnings.warn("protovalidate.validate", DeprecationWarning)
+        warnings.warn("protovalidate", DeprecationWarning)
     global USE_PROTOVALIDATE
     USE_PROTOVALIDATE = flag
+
+
+def setUseSpecValidator(flag: bool):
+    if flag:
+        warnings.warn("spec_validator", DeprecationWarning)
+    global USE_SPEC_VALIDATOR
+    USE_SPEC_VALIDATOR = flag
+
+
+def setUseYupyValidator(flag: bool):
+    global USE_YUPY_VALIDATOR
+    USE_YUPY_VALIDATOR = flag
 
 
 def loads(
@@ -243,18 +259,40 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
                 )
             )
 
-    try:
-        validate_spec(payload)
-    except exceptions.A7PSpecValidationError as err:
-        if fail_fast:
-            raise err
-        is_errors = True
-        violations["spec_violations"] = err.spec_violations
-        violations["violations"].append(
-            exceptions.Violation(
-                "Spec validation error", "Validation failed during spec validation", ""
+    if USE_SPEC_VALIDATOR:
+        try:
+            validate_spec(payload)
+        except exceptions.A7PSpecValidationError as err:
+            if fail_fast:
+                raise err
+            is_errors = True
+            violations["spec_violations"] = err.spec_violations
+            violations["violations"].append(
+                exceptions.Violation(
+                    "Spec validation error", "Validation failed during spec validation", ""
+                )
             )
-        )
+
+    if USE_YUPY_VALIDATOR:
+        try:
+            validate_yupy(payload)
+        except YupyValidationError as error:
+            is_errors = True
+            yupy_violations = []
+            for err in error.errors:
+                yupy_violations.append(exceptions.Violation(
+                    err.path,
+                    err.invalid_value,
+                    err.message,
+                ))
+            violations["yupy_violations"] = yupy_violations
+            violations["violations"].append(
+                exceptions.Violation(
+                "Yupy validation error", "Validation failed during yupy schema validation", ""
+                )
+            )
+
+        # raise NotImplementedError("yupy validation is not currently supported")
 
     # Raise the final validation error if there are violations
     if is_errors:
@@ -264,6 +302,7 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
             violations=violations["violations"],  # Загальний список порушень
             proto_violations=violations.get("proto_violations"),
             spec_violations=violations.get("spec_violations"),
+            yupy_violations=violations.get("yupy_violations"),
         )
 
 
