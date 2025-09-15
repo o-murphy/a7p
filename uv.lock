@@ -8,7 +8,6 @@ source = { editable = "." }
 dependencies = [
     { name = "cel-python" },
     { name = "google" },
-    { name = "orjson" },
     { name = "protobuf" },
     { name = "tqdm" },
     { name = "typing-extensions" },
@@ -16,6 +15,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+orjson = [
+    { name = "orjson" },
+]
 pydantic = [
     { name = "pydantic" },
 ]
@@ -32,14 +34,14 @@ dev = [
 requires-dist = [
     { name = "cel-python", specifier = "==0.1.5" },
     { name = "google", specifier = "==3.0.0" },
-    { name = "orjson", specifier = ">=3.11.3" },
+    { name = "orjson", marker = "extra == 'orjson'", specifier = "==3.11.3" },
     { name = "protobuf", specifier = "==4.25.2" },
     { name = "pydantic", marker = "extra == 'pydantic'", specifier = "==2.10.4" },
     { name = "tqdm", specifier = "==4.67.1" },
     { name = "typing-extensions", specifier = "==4.13.2" },
     { name = "yupy", specifier = ">=0.2.0b3" },
 ]
-provides-extras = ["pydantic"]
+provides-extras = ["pydantic", "orjson"]
 
 [package.metadata.requires-dev]
 dev = [

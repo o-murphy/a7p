@@ -269,7 +269,9 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
             violations["spec_violations"] = err.spec_violations
             violations["violations"].append(
                 exceptions.Violation(
-                    "Spec validation error", "Validation failed during spec validation", ""
+                    "Spec validation error",
+                    "Validation failed during spec validation",
+                    "",
                 )
             )
 
@@ -280,15 +282,19 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
             is_errors = True
             yupy_violations = []
             for err in error.errors:
-                yupy_violations.append(exceptions.Violation(
-                    err.path,
-                    err.invalid_value,
-                    err.message,
-                ))
+                yupy_violations.append(
+                    exceptions.Violation(
+                        err.path,
+                        err.invalid_value,
+                        err.message,
+                    )
+                )
             violations["yupy_violations"] = yupy_violations
             violations["violations"].append(
                 exceptions.Violation(
-                "Yupy validation error", "Validation failed during yupy schema validation", ""
+                    "Yupy validation error",
+                    "Validation failed during yupy schema validation",
+                    "",
                 )
             )
 

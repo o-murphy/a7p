@@ -146,9 +146,20 @@ switches_exclusive_group.add_argument(
 )
 
 advanced_group = parser.add_argument_group("Advanced")
-advanced_group.add_argument("--spec-validator", action="store_true", help="Use spec-based validator (deprecated).")
-advanced_group.add_argument("--protovalidate", action="store_true", help="Use protovalidate (deprecated).")
-advanced_group.add_argument("--disable-yupy", action="store_false", default=True, help="Disable yupy validation (unsafe).")
+advanced_group.add_argument(
+    "--spec-validator",
+    action="store_true",
+    help="Use spec-based validator (deprecated).",
+)
+advanced_group.add_argument(
+    "--protovalidate", action="store_true", help="Use protovalidate (deprecated)."
+)
+advanced_group.add_argument(
+    "--disable-yupy",
+    action="store_false",
+    default=True,
+    help="Disable yupy validation (unsafe).",
+)
 
 
 # parser.add_argument('--max-threads', action='store', type=int, default=5)

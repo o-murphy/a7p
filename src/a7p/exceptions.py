@@ -172,7 +172,12 @@ class A7PValidationError(A7PDataError):
         Returns:
             list[Violation]: A combined list of violations.
         """
-        return self.violations + self.proto_violations + self.spec_violations + self.yupy_violations
+        return (
+            self.violations
+            + self.proto_violations
+            + self.spec_violations
+            + self.yupy_violations
+        )
 
 
 class A7PProtoValidationError(A7PValidationError):
