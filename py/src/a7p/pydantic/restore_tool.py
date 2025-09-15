@@ -6,13 +6,11 @@ import a7p
 from a7p import pydantic
 from a7p.logger import color_print
 
-parser = argparse.ArgumentParser(
-    prog='a7p-recover'
-)
+parser = argparse.ArgumentParser(prog="a7p-recover")
 
 parser.add_argument("path", help="Path to broken .a7p file", type=Path)
 
-logger = logging.getLogger('a7p')
+logger = logging.getLogger("a7p")
 logger.setLevel(logging.DEBUG)
 
 
@@ -22,7 +20,7 @@ def main():
     if not file_path.exists():
         parser.error(f"No such file or directory: '{file_path}'")
 
-    with open(file_path.absolute(), 'rb') as fp:
+    with open(file_path.absolute(), "rb") as fp:
         payload = a7p.load(fp, validate_=False)
 
         model, restored, violations = pydantic.validate(payload)
@@ -41,10 +39,12 @@ def main():
             else:
                 dump = model.model_dump(mode="json")
 
-                with open(file_path.with_stem(file_path.stem + "_restored"), 'wb') as fp:
+                with open(
+                    file_path.with_stem(file_path.stem + "_restored"), "wb"
+                ) as fp:
                     restored_payload = a7p.from_dict(dump)
                     a7p.dump(restored_payload, fp)
-p
+
 
 if __name__ == "__main__":
     main()

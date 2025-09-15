@@ -25,13 +25,13 @@ def pre_validate_interval(value: Any, interval: Optional[Interval]) -> None:
     if interval is None:
         return
     if interval.ge is not None and value < interval.ge:
-        raise ValueError(f"value must be greater than or equal to %s" % interval.ge)
+        raise ValueError("value must be greater than or equal to %s" % interval.ge)
     if interval.le is not None and value > interval.le:
-        raise ValueError(f"value must be less than or equal to %s" % interval.le)
+        raise ValueError("value must be less than or equal to %s" % interval.le)
     if interval.gt is not None and value <= interval.gt:
-        raise ValueError(f"value must be greater than %s" % interval.gt)
+        raise ValueError("value must be greater than %s" % interval.gt)
     if interval.lt is not None and value >= interval.lt:
-        raise ValueError(f"value must be less than %s" % interval.lt)
+        raise ValueError("value must be less than %s" % interval.lt)
 
 
 def pre_validate_multiple_of(value: Any, multiple_of: Optional[MultipleOf]) -> None:
@@ -47,11 +47,14 @@ def pre_validate_multiple_of(value: Any, multiple_of: Optional[MultipleOf]) -> N
     """
     if multiple_of is not None and multiple_of.multiple_of is not None:
         if value % multiple_of.multiple_of != 0:
-            raise ValueError(f"value must be a multiple of %s" % multiple_of.multiple_of)
+            raise ValueError("value must be a multiple of %s" % multiple_of.multiple_of)
 
 
 def pre_validate_conint(
-        type_: type, strict: bool, interval: Optional[Interval], multiple_of: Optional[MultipleOf]
+    type_: type,
+    strict: bool,
+    interval: Optional[Interval],
+    multiple_of: Optional[MultipleOf],
 ) -> Callable[[Any], Any]:
     """
     Returns a validation function for integer types with specified constraints.
@@ -68,7 +71,7 @@ def pre_validate_conint(
 
     def validate(value: Any) -> Any:
         if strict and not isinstance(value, type_):
-            raise TypeError(f"value must be of type %s" % type_)
+            raise TypeError("value must be of type %s" % type_)
         value = type_(value)
         pre_validate_interval(value, interval)
         pre_validate_multiple_of(value, multiple_of)
@@ -78,7 +81,11 @@ def pre_validate_conint(
 
 
 def pre_validate_confloat(
-        type_: type, strict: bool, interval: Optional[Interval], multiple_of: Optional[MultipleOf], allow_inf_nan: bool
+    type_: type,
+    strict: bool,
+    interval: Optional[Interval],
+    multiple_of: Optional[MultipleOf],
+    allow_inf_nan: bool,
 ) -> Callable[[Any], Any]:
     """
     Returns a validation function for float types with specified constraints.
@@ -96,7 +103,7 @@ def pre_validate_confloat(
 
     def validate(value: Any) -> Any:
         if strict and not isinstance(value, type_):
-            raise TypeError(f"value must be of type %s" % type_)
+            raise TypeError("value must be of type %s" % type_)
 
         value = type_(value)
         pre_validate_interval(value, interval)
@@ -106,14 +113,20 @@ def pre_validate_confloat(
             if math.isnan(value):
                 raise ValueError("value is NaN")
             elif math.isinf(value):
-                raise ValueError("Value is positive infinity" if value > 0 else "Value is negative infinity")
+                raise ValueError(
+                    "Value is positive infinity"
+                    if value > 0
+                    else "Value is negative infinity"
+                )
 
         return value
 
     return validate
 
 
-def pre_validate_constr(type_: type, str_constraints: Optional[StringConstraints]) -> Callable[[Any], Any]:
+def pre_validate_constr(
+    type_: type, str_constraints: Optional[StringConstraints]
+) -> Callable[[Any], Any]:
     """
     Handles validation for string types with additional constraints.
 
@@ -126,14 +139,26 @@ def pre_validate_constr(type_: type, str_constraints: Optional[StringConstraints
     def validate(value: Any) -> Any:
         if str_constraints is not None:
             if str_constraints.strict and not isinstance(value, type_):
-                raise TypeError(f"Input should be a valid string")
+                raise TypeError("Input should be a valid string")
             else:
                 value: str = type_(value)
 
-            if str_constraints.min_length is not None and len(value) < str_constraints.min_length:
-                raise ValueError(f"Value error, String have been longer than %s" % str_constraints.min_length)
-            if str_constraints.max_length is not None and len(value) > str_constraints.max_length:
-                raise ValueError(f"Value error, String have been shorter than %s" % str_constraints.max_length)
+            if (
+                str_constraints.min_length is not None
+                and len(value) < str_constraints.min_length
+            ):
+                raise ValueError(
+                    "Value error, String have been longer than %s"
+                    % str_constraints.min_length
+                )
+            if (
+                str_constraints.max_length is not None
+                and len(value) > str_constraints.max_length
+            ):
+                raise ValueError(
+                    "Value error, String have been shorter than %s"
+                    % str_constraints.max_length
+                )
 
             return value
         return type_(value)
@@ -158,14 +183,14 @@ def retrieve_confield_validator(cls: type, field_name: str) -> Callable[[Any], A
     """
     field = cls.__annotations__.get(field_name, None)
     if field is None:
-        raise AttributeError(f"Field '%s' is not defined" % field_name)
+        raise AttributeError("Field '%s' is not defined" % field_name)
 
     args = get_args(field)
 
     try:
         type_ = args[0]
     except IndexError:
-        raise TypeError(f"typing.Annotated should have at least one item")
+        raise TypeError("typing.Annotated should have at least one item")
 
     try:
         if type_ is int:
@@ -175,9 +200,9 @@ def retrieve_confield_validator(cls: type, field_name: str) -> Callable[[Any], A
         elif type_ is str:
             return pre_validate_constr(*args)
         else:
-            raise TypeError(f"Can't validate field type '%s'" % type_)
+            raise TypeError("Can't validate field type '%s'" % type_)
     except TypeError as err:
-        raise TypeError(f"Field '%s' is not valid confield" % field_name) from err
+        raise TypeError("Field '%s' is not valid confield" % field_name) from err
 
 
 def trigger_confield_validation(cls, value, info: FieldValidationInfo):
@@ -186,8 +211,10 @@ def trigger_confield_validation(cls, value, info: FieldValidationInfo):
         value = validate(value)
     return value
 
-def on_restore(handler: Callable[[type, Any, FieldValidationInfo, Exception], Any]) -> \
-        Callable[[Callable], Callable]:
+
+def on_restore(
+    handler: Callable[[type, Any, FieldValidationInfo, Exception], Any],
+) -> Callable[[Callable], Callable]:
     """
     A decorator that applies a correction function if validation fails.
 
@@ -206,20 +233,24 @@ def on_restore(handler: Callable[[type, Any, FieldValidationInfo, Exception], An
                 try:
                     return func(cls, value, info)
                 except (TypeError, ValueError) as err:
-                    logger.debug(f"Validation of field '{info.field_name}' failed with error: {err}")
+                    logger.debug(
+                        f"Validation of field '{info.field_name}' failed with error: {err}"
+                    )
 
-                    if 'restored' not in info.context:
-                        info.context['restored'] = {}
+                    if "restored" not in info.context:
+                        info.context["restored"] = {}
 
                     if callable(handler):
                         logger.debug("Invoking handler")
                         result = handler(cls, value, info, err)
-                        info.context['restored'].append(RecoverResult(
-                            recovered=True,
-                            path=info.field_name,
-                            old_value=value,
-                            new_value=result
-                        ))
+                        info.context["restored"].append(
+                            RecoverResult(
+                                recovered=True,
+                                path=info.field_name,
+                                old_value=value,
+                                new_value=result,
+                            )
+                        )
                         return result
                     return value
 
@@ -230,7 +261,9 @@ def on_restore(handler: Callable[[type, Any, FieldValidationInfo, Exception], An
     return decorator
 
 
-def example_handler(cls: type, value: Any, info: FieldValidationInfo, err: Exception) -> Any:
+def example_handler(
+    cls: type, value: Any, info: FieldValidationInfo, err: Exception
+) -> Any:
     """
     A sample handler that modifies the value in case of validation errors.
 
@@ -244,7 +277,7 @@ def example_handler(cls: type, value: Any, info: FieldValidationInfo, err: Excep
         Any: The corrected value.
     """
     logger.debug(f"Handler modifying value: {value} due to error: {err}")
-    if 'restored' not in info.context:
-        info.context['restored'] = {}
-    info.context['restored'][info.field_name] = err
+    if "restored" not in info.context:
+        info.context["restored"] = {}
+    info.context["restored"][info.field_name] = err
     return 0

@@ -21,7 +21,6 @@ COLORS = {
     "WARNING": "\033[33m",  # Yellow
     "ERROR": "\033[31m",  # Red
     "CRITICAL": "\033[35m",  # Magenta
-
     "ORANGE": "\033[38;5;214m",  # Approximation of Orange using 256-color mode
     "CYAN": "\033[36m",  # Cyan
     "LIGHT_GRAY": "\033[37m",  # Light Gray
@@ -30,7 +29,7 @@ COLORS = {
     "LIGHT_GREEN": "\033[92m",  # Light Green
     "LIGHT_YELLOW": "\033[93m",  # Light Yellow
     "LIGHT_RED": "\033[91m",  # Light Red
-    "RESET": "\033[0m"  # Reset
+    "RESET": "\033[0m",  # Reset
 }
 
 
@@ -104,9 +103,9 @@ def color_print(*args, levelname: str = "", sep=" ", end="\n"):
 
 
 __all__ = (
-    'logger',
-    'COLORS',
-    'RESET',
-    'color_fmt',
-    'color_print',
+    "logger",
+    "COLORS",
+    "RESET",
+    "color_fmt",
+    "color_print",
 )

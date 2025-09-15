@@ -18,7 +18,6 @@ class RecoverResult:
     new_value: Any = None
 
     def print(self):
-
         if isinstance(self.path, Path):
             path_string = f"{self.path.as_posix()}"
         else:
@@ -34,25 +33,32 @@ class RecoverResult:
             prefix = color_fmt("Skipped".ljust(10), levelname="WARNING")
 
         def truncate_list(_value: Any) -> str:
-            if isinstance(_value, (RepeatedScalarContainer, RepeatedCompositeContainer, list, tuple)):
+            if isinstance(
+                _value,
+                (RepeatedScalarContainer, RepeatedCompositeContainer, list, tuple),
+            ):
                 _value = [str(v) for v in _value]
                 if len(_value) > 6:
-                    _value = f'[ {", ".join(_value[:3])}, ... {", ".join(_value[-3:])} ]'
+                    _value = (
+                        f"[ {', '.join(_value[:3])}, ... {', '.join(_value[-3:])} ]"
+                    )
                 else:
-                    _value = f'[ {",".join(_value)} ]'
+                    _value = f"[ {','.join(_value)} ]"
             return _value
 
         def truncate(string: str):
             string = str(string).replace("\n", " ")
             if len(string) > 50:
                 # string = f'[ {string[:25]} ... {string[-25:]} ]'
-                string = f'{string[:25]} ... {string[-25:]}'
+                string = f"{string[:25]} ... {string[-25:]}"
             return string
 
         old_value = str(truncate_list(self.old_value))
         new_value = str(truncate_list(self.new_value))
 
-        print(f"{prefix} : {path_string} : value : {truncate(old_value)} -> {truncate(new_value)}")
+        print(
+            f"{prefix} : {path_string} : value : {truncate(old_value)} -> {truncate(new_value)}"
+        )
 
 
 class Recover:
@@ -79,7 +85,6 @@ class Recover:
         return deepcopy(_value)
 
     def recover_one(self, payload, violation):
-
         if violation.path in self.recover_funcs:
             old_value = self.get_value_by_violation(payload, violation)
             self.recover_funcs[violation.path](payload)
@@ -107,7 +112,9 @@ def _recover_proto_bullet_name(payload):
 
 
 def _recover_proto_cartridge_name(payload):
-    payload.profile.cartridge_name = fix_str_len_type(payload.profile.cartridge_name, 50)
+    payload.profile.cartridge_name = fix_str_len_type(
+        payload.profile.cartridge_name, 50
+    )
 
 
 def _recover_proto_profile_name(payload):
@@ -115,8 +122,9 @@ def _recover_proto_profile_name(payload):
 
 
 def _recover_proto_user_note(payload):
-    payload.profile.user_note = fix_str_len_type(payload.profile.user_note, 250,
-                                                 "Warning: Restored profile")
+    payload.profile.user_note = fix_str_len_type(
+        payload.profile.user_note, 250, "Warning: Restored profile"
+    )
 
 
 def _recover_proto_short_name_top(payload):
@@ -209,16 +217,15 @@ def _recover_proto_coef_rows(payload):
     logger.warning("Drag model coefficients restored to 0.1")
     del payload.profile.coef_rows[:]
     payload.profile.coef_rows.extend(
-        profedit_pb2.CoefRow(
-            bc_cd=round(0.1 * 10000),
-            mv=round(0 * 10)
-        )
+        profedit_pb2.CoefRow(bc_cd=round(0.1 * 10000), mv=round(0 * 10))
     )
 
 
 def _recover_proto_distances(payload):
     del payload.profile.distances[:]
-    payload.profile.distances[:] = [int(d * 100) for d in A7PFactory.DistanceTable.LONG_RANGE.value]
+    payload.profile.distances[:] = [
+        int(d * 100) for d in A7PFactory.DistanceTable.LONG_RANGE.value
+    ]
 
 
 def _recover_proto_caliber(payload):
@@ -230,13 +237,12 @@ def _recover_proto_device_uuid(payload):
 
 
 class RecoverProto(Recover):
-
     def register(self, path, func):
         self.recover_funcs[path] = func
 
     @staticmethod
     def split_path(path: Path | str) -> list:
-        return path.split('.')
+        return path.split(".")
 
 
 recover_proto = RecoverProto()
@@ -258,12 +264,22 @@ recover_proto.register("profile.r_twist", _recover_proto_r_twist)
 recover_proto.register("profile.c_muzzle_velocity", _recover_proto_c_muzzle_velocity)
 recover_proto.register("profile.c_zero_temperature", _recover_proto_c_zero_temperature)
 recover_proto.register("profile.c_t_coeff", _recover_proto_c_t_coeff)
-recover_proto.register("profile.c_zero_distance_idx", _recover_proto_c_zero_distance_idx)
-recover_proto.register("profile.c_zero_air_temperature", _recover_proto_c_zero_air_temperature)
-recover_proto.register("profile.c_zero_air_pressure", _recover_proto_c_zero_air_pressure)
-recover_proto.register("profile.c_zero_air_humidity", _recover_proto_c_zero_air_humidity)
+recover_proto.register(
+    "profile.c_zero_distance_idx", _recover_proto_c_zero_distance_idx
+)
+recover_proto.register(
+    "profile.c_zero_air_temperature", _recover_proto_c_zero_air_temperature
+)
+recover_proto.register(
+    "profile.c_zero_air_pressure", _recover_proto_c_zero_air_pressure
+)
+recover_proto.register(
+    "profile.c_zero_air_humidity", _recover_proto_c_zero_air_humidity
+)
 recover_proto.register("profile.c_zero_w_pitch", _recover_proto_c_zero_w_pitch)
-recover_proto.register("profile.c_zero_p_temperature", _recover_proto_c_zero_p_temperature)
+recover_proto.register(
+    "profile.c_zero_p_temperature", _recover_proto_c_zero_p_temperature
+)
 
 recover_proto.register("profile.b_diameter", _recover_proto_b_diameter)
 recover_proto.register("profile.b_weight", _recover_proto_b_weight)
@@ -280,7 +296,6 @@ recover_proto.register("profile.device_uuid", _recover_proto_device_uuid)
 
 
 class RecoverSpec(Recover):
-
     def register(self, path, func):
         self.recover_funcs[Path(path)] = func
 
@@ -294,7 +309,9 @@ def _recover_spec_bullet_name(payload):
 
 
 def _recover_spec_cartridge_name(payload):
-    payload.profile.cartridge_name = fix_str_len_type(payload.profile.cartridge_name, 49)
+    payload.profile.cartridge_name = fix_str_len_type(
+        payload.profile.cartridge_name, 49
+    )
 
 
 def _recover_spec_caliber(payload):
@@ -310,8 +327,9 @@ def _recover_spec_uuid(payload):
 
 
 def _recover_spec_user_note(payload):
-    payload.profile.user_note = fix_str_len_type(payload.profile.user_note, 1023,
-                                                 "Warning: Restored profile")
+    payload.profile.user_note = fix_str_len_type(
+        payload.profile.user_note, 1023, "Warning: Restored profile"
+    )
 
 
 def _recover_spec_short_name_top(payload):
@@ -404,16 +422,15 @@ def _recover_spec_coef_rows(payload):
     logger.warning("Drag model coefficients restored to 0.1")
     del payload.profile.coef_rows[:]
     payload.profile.coef_rows.extend(
-        profedit_pb2.CoefRow(
-            bc_cd=round(0.1 * 10000),
-            mv=round(0 * 10)
-        )
+        profedit_pb2.CoefRow(bc_cd=round(0.1 * 10000), mv=round(0 * 10))
     )
 
 
 def _recover_spec_distances(payload):
     del payload.profile.distances[:]
-    payload.profile.distances[:] = [int(d * 100) for d in A7PFactory.DistanceTable.LONG_RANGE.value]
+    payload.profile.distances[:] = [
+        int(d * 100) for d in A7PFactory.DistanceTable.LONG_RANGE.value
+    ]
 
 
 recover_spec = RecoverSpec()
@@ -435,12 +452,22 @@ recover_spec.register("~/profile/r_twist", _recover_spec_r_twist)
 recover_spec.register("~/profile/c_muzzle_velocity", _recover_spec_c_muzzle_velocity)
 recover_spec.register("~/profile/c_zero_temperature", _recover_spec_c_zero_temperature)
 recover_spec.register("~/profile/c_t_coeff", _recover_spec_c_t_coeff)
-recover_spec.register("~/profile/c_zero_distance_idx", _recover_spec_c_zero_distance_idx)
-recover_spec.register("~/profile/c_zero_air_temperature", _recover_spec_c_zero_air_temperature)
-recover_spec.register("~/profile/c_zero_air_pressure", _recover_spec_c_zero_air_pressure)
-recover_spec.register("~/profile/c_zero_air_humidity", _recover_spec_c_zero_air_humidity)
+recover_spec.register(
+    "~/profile/c_zero_distance_idx", _recover_spec_c_zero_distance_idx
+)
+recover_spec.register(
+    "~/profile/c_zero_air_temperature", _recover_spec_c_zero_air_temperature
+)
+recover_spec.register(
+    "~/profile/c_zero_air_pressure", _recover_spec_c_zero_air_pressure
+)
+recover_spec.register(
+    "~/profile/c_zero_air_humidity", _recover_spec_c_zero_air_humidity
+)
 recover_spec.register("~/profile/c_zero_w_pitch", _recover_spec_c_zero_w_pitch)
-recover_spec.register("~/profile/c_zero_p_temperature", _recover_spec_c_zero_p_temperature)
+recover_spec.register(
+    "~/profile/c_zero_p_temperature", _recover_spec_c_zero_p_temperature
+)
 
 recover_spec.register("~/profile/b_diameter", _recover_spec_b_diameter)
 recover_spec.register("~/profile/b_weight", _recover_spec_b_weight)
