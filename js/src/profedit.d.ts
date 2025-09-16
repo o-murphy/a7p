@@ -1,5 +1,4 @@
 import $protobuf from "protobufjs";
-
 import Long = require("long");
 /** Namespace profedit. */
 export namespace profedit {

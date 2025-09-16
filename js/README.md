@@ -7,11 +7,11 @@ Install & build proto
 yarn install
 yarn build:proto
 ```
-
+<!-- 
 Replace import declarations in profedit.js and profedit.d.ts
 ```
 import * as $protobuf from "protobufjs/minimal"; -> import $protobuf from "protobufjs";
-```
+``` -->
 
 Build
 ```shell
