@@ -60,7 +60,7 @@
     "base64-js": "^1.5.1",
     "crypto-js": "^4.2.0",
     "protobufjs": "^7.5.0",
-    "yup": "^1.6.1"
+    "yup": "^1.7.1"
   },
   "devDependencies": {
     "@babel/core": "^7.28.3",
