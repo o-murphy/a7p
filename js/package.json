@@ -1,6 +1,6 @@
 {
   "name": "a7p-js",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Wrapper for .a7p files",
   "type": "module",
   "main": "dist/index.js",
