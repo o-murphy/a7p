@@ -25,6 +25,10 @@
     "./profedit": {
       "import": "./dist/profedit.js",
       "types": "./dist/profedit.d.ts"
+    },
+    "./dist": {
+      "import": "./dist/*.js",
+      "types": "./dist/*.d.ts"
     }
   },
   "scripts": {
