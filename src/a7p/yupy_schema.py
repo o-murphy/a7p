@@ -200,7 +200,7 @@ def validate_coef_rows(data: Dict, fail_fast):
 
 def validate(payload: profedit_pb2.Payload, fail_fast: bool = False):
     data = MessageToDict(
-        payload, including_default_value_fields=True, preserving_proto_field_name=True
+        payload, always_print_fields_with_no_presence=True, preserving_proto_field_name=True
     )
     errors = []
     try:
