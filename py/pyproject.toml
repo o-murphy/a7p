@@ -32,7 +32,7 @@ dependencies = [
     "protobuf==6.32.1",
     "cel-python==0.4.0",
     "tqdm==4.67.1",
-    "typing_extensions==4.14.1",
+    "typing_extensions==4.15.0",
     "yupy>=0.2.0b3",
 ]
 dynamic = ["version"]
