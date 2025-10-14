@@ -49,7 +49,7 @@ where = ["src"]
 include = ["a7p*"]
 
 [project.optional-dependencies]
-pydantic = ['pydantic==2.12.0']
+pydantic = ['pydantic==2.12.1']
 orjson = ['orjson==3.11.3']
 
 [tool.setuptools.dynamic]
