@@ -29,7 +29,7 @@ classifiers = [
 ]
 dependencies = [
     "google==3.0.0",
-    "protobuf==6.32.1",
+    "protobuf==6.33.0",
     "cel-python==0.4.0",
     "tqdm==4.67.1",
     "typing_extensions==4.15.0",
@@ -49,7 +49,7 @@ where = ["src"]
 include = ["a7p*"]
 
 [project.optional-dependencies]
-pydantic = ['pydantic==2.12.1']
+pydantic = ['pydantic==2.12.3']
 orjson = ['orjson==3.11.3']
 
 [tool.setuptools.dynamic]
