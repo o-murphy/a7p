@@ -50,7 +50,7 @@ include = ["a7p*"]
 
 [project.optional-dependencies]
 pydantic = ['pydantic==2.12.3']
-orjson = ['orjson==3.11.3']
+orjson = ['orjson==3.11.4']
 
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}

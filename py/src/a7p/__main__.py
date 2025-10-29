@@ -512,7 +512,7 @@ def process_files(
 def main():
     try:
         args = parser.parse_args()
-        print(args)
+        # print(args)
         args_dict = args.__dict__
         use_proto = args_dict.pop("protovalidate", False)
         use_spec = args_dict.pop("spec_validator", False)
