@@ -81,6 +81,12 @@ parser.add_argument(
 
 recover_group = parser.add_argument_group("Single file specific options")
 recover_group.add_argument(
+    "--jsonify",
+    action="store_true",
+    help="Print as json"
+    "This option is only allowed for a single file.",
+)
+recover_group.add_argument(
     "--verbose",
     action="store_true",
     help="Enable verbose output for detailed logs. "
@@ -327,6 +333,7 @@ def process_file(
     zero_sync=None,
     verbose=False,
     recover=False,
+    jsonify=False,
     copy_switches=None,
 ):
     if path.suffix != ".a7p":
@@ -350,6 +357,10 @@ def process_file(
     except (IOError, exceptions.A7PDataError) as err:
         result.error = err
         return result
+    
+    if jsonify:
+        print(a7p.to_json(payload))
+        return
 
     result.zero = (payload.profile.zero_x / 1000, payload.profile.zero_y / 1000)
     if distances or zero_distance or result.zero_update or copy_switches:
@@ -413,7 +424,7 @@ def process_files(
     unsafe: bool = False,
     distances: str = None,
     zero_distance: int = None,
-    json: Path = None,
+    jsonify: Path = None,
     verbose: bool = False,
     force: bool = False,
     zero_offset: tuple[float, float] = None,
@@ -447,7 +458,7 @@ def process_files(
                 unsafe,
                 distances,
                 zero_distance,
-                json,
+                jsonify,
                 verbose,
                 force,
                 zero_offset,
@@ -472,9 +483,12 @@ def process_files(
                 zero_sync,
                 verbose,
                 recover,
+                jsonify,
                 copy_switches,
             )
         ]
+        if jsonify:
+            return  # Early return
     else:
         if recover:
             parser.warning(
@@ -483,6 +497,10 @@ def process_files(
         if verbose:
             parser.warning(
                 "The '--verbose' option is supported only when processing a single file."
+            )
+        if jsonify:
+            parser.warning(
+                "The '--jsonify' option is supported only when processing a single file."
             )
 
         results: tuple[Result] | list[Result] = []
@@ -522,6 +540,8 @@ def main():
         setUseYupyValidator(disable_yupy)
 
         process_files(**args.__dict__)
+        if args.jsonify:
+            sys.exit(0)
     except NotImplementedError as e:
         logger.error(e)
         sys.exit(0)
