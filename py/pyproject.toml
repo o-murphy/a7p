@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 
@@ -48,12 +48,12 @@ dynamic = ["version"]
 where = ["src"]
 include = ["a7p*"]
 
+[tool.setuptools_scm]
+fallback_version = "0.0.0.dev0"
+
 [project.optional-dependencies]
 pydantic = ['pydantic==2.12.4']
 orjson = ['orjson==3.11.4']
-
-[tool.setuptools.dynamic]
-version = {file = "VERSION"}
 
 [project.scripts]
 a7p = "a7p.__main__:main"
