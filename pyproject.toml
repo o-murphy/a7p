@@ -29,7 +29,7 @@ classifiers = [
 ]
 dependencies = [
     "google==3.0.0",
-    "protobuf==6.33.1",
+    "protobuf==6.33.2",
     "cel-python==0.4.0",
     "tqdm==4.67.1",
     "typing_extensions==4.15.0",
@@ -52,8 +52,8 @@ include = ["a7p*"]
 fallback_version = "0.0.0.dev0"
 
 [project.optional-dependencies]
-pydantic = ['pydantic==2.12.4']
-orjson = ['orjson==3.11.4']
+pydantic = ['pydantic==2.12.5']
+orjson = ['orjson==3.11.5']
 
 [project.scripts]
 a7p = "a7p.__main__:main"
