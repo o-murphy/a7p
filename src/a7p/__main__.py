@@ -192,7 +192,7 @@ class Result:
     def print(self, verbose=False):
         if self.error:
             error = color_fmt(f"Invalid ({self.error}):", levelname="ERROR")
-            print(f"{error} File: {self.path.absolute()}")
+            print(f'{error} File: "{self.path.absolute()}"')
 
         else:
             print(
