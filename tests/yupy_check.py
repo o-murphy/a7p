@@ -10,7 +10,7 @@ if __name__ == '__main__':
 
 
     # test index switch distance
-    with open("example2.a7p", 'rb') as fp:
+    with open("tests/example2.a7p", 'rb') as fp:
         p = load(fp, fail_fast=True, validate_=False)
         try:
             yupy_validate(p, fail_fast=False)
@@ -18,7 +18,7 @@ if __name__ == '__main__':
             for msg in err.messages:
                 print(msg)
 
-    d = Path('../a7p-lib/gallery').rglob("*")
+    d = Path('a7p-lib/gallery').rglob("*")
     fs = [p for p in d if p.is_file()]
     errs = []
     for f in tqdm.tqdm(fs):
@@ -34,14 +34,16 @@ if __name__ == '__main__':
     for e in errs[0].errors:
         print("Violation:")
         print(f"\tPath\t:\t{e.path}")
-        print(f"\tValue\t:\t{e.invalid_value!r}")
+        val_repr = repr(e.invalid_value).replace("\n", "")
+        truncated = (val_repr[:75] + '...') if len(val_repr) > 75 else val_repr
+        print(f"\tValue\t:\t{truncated}")
         print(f"\tReason\t:\t{e.constraint.format_message}")
 
     def speedtest(validator):
         for f in tqdm.tqdm(fs, desc=validator.__name__):
             # with open("example.a7p", 'rb') as fp:
             with open(f, 'rb') as fp:
-                p = load(fp, fail_fast=True)
+                p = load(fp, validate_=False, fail_fast=True)
                 try:
                     validator(p)
                 except ValidationError as err:
