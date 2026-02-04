@@ -5,15 +5,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "a7p"
-authors = [
-    { name="o-murphy" },
-]
+authors = [{ name = "o-murphy" }]
 
 description = "Simple python3 wrapper for .a7p files"
 readme = "README.md"
 requires-python = ">=3.10"
 keywords = ["protobuf", "archer", "a7p"]
-license = {file = "LICENSE"}
+license = { file = "LICENSE" }
 classifiers = [
     "Intended Audience :: Developers",
     "Natural Language :: English",
@@ -29,11 +27,20 @@ classifiers = [
 ]
 dependencies = [
     "google==3.0.0",
-    "protobuf==6.33.4",
-    "cel-python==0.4.0",
-    "tqdm==4.67.1",
+    "protobuf>=5",
+    "cel-python==0.5.0",
+    "tqdm==4.67.2",
     "typing_extensions==4.15.0",
     "yupy>=0.2.0b3",
+    # We need at least this version, which started publishing wheels for Python 3.14.
+    # Ref: https://github.com/google/re2/issues/580
+    "google-re2>=1.1.20251105; python_version == '3.14'",
+    # We need at least this version, which started publishing wheels for Python 3.13.
+    # Ref: https://github.com/google/re2/issues/516
+    "google-re2>=1.1.20250722; python_version == '3.13'",
+    # 1.1 started supporting 3.12.
+    "google-re2>=1.1; python_version == '3.12'",
+    "google-re2>=1",
 ]
 dynamic = ["version"]
 
@@ -53,7 +60,7 @@ fallback_version = "0.0.0.dev0"
 
 [project.optional-dependencies]
 pydantic = ['pydantic==2.12.5']
-orjson = ['orjson==3.11.5']
+orjson = ['orjson==3.11.7']
 
 [project.scripts]
 a7p = "a7p.__main__:main"
@@ -62,12 +69,9 @@ a7p-restore = "a7p.pydantic.restore_tool:main"
 [tool.pytest]
 testpaths = ["tests"]
 
- # uncomment to configure ruff linter/formatter
+# uncomment to configure ruff linter/formatter
 [tool.ruff]
-include = [
-    "pyproject.toml",
-    "src/**/*.py",
-]
+include = ["pyproject.toml", "src/**/*.py"]
 exclude = [
     ".git",
     "__pypackages__",
