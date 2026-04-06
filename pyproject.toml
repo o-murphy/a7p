@@ -60,7 +60,7 @@ fallback_version = "0.0.0.dev0"
 
 [project.optional-dependencies]
 pydantic = ['pydantic==2.12.5']
-orjson = ['orjson==3.11.7']
+orjson = ['orjson==3.11.8']
 
 [project.scripts]
 a7p = "a7p.__main__:main"
