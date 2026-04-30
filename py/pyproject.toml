@@ -27,9 +27,9 @@ classifiers = [
 ]
 dependencies = [
     "google==3.0.0",
-    "protobuf>=5",
+    "protobuf>=6.33.5",
     "cel-python==0.5.0",
-    "tqdm==4.67.2",
+    "tqdm==4.67.3",
     "typing_extensions==4.15.0",
     "yupy>=0.2.0b3",
     # We need at least this version, which started publishing wheels for Python 3.14.
@@ -59,8 +59,8 @@ include = ["a7p*"]
 fallback_version = "0.0.0.dev0"
 
 [project.optional-dependencies]
-pydantic = ['pydantic==2.12.5']
-orjson = ['orjson==3.11.7']
+pydantic = ['pydantic==2.13.3']
+orjson = ['orjson==3.11.8']
 
 [project.scripts]
 a7p = "a7p.__main__:main"
@@ -88,7 +88,8 @@ exclude = [
 [dependency-groups]
 dev = [
     "protovalidate>=0.6.0",
-    "pydantic>=2.12.5",
-    "pytest>=8.4.1",
+    "pydantic>=2.13.3",
+    "orjson>=3.11.8",
+    "pytest>=9.0.3",
     "ruff>=0.12.11",
 ]
