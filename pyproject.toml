@@ -59,7 +59,7 @@ include = ["a7p*"]
 fallback_version = "0.0.0.dev0"
 
 [project.optional-dependencies]
-pydantic = ['pydantic==2.13.0']
+pydantic = ['pydantic==2.13.3']
 orjson = ['orjson==3.11.8']
 
 [project.scripts]
