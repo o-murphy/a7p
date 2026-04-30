@@ -1,4 +1,4 @@
-if __name__ == '__main__':
+if __name__ == "__main__":
     from a7p import load
     from a7p.spec_validator import validate_spec
     from a7p.protovalidate import validate as proto_validate
@@ -8,9 +8,8 @@ if __name__ == '__main__':
     import tqdm
     from pathlib import Path
 
-
     # test index switch distance
-    with open("tests/example2.a7p", 'rb') as fp:
+    with open("tests/example2.a7p", "rb") as fp:
         p = load(fp, fail_fast=True, validate_=False)
         try:
             yupy_validate(p, fail_fast=False)
@@ -18,11 +17,11 @@ if __name__ == '__main__':
             for msg in err.messages:
                 print(msg)
 
-    d = Path('a7p-lib/gallery').rglob("*")
+    d = Path("a7p-lib/gallery").rglob("*")
     fs = [p for p in d if p.is_file()]
     errs = []
     for f in tqdm.tqdm(fs):
-        with open(f, 'rb') as fp:
+        with open(f, "rb") as fp:
             p = load(fp, fail_fast=True, validate_=False)
             try:
                 yupy_validate(p, fail_fast=False)
@@ -31,18 +30,19 @@ if __name__ == '__main__':
 
     print("errs:", len(errs))
 
-    for e in errs[0].errors:
-        print("Violation:")
-        print(f"\tPath\t:\t{e.path}")
-        val_repr = repr(e.invalid_value).replace("\n", "")
-        truncated = (val_repr[:75] + '...') if len(val_repr) > 75 else val_repr
-        print(f"\tValue\t:\t{truncated}")
-        print(f"\tReason\t:\t{e.constraint.format_message}")
+    if errs:
+        for e in errs[0].errors:
+            print("Violation:")
+            print(f"\tPath\t:\t{e.path}")
+            val_repr = repr(e.invalid_value).replace("\n", "")
+            truncated = (val_repr[:75] + "...") if len(val_repr) > 75 else val_repr
+            print(f"\tValue\t:\t{truncated}")
+            print(f"\tReason\t:\t{e.constraint.format_message}")
 
     def speedtest(validator):
         for f in tqdm.tqdm(fs, desc=validator.__name__):
             # with open("example.a7p", 'rb') as fp:
-            with open(f, 'rb') as fp:
+            with open(f, "rb") as fp:
                 p = load(fp, validate_=False, fail_fast=True)
                 try:
                     validator(p)
