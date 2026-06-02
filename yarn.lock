@@ -2475,9 +2475,9 @@ property-expr@^2.0.5:
   integrity sha512-SVtmxhRE/CGkn3eZY1T6pC8Nln6Fr/lu1mKSgRud0eC73whjGfoAogbn78LkD8aFL0zz3bAFerKSnOl7NlErBA==
 
 protobufjs-cli@^2.0.3:
-  version "2.4.2"
-  resolved "https://registry.yarnpkg.com/protobufjs-cli/-/protobufjs-cli-2.4.2.tgz#32ad31d601a2426597fd0e3c1e1a2c3117185f51"
-  integrity sha512-dz7TvVs+tf0CQqS7wU+MsUH/5mNZAXmRD6PxxbjBk7DaL0AbjAJzVnV+B1w4qslCnL5TwlwCfPchd/us8AmfBQ==
+  version "2.5.0"
+  resolved "https://registry.yarnpkg.com/protobufjs-cli/-/protobufjs-cli-2.5.0.tgz#ff528f865ded5fde74553807741ca1b669d194da"
+  integrity sha512-NyZm+C4DWP0hEOXR6WaI1GtYBeaZifslexYnlh8FAIZ7OobvmE8ALL8pSELJ39k6IIde/EumTtZ66XIl/kSQMA==
   dependencies:
     chalk "^4.0.0"
     escodegen "^1.13.0"
@@ -2491,9 +2491,9 @@ protobufjs-cli@^2.0.3:
     uglify-js "^3.7.7"
 
 protobufjs@^8.0.3:
-  version "8.4.2"
-  resolved "https://registry.yarnpkg.com/protobufjs/-/protobufjs-8.4.2.tgz#758b5ed274b8d859f95174cbdb569f359a804e29"
-  integrity sha512-64rfNzkWOZAIazXzpBFPWq6F9up6gMvTzjE2oWIzApx2N/dqVUEE7+bCn2+40780dFVtKOUab8QfxJ6KJDWbqA==
+  version "8.5.0"
+  resolved "https://registry.yarnpkg.com/protobufjs/-/protobufjs-8.5.0.tgz#6b8640cc334e06fc2548524bdac21ad970092dfe"
+  integrity sha512-df1jWDPA5VIBNRtuAHjqr09f2qN5D4Vke1wYqOQg1XJ7ZDpA7BD6L7E4tyChgGRLB5hqk2m79Zsy0WHwV9a84A==
   dependencies:
     long "^5.3.2"
 
