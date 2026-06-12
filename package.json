@@ -1,41 +1,24 @@
 {
   "name": "a7p-js",
-  "version": "1.0.9",
+  "version": "1.1.0",
   "description": "Wrapper for .a7p files",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
-    "./errors": {
-      "import": "./dist/errors.js",
-      "types": "./dist/errors.d.ts"
-    },
-    "./validate": {
-      "import": "./dist/validate.js",
-      "types": "./dist/validate.d.ts"
-    },
-    "./types": {
-      "import": "./dist/types.js",
-      "types": "./dist/types.d.ts"
-    },
-    "./profedit": {
-      "import": "./dist/profedit.js",
-      "types": "./dist/profedit.d.ts"
-    },
-    "./dist": {
-      "import": "./dist/*.js",
-      "types": "./dist/*.d.ts"
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "import": "./dist/*.js"
     }
   },
   "scripts": {
-    "build:proto": "npx pbjs -t static-module -w es6 -o src/profedit.js src/proto/profedit.proto && npx pbts -o src/profedit.d.ts src/profedit.js && node scripts/fix-imports.mjs",
+    "build:proto": "protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=src --ts_proto_opt=esModuleInterop=true -I=src/proto src/proto/profedit.proto",
     "build:ts": "tsc",
-    "build:copy": "npx cpy 'src/profedit.*' 'dist/'",
-    "build": "yarn build:ts && yarn build:copy"
+    "build": "yarn build:ts"
   },
   "author": "o-murphy",
   "license": "ISC",
@@ -43,6 +26,7 @@
     "dist/**/*.js",
     "dist/**/*.d.ts",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "repository": {
@@ -61,23 +45,22 @@
   },
   "homepage": "https://github.com/o-murphy/a7p-js#readme",
   "dependencies": {
+    "@bufbuild/protobuf": "^2.12.0",
     "base64-js": "^1.5.1",
     "crypto-js": "^4.2.0",
-    "protobufjs": "^8.0.3",
     "yup": "^1.7.1"
   },
   "devDependencies": {
-    "@babel/core": "^7.29.0",
-    "@babel/preset-env": "^7.29.5",
-    "@babel/preset-typescript": "^7.28.5",
-    "@jest/globals": "^30.3.0",
+    "@babel/core": "^7.29.7",
+    "@babel/preset-env": "^7.29.7",
+    "@babel/preset-typescript": "^7.29.7",
+    "@jest/globals": "^30.4.1",
     "@types/base64-js": "^1.5.0",
     "@types/crypto-js": "^4.2.2",
     "@types/jest": "^30.0.0",
     "@types/yup": "^0.32.0",
-    "babel-jest": "^30.3.0",
-    "cpy-cli": "^7.0.0",
-    "protobufjs-cli": "^2.0.3",
+    "babel-jest": "^30.4.1",
+    "ts-proto": "^2.11.8",
     "typescript": "^6.0.3"
   }
 }
