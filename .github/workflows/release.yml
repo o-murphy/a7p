@@ -25,7 +25,7 @@ jobs:
       prerelease: ${{ steps.meta.outputs.prerelease }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v6
         with:
@@ -95,7 +95,7 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Publish GitHub Release
         run: gh release edit "${{ needs.draft.outputs.tag }}" --draft=false
