@@ -1,0 +1,20 @@
+name: a7p
+description: A7P ballistic profile format — encode/decode, validation, and field constraints.
+version: 0.1.0-beta.1
+repository: https://github.com/o-murphy/a7p-dart
+
+environment:
+  sdk: ^3.11.1
+
+dependencies:
+  protobuf: ^6.0.0
+  crypto: ^3.0.3
+  # Only used by bin/generate_proto.dart (a maintainer-only script, not
+  # imported by lib/) — a regular dependency rather than a dev_dependency
+  # because bin/ scripts are still part of what a `pub global activate`
+  # install fetches, unlike test/.
+  path: ^1.9.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.0
