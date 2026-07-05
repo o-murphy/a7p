@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-05
+
+First stable release, no changes from [0.1.0-beta.1]
+
 ## [0.1.0-beta.1] - 2026-07-04
 
 Initial extraction from `archerbc2_flutter/packages/a7p` into a standalone
@@ -25,5 +29,6 @@ package.
 - CI workflow (`.github/workflows/ci.yml`): analyze, format check, test
   (Linux/macOS/Windows), pub.dev dry-run jobs
 
-[Unreleased]: https://github.com/o-murphy/a7p-dart/compare/v0.1.0-beta.1...HEAD
+[Unreleased]: https://github.com/o-murphy/a7p-dart/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/o-murphy/a7p-dart/compare/v0.1.0-beta.1...v0.1.0
 [0.1.0-beta.1]: https://github.com/o-murphy/a7p-dart/releases/tag/v0.1.0-beta.1
