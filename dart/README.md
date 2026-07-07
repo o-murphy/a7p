@@ -31,7 +31,9 @@ brew install protobuf
 dart pub global activate protoc_plugin
 ```
 
-Then, after editing `proto/profedit.proto`:
+Then, after editing `../proto/profedit.proto` (the canonical copy lives at
+the `a7p-cross` repo root, shared with the `py`/`js` packages — this only
+works when `dart/` is checked out inside an `a7p-cross` tree):
 
 ```sh
 dart run bin/generate_proto.dart

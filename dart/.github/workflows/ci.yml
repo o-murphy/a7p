@@ -7,7 +7,6 @@ on:
       - "lib/**"
       - "test/**"
       - "bin/**"
-      - "proto/**"
       - "pubspec.yaml"
       - ".github/workflows/ci.yml"
   pull_request:

@@ -1,4 +1,5 @@
-// Re-generates lib/src/proto/*.dart from proto/profedit.proto.
+// Re-generates lib/src/proto/*.dart from ../proto/profedit.proto (the
+// canonical copy lives at the a7p-cross repo root, shared with py/js).
 //
 // Run after editing the .proto source:
 //   dart run bin/generate_proto.dart
@@ -42,8 +43,8 @@ void main() {
   final result = Process.runSync(protoc, [
     '--dart_out=lib/src/proto',
     '-I',
-    'proto',
-    'proto/profedit.proto',
+    '../proto',
+    '../proto/profedit.proto',
     '--plugin=protoc-gen-dart=${plugin.path}',
   ], workingDirectory: repoRoot);
 
