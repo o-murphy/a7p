@@ -217,7 +217,8 @@ jsonschema-fallback, публічний API незмінний, скомпіль
 `scripts/compile.py --python`), `schema/fixtures/` (7 фікстур), дрібні баги в `js`/`dart`
 виправлені, два дизайн-питання (`c_idx`-gap, `switches[].distance`) вирішені й замкнені
 тестами в `py`, усі три сабмодулі перейменовані `py`/`js`/`dart`, `profedit.proto` винесено
-на рівень `a7p-cross` (п.0 нижче).
+на рівень `a7p-cross` (п.0 нижче), `dart` мігровано на schema-based валідатор через
+`json_schema` (п.1 нижче).
 
 Далі, приблизно в такому порядку:
 
@@ -231,11 +232,26 @@ jsonschema-fallback, публічний API незмінний, скомпіль
    викликає всі три (`--python`/`--ts`/`--dart` або без прапорця — всі разом); деталі —
    `README.md`, розділ "proto/profedit.proto". Зміни зроблені в submodule-репо на гілці
    `fix/schema` (staged, не закомічені — коміти робить користувач вручну).
-1. **Мігрувати `dart` на schema-based валідатор.** Замінити `A7pValidator` на пакет
-   `json_schema` (pub.dev) проти `schema/a7p.schema.json`, зберігши публічний API
-   (`A7pValidator.validate`), за тим самим патерном, що й пілот у `py`. У `dart` вже є
-   тести (8/8) і повний прогін проти реального 484-файлового корпусу з попереднього кроку —
-   є з чим звіряти паритет.
+1. ~~**Мігрувати `dart` на schema-based валідатор.**~~ **Зроблено.** `A7pValidator`
+   (`dart/lib/src/a7p_validator.dart`) тепер валідує через пакет `json_schema` (pub.dev)
+   замість ручних range-check-методів; публічний API (`A7pValidator.validate(Payload)`,
+   `A7pFieldError`, `A7pValidationException`) не змінився. `json_schema` не має
+   Quicktype/fastjsonschema-подібного codegen (перевірено — немає готового "compile
+   schema → Dart-код" інструменту), тому схема запікається як raw Dart string-константа
+   (`dart/lib/src/generated/a7p_schema.g.dart`, генерується `scripts/compile.py --dart`) —
+   це, а не Flutter-асети чи `package:`-URI, надійно переживає AOT/web-збірки (деталі й
+   чому — `README.md`, розділ `--dart`). `JsonSchema` будується з цієї константи один раз
+   (lazy singleton у `A7pValidator._schema`), а не при кожному `validate()`. Unique-`mv`
+   перевірка (не виражається в чистому JSON Schema) залишена окремим ручним чеком, як і в
+   `py`. Payload (protobuf) конвертується в snake_case `Map` вручну (`_payloadToJson`) —
+   dart-протобуф `writeToJsonMap()` дає camelCase, що не збігається зі схемою. Звірено на
+   `schema/fixtures/` (усі 7 фікстур дають очікуваний результат, включно з відомим
+   `duplicate_mv`-гепом) + новий `dart/test/a7p_validator_test.dart` (9 тестів на реальних
+   protobuf-`Payload`, включно з `c_idx`-gap і mv-унікальністю); `dart analyze
+   --fatal-infos` і `dart format` чисті. Побічний ефект: стара ручна перевірка
+   `c_zero_distance_idx` динамічним `len(distances)-1` (задокументована як
+   `x-discrepancy` розбіжність з `py`/`js`) прибрана — тепер `dart` теж використовує
+   статичний діапазон 0–255, як і решта.
 2. **Мігрувати `js` на `ajv`.** Замінити `validate.ts` (yup) на `ajv` проти тієї ж схеми.
    Ризикованіше за `dart`, бо в `js` зараз **немає жодного тесту** — варто спочатку
    написати мінімальний test suite (напр. на основі `schema/fixtures/`), і лише тоді

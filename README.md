@@ -47,7 +47,7 @@ every process start.
 ```sh
 python scripts/compile.py --python   # implemented
 python scripts/compile.py --ts       # not yet -- js still uses yup, not ajv
-python scripts/compile.py --dart     # not yet -- dart uses a hand-written A7pValidator
+python scripts/compile.py --dart     # implemented
 ```
 
 ### `--python`
@@ -72,6 +72,26 @@ process does.
 exactly the failure mode this whole schema-unification effort exists to
 eliminate. There's no CI check enforcing this yet; until there is, treat it
 as a manual step of editing the schema.
+
+### `--dart`
+
+There's no Dart equivalent of `fastjsonschema.compile_to_code()` — no
+standalone-codegen JSON Schema validator for Dart exists. Instead, this step
+embeds `a7p.schema.json` as a raw Dart string constant in
+`dart/lib/src/generated/a7p_schema.g.dart` (a generated file — do not edit it
+by hand), and `A7pValidator` (in `dart/lib/src/a7p_validator.dart`) builds a
+`JsonSchema` from it once (a lazy singleton) and reuses it for every
+`validate()` call via the `json_schema` package.
+
+The embedding has to survive Flutter AOT/web builds without asset bundling
+(Flutter-only, wouldn't work in plain Dart VM/CLI use) or `package:` URI
+resolution (unreliable in AOT/release builds) — a plain Dart string constant
+compiles like any other code, so it works the same everywhere. It's a raw
+string (`r"""..."""`) because the schema uses `$ref`/`$defs`/`$id`, and Dart
+would otherwise try to interpolate the `$`.
+
+**Run this whenever `a7p.schema.json` changes** and commit the regenerated
+`a7p_schema.g.dart` alongside it, same as `--python`.
 
 On failure, `schema_validator.py` falls back to `jsonschema` (pure Python,
 slower, but reports every violation instead of only the first one) so the

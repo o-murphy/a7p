@@ -9,7 +9,7 @@ root for usage and the numbers behind it.
 Usage:
     python scripts/compile.py --python
     python scripts/compile.py --ts      (not yet implemented)
-    python scripts/compile.py --dart    (not yet implemented)
+    python scripts/compile.py --dart
 """
 
 import argparse
@@ -60,11 +60,49 @@ def compile_ts() -> None:
 
 
 def compile_dart() -> None:
-    sys.exit(
-        "not implemented yet: dart validates with a hand-written A7pValidator, "
-        "not a schema-driven library. No standalone-codegen JSON Schema validator "
-        "for Dart has been evaluated yet."
+    """Embeds a7p.schema.json as a raw Dart string constant.
+
+    There's no Dart equivalent of fastjsonschema.compile_to_code() (no
+    standalone-codegen JSON Schema validator for Dart) -- dart/ instead
+    validates at runtime with the `json_schema` package against a JsonSchema
+    built once from this embedded constant (a lazy singleton, see
+    A7pValidator._schema in a7p_validator.dart). This step only has to solve
+    getting the schema JSON to travel inside the compiled package (pub.dev
+    install, Flutter AOT/web builds) without relying on asset bundling
+    (Flutter-only) or package: URI resolution (unreliable in AOT/release
+    builds) -- a plain Dart string constant works identically in VM, Flutter,
+    and web.
+    """
+    import json
+
+    out_path = REPO_ROOT / "dart" / "lib" / "src" / "generated" / "a7p_schema.g.dart"
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    compact = json.dumps(schema)
+
+    # $ref/$defs/$id are real JSON Schema keywords used throughout this file,
+    # and Dart interpolates `$` in non-raw strings -- must stay a raw string.
+    # Raw strings can't contain their own delimiter, so guard against it
+    # (would need a different embedding strategy, e.g. base64, if it ever
+    # trips -- see docs/DESIGN-schema-unification.md step 1 for why base64
+    # wasn't the default choice).
+    if '"""' in compact:
+        sys.exit(
+            'schema/a7p.schema.json now contains a literal `"""`, which '
+            "breaks the r\"\"\"...\"\"\" raw-string embedding in generated "
+            "a7p_schema.g.dart. Switch compile_dart() to a base64-encoded "
+            "embedding instead."
+        )
+
+    header = (
+        "// GENERATED FILE -- DO NOT EDIT BY HAND.\n"
+        "// Source:      schema/a7p.schema.json\n"
+        "// Regenerate:  python scripts/compile.py --dart\n\n"
     )
+    body = f'const String kA7pSchemaJson = r"""\n{compact}\n""";\n'
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(header + body, encoding="utf-8")
+    print(f"wrote {out_path} ({len(compact)} bytes embedded)")
 
 
 def main() -> None:
@@ -72,7 +110,7 @@ def main() -> None:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--python", action="store_true", help="regenerate py/'s compiled validator")
     group.add_argument("--ts", action="store_true", help="(not yet implemented)")
-    group.add_argument("--dart", action="store_true", help="(not yet implemented)")
+    group.add_argument("--dart", action="store_true", help="regenerate dart/'s embedded schema constant")
     args = parser.parse_args()
 
     if args.python:
