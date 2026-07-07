@@ -1,6 +1,3 @@
-[submodule "a7p-py"]
-	path = py
-	url = https://github.com/o-murphy/a7p
 [submodule "a7p-js"]
 	path = js
 	url = https://github.com/o-murphy/a7p-js
