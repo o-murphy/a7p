@@ -105,7 +105,7 @@ def _scalar_field_value_to_cel(val: typing.Any, field: descriptor.FieldDescripto
 
 
 def _field_value_to_cel(val: typing.Any, field: descriptor.FieldDescriptor) -> celtypes.Value:
-    if field.label == descriptor.FieldDescriptor.LABEL_REPEATED:
+    if field.is_repeated:
         if field.message_type is not None and field.message_type.GetOptions().map_entry:
             return _map_field_value_to_cel(val, field)
         return _repeated_field_value_to_cel(val, field)
@@ -115,7 +115,7 @@ def _field_value_to_cel(val: typing.Any, field: descriptor.FieldDescriptor) -> c
 def _is_empty_field(msg: message.Message, field: descriptor.FieldDescriptor) -> bool:
     if field.containing_oneof is not None and not msg.HasField(field.name):
         return True
-    if field.label == descriptor.FieldDescriptor.LABEL_REPEATED:
+    if field.is_repeated:
         return len(getattr(msg, field.name)) == 0
     if field.type == descriptor.FieldDescriptor.TYPE_MESSAGE:
         return not msg.HasField(field.name)
@@ -182,7 +182,7 @@ def _map_field_to_cel(msg: message.Message, field: descriptor.FieldDescriptor) -
 
 
 def _field_to_cel(msg: message.Message, field: descriptor.FieldDescriptor) -> celtypes.Value:
-    if field.label == descriptor.FieldDescriptor.LABEL_REPEATED:
+    if field.is_repeated:
         return _repeated_field_to_cel(msg, field)
     elif field.message_type is not None and not msg.HasField(field.name):
         return None
@@ -343,7 +343,7 @@ class FieldConstraintRules(CelConstraintRules):
             if (
                 self._ignore_empty
                 or (
-                    self._field.label != descriptor.FieldDescriptor.LABEL_REPEATED
+                    not self._field.is_repeated
                     and self._field.type == descriptor.FieldDescriptor.TYPE_MESSAGE
                 )
                 or self._field.containing_oneof is not None
@@ -670,7 +670,7 @@ class ConstraintFactory:
         field: descriptor.FieldDescriptor,
         rules: validate_pb2.field,
     ) -> FieldConstraintRules:
-        if field.label != descriptor.FieldDescriptor.LABEL_REPEATED:
+        if not field.is_repeated:
             return self._new_scalar_field_constraint(field, rules)
         if field.message_type is not None and field.message_type.GetOptions().map_entry:
             key_rules = None
@@ -714,10 +714,10 @@ class ConstraintFactory:
                 continue
             if field.message_type.GetOptions().map_entry:
                 value_field = field.message_type.fields_by_name["value"]
-                if value_field._type != descriptor.FieldDescriptor.TYPE_MESSAGE:
+                if value_field.type != descriptor.FieldDescriptor.TYPE_MESSAGE:
                     continue
                 result.append(MapValMsgConstraint(self, field, value_field))
-            elif field.label == descriptor.FieldDescriptor.LABEL_REPEATED:
+            elif field.is_repeated:
                 result.append(RepeatedMsgConstraint(self, field))
             else:
                 result.append(SubMsgConstraint(self, field))
