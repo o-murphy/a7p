@@ -11,7 +11,7 @@ Functions:
     from_json: Converts a JSON string to a Payload object.
     to_dict: Converts a Payload object to a dictionary.
     from_dict: Converts a dictionary to a Payload object.
-    validate: Validates a Payload object against yupy validation rules.
+    validate: Validates a Payload object against the canonical .a7p JSON Schema.
 """
 
 import hashlib
@@ -22,15 +22,14 @@ from google.protobuf.json_format import MessageToJson, MessageToDict, Parse
 
 from a7p import exceptions
 from a7p import profedit_pb2
-from a7p.yupy_schema import validate as validate_yupy
-from yupy import ValidationError as YupyValidationError
+from a7p.schema_validator import validate as validate_schema, SchemaValidationError
 
-USE_YUPY_VALIDATOR = True
+USE_SCHEMA_VALIDATOR = True
 
 
-def setUseYupyValidator(flag: bool):
-    global USE_YUPY_VALIDATOR
-    USE_YUPY_VALIDATOR = flag
+def setUseSchemaValidator(flag: bool):
+    global USE_SCHEMA_VALIDATOR
+    USE_SCHEMA_VALIDATOR = flag
 
 
 def loads(
@@ -202,7 +201,8 @@ def from_dict(data: dict) -> profedit_pb2.Payload:
 
 def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
     """
-    Validates a Payload object against yupy validation rules.
+    Validates a Payload object against the canonical .a7p JSON Schema
+    (schema/a7p.schema.json in a7p-cross, bundled here as a7p/a7p.schema.json).
 
     Args:
         payload (profedit_pb2.Payload): The Payload object to validate.
@@ -218,30 +218,25 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
 
     is_errors = False
 
-    if USE_YUPY_VALIDATOR:
+    if USE_SCHEMA_VALIDATOR:
         try:
-            validate_yupy(payload)
-        except YupyValidationError as error:
+            validate_schema(payload, fail_fast)
+        except SchemaValidationError as error:
             is_errors = True
-            yupy_violations = []
-            for err in error.errors:
-                yupy_violations.append(
-                    exceptions.Violation(
-                        err.path,
-                        err.invalid_value,
-                        err.message,
-                    )
-                )
-            violations["yupy_violations"] = yupy_violations
+            # Kept as `yupy_violations` for API compatibility: A7PValidationError
+            # and its consumers key on this attribute regardless of which
+            # validator engine actually produced the violations.
+            violations["yupy_violations"] = [
+                exceptions.Violation(path, None, message)
+                for path, message in error.errors
+            ]
             violations["violations"].append(
                 exceptions.Violation(
-                    "Yupy validation error",
-                    "Validation failed during yupy schema validation",
+                    "Schema validation error",
+                    "Validation failed during JSON Schema validation",
                     "",
                 )
             )
-
-        # raise NotImplementedError("yupy validation is not currently supported")
 
     # Raise the final validation error if there are violations
     if is_errors:

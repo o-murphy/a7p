@@ -8,7 +8,7 @@ import tqdm
 
 import a7p
 from a7p import exceptions, profedit_pb2
-from a7p.a7p import setUseYupyValidator
+from a7p.a7p import setUseSchemaValidator
 from a7p.exceptions import A7PValidationError
 from a7p.factory import DistanceTable
 from a7p.logger import logger, color_print, color_fmt
@@ -456,7 +456,7 @@ def main():
         # print(args)
         args_dict = args.__dict__
         disable_yupy = args_dict.pop("disable_yupy", False)
-        setUseYupyValidator(disable_yupy)
+        setUseSchemaValidator(disable_yupy)
 
         process_files(**args.__dict__)
         if args.jsonify:
