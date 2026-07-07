@@ -51,7 +51,8 @@
             { "type": "integer", "minimum": 0, "maximum": 200 },
             { "const": 255 }
           ],
-          "x-discrepancy": "a7p-js and a7p-dart's A7pValidator both accept the full 0-255 range unconditionally, i.e. they don't reject the undefined 201-254 gap that profile.clj / a7p-py exclude via oneOf. Confirm whether 201-254 should be rejected or the gap-exclusion should be dropped everywhere."
+          "x-decision": "Resolved: 201-254 is rejected (matches profile.clj / a7p-py). Locked in by tests/test_schema_validator.py::test_switch_c_idx_bounds in a7p-py, which now validates through the public a7p.validate() path (schema_validator.py), not just the old yupy_schema.py.",
+          "x-discrepancy": "a7p-js and a7p-dart's A7pValidator both still accept the full 0-255 range unconditionally -- not fixed there yet; would require changing validation logic (not just a numeric constant) in both."
         },
         "distance_from": { "$ref": "#/$defs/DistanceFrom" },
         "distance": {
@@ -63,7 +64,8 @@
           "x-fraction-digits": 2,
           "x-ui-fraction-digits": 0,
           "x-unit": "m",
-          "x-discrepancy": "a7p-js and a7p-dart instead branch on distance_from: when INDEX, they validate 'distance' as an index in [0,255] into the distances array; when VALUE, as [100,300000]. a7p-py/profile.clj do not make this distinction. This is a semantic fork, not just a range typo -- needs an explicit decision (see DESIGN doc open question) before encoding it here as an if/then on distance_from."
+          "x-decision": "Resolved: distance is 0-or-[100,300000] unconditionally, regardless of distance_from (matches profile.clj / a7p-py) -- distance_from is not consulted for this rule. Locked in by tests/test_schema_validator.py::test_switch_distance_bounds_independent_of_distance_from in a7p-py, which now validates through the public a7p.validate() path (schema_validator.py), not just the old yupy_schema.py.",
+          "x-discrepancy": "a7p-js and a7p-dart instead branch on distance_from: when INDEX, they validate 'distance' as an index in [0,255] into the distances array; when VALUE, as [100,300000]. Not fixed there yet -- this is a semantic fork, not just a range typo, and would require changing validation logic (not just a numeric constant) in both."
         },
         "reticle_idx": {
           "type": "integer",
@@ -77,8 +79,8 @@
           "maximum": 6,
           "x-fraction-digits": 0,
           "description": "0 = unset/default (observed in real profiles for switches with distance_from=INDEX acting as a placeholder entry), 1-6 = real zoom levels on the device.",
-          "x-fixed": "a7p-dart's A7pValidator already checked 0-6 (matching this schema); its A7pFieldConstraints.zoom metadata said min 1, contradicting its own validator and the real shipped profiles below -- doc comment updated to 0-6.",
-          "x-discrepancy": "profile.clj says 0-4 (documented bug, not used here). a7p-js validate.ts does not restrict this at all (0-255) -- not fixed yet. a7p-py's yupy_schema.py still hard-codes 0-4 -- narrower than canonical 0-6, meaning a legitimate zoom==5 or zoom==6 profile would currently be wrongly rejected by a7p-py (no real profile in the 484-file corpus currently hits this, so it hasn't surfaced as a test failure, but it's a latent bug). Confirmed against real shipped profiles: a7p-py/tests/data/example2.a7p and a7p-js/scripts/example2.a7p both ship a switch with zoom == 0."
+          "x-fixed": "a7p-dart's A7pValidator already checked 0-6 (matching this schema); its A7pFieldConstraints.zoom metadata said min 1, contradicting its own validator and the real shipped profiles below -- doc comment updated to 0-6. a7p-js validate.ts previously did not restrict this at all (0-255) -- now bounded to 0-6. a7p-py's public a7p.validate() uses this schema directly (0-6), confirmed by tests/test_schema_validator.py::test_switch_zoom_bounds.",
+          "x-discrepancy": "profile.clj says 0-4 (documented bug, not used here). a7p-py's yupy_schema.py module still hard-codes 0-4 in its own tests/regression suite (test_yupy_schema.py), but that module is no longer wired into the public a7p.validate() path, so this doesn't affect real validation -- only relevant if someone imports a7p.yupy_schema directly. Confirmed against real shipped profiles: a7p-py/tests/data/example2.a7p and a7p-js/scripts/example2.a7p both ship a switch with zoom == 0."
         }
       }
     },
@@ -178,8 +180,7 @@
         "b_length": {
           "type": "integer", "minimum": 10, "maximum": 200000,
           "x-fraction-digits": 3, "x-unit": "in",
-          "x-fixed": "a7p-dart's A7pValidator used min 0 instead of 10 -- fixed.",
-          "x-discrepancy": "a7p-js validate.ts still uses min 1 instead of 10 (profile.clj / a7p-py / a7p-dart all use raw min 10 = 0.01 * 10^3) -- not fixed yet, out of the confirmed fix scope for this pass."
+          "x-fixed": "a7p-dart's A7pValidator used min 0 instead of 10 -- fixed. a7p-js validate.ts used min 1 instead of 10 -- fixed."
         },
 
         "bc_type": { "$ref": "#/$defs/BcType" },
