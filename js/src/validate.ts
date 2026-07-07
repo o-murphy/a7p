@@ -68,7 +68,7 @@ export const schema = object().shape({
 // Schema for coefRows when bcType is 'G1' or 'G7'
 const coefRowsStandard = array().of(
     object().shape({
-        bcCd: number().min(0).max(10000).integer(),
+        bcCd: number().min(0).max(100000).integer(),
         mv: number().min(0).max(30000).integer(),
     })
 ).min(1).max(5).required('For G1 or G7, coefRows must contain between 1 and 5 items')
@@ -85,8 +85,8 @@ const coefRowsStandard = array().of(
 // Schema for coefRows when bcType is 'CUSTOM'
 const coefRowsCustom = array().of(
     object().shape({
-        bcCd: number().min(0).max(10000).integer(),
-        mv: number().min(0).max(10000).integer()
+        bcCd: number().min(0).max(100000).integer(),
+        mv: number().min(0).max(100000).integer()
     })
 ).min(1).max(200).required('For CUSTOM, coefRows must contain between 1 and 200 items')
     .test('unique-mv', 'mv values must be unique, except for mv == 0', (value) => {
