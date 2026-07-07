@@ -71,7 +71,7 @@ Zeroing:
                         Set the offset for zeroing in clicks (X_OFFSET and Y_OFFSET).
                         
 Advanced:
-  --protovalidate       Use protovalidate (deprecated).
+  --disable-yupy        Disable yupy validation (unsafe).
 ```
 
 #### Use as imported module

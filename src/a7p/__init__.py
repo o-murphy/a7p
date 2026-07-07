@@ -17,7 +17,6 @@ __all__ = (
     'from_dict',
     'to_dict',
     'validate',
-    'setUseProtovalidate',
 
     'Payload',
     'Profile',

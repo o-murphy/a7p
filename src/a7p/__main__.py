@@ -7,7 +7,7 @@ from pathlib import Path
 import tqdm
 
 import a7p
-from a7p import exceptions, profedit_pb2, setUseProtovalidate
+from a7p import exceptions, profedit_pb2
 from a7p.a7p import setUseYupyValidator
 from a7p.exceptions import A7PValidationError
 from a7p.factory import DistanceTable
@@ -152,9 +152,6 @@ switches_exclusive_group.add_argument(
 )
 
 advanced_group = parser.add_argument_group("Advanced")
-advanced_group.add_argument(
-    "--protovalidate", action="store_true", help="Use protovalidate (deprecated)."
-)
 advanced_group.add_argument(
     "--disable-yupy",
     action="store_false",
@@ -527,9 +524,7 @@ def main():
         args = parser.parse_args()
         # print(args)
         args_dict = args.__dict__
-        use_proto = args_dict.pop("protovalidate", False)
         disable_yupy = args_dict.pop("disable_yupy", False)
-        setUseProtovalidate(use_proto)
         setUseYupyValidator(disable_yupy)
 
         process_files(**args.__dict__)

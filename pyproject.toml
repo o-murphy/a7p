@@ -82,12 +82,10 @@ exclude = [
     "__init__.py",
     "src/**/*pb2.py",
     "src/a7p/buf",
-    "src/a7p/protovalidate",
 ]
 
 [dependency-groups]
 dev = [
-    "protovalidate>=1.2.0",
     "pydantic>=2.13.3",
     "orjson>=3.11.8",
     "pytest>=9.0.3",

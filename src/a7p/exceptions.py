@@ -1,31 +1,21 @@
 """
-This module defines custom error classes, data classes, and utility functions for
-handling validation violations in the A7P project. It includes various types of
-violations, error handling, and logic for extracting violations from protocol
-buffers related to validation.
+This module defines custom error classes and data classes for handling
+validation violations in the A7P project.
 
 Classes:
     Violation: Represents a violation with a specific path, value, and reason.
-    ProtoViolation: Represents a violation extracted from protocol buffer data.
     YupyViolation: Represents a yupy schema-related violation.
     A7PError: Base class for all A7P-related errors.
     A7PDataError: A subclass of A7PError related to data issues.
     A7PChecksumError: A subclass of A7PDataError for checksum-related errors.
     A7PValidationError: A subclass of A7PDataError for validation-related errors.
-    A7PProtoValidationError: A subclass of A7PValidationError for protocol validation errors.
     A7PYupyValidationError: A subclass of A7PValidationError for yupy schema validation errors.
-
-Functions:
-    _extract_violation: Extracts a violation from an expression_pb2.Violation object.
-    _extract_protovalidate_violations: Extracts a list of ProtoViolation from an expression_pb2.Violations object.
 """
 
 from dataclasses import dataclass
 from pathlib import Path
 
-from a7p.buf.validate import expression_pb2
 from a7p import profedit_pb2
-from a7p.logger import logger
 
 
 @dataclass
@@ -55,21 +45,6 @@ class Violation:
         value_ = f"Value   :  {self.value if is_stringer else '<object>'}"
         reason = f"Reason  :  {self.reason}"
         return "\n    ".join(["Violation:".ljust(10), path__, value_, reason])
-
-
-@dataclass
-class ProtoViolation(Violation):
-    """
-    Represents a violation extracted from protocol buffer data, inheriting from Violation.
-
-    Inherits all attributes and methods from Violation.
-    """
-
-    pass
-    # def __init__(self, path: str, value: any, reason: str) -> None:
-    #     self.path = Path("~/", *path.split("."))
-    #     self.value = value
-    #     self.reason = reason
 
 
 @dataclass
@@ -117,7 +92,6 @@ class A7PValidationError(A7PDataError):
         msg (str): The error message.
         payload (profedit_pb2.Payload): The payload data associated with the validation error.
         violations (list[Violation]): A list of general violations.
-        proto_violations (list[ProtoViolation]): A list of protocol validation violations.
         yupy_violations (list[YupyViolation]): A list of yupy schema validation violations.
     """
 
@@ -126,7 +100,6 @@ class A7PValidationError(A7PDataError):
         msg: str,
         payload: profedit_pb2.Payload,
         violations: list[Violation] = None,
-        proto_violations: list[ProtoViolation] = None,
         yupy_violations: list[YupyViolation] = None,
     ):
         """
@@ -136,13 +109,11 @@ class A7PValidationError(A7PDataError):
             msg (str): The error message.
             payload (profedit_pb2.Payload): The payload data.
             violations (list[Violation], optional): A list of violations.
-            proto_violations (list[ProtoViolation], optional): A list of protocol validation violations.
             yupy_violations (list[YupyViolation], optional): A list of yupy schema validation violations.
         """
         super().__init__(msg)
         self.payload = payload
         self.violations = violations or []
-        self.proto_violations = proto_violations or []
         self.yupy_violations = yupy_violations or []
 
     @property
@@ -153,40 +124,7 @@ class A7PValidationError(A7PDataError):
         Returns:
             list[Violation]: A combined list of violations.
         """
-        return (
-            self.violations
-            + self.proto_violations
-            + self.yupy_violations
-        )
-
-
-class A7PProtoValidationError(A7PValidationError):
-    """
-    A subclass of A7PValidationError for errors specifically related to protocol validation.
-
-    Args:
-        msg (str): The error message.
-        payload (profedit_pb2.Payload): The payload data associated with the error.
-        violations (expression_pb2.Violations): The violations related to the protocol validation.
-    """
-
-    def __init__(
-        self,
-        msg: str,
-        payload: profedit_pb2.Payload,
-        violations: expression_pb2.Violations,
-    ):
-        """
-        Initializes the protocol validation error with the provided message, payload, and violations.
-
-        Args:
-            msg (str): The error message.
-            payload (profedit_pb2.Payload): The payload data.
-            violations (expression_pb2.Violations): The violations related to the protocol validation.
-        """
-        super().__init__(
-            msg, payload, proto_violations=_extract_protovalidate_violations(violations)
-        )
+        return self.violations + self.yupy_violations
 
 
 class A7PYupyValidationError(A7PValidationError):
@@ -211,85 +149,12 @@ class A7PYupyValidationError(A7PValidationError):
         super().__init__(msg, payload, yupy_violations=violations)
 
 
-def _extract_violation(violation: expression_pb2.Violation) -> ProtoViolation:
-    """
-    Extracts a violation from an expression_pb2.Violation object.
-
-    Args:
-        violation (expression_pb2.Violation): The violation object to extract data from.
-
-    Returns:
-        ProtoViolation: The extracted ProtoViolation object.
-
-    Raises:
-        TypeError: If the provided violation is not an instance of expression_pb2.Violation.
-    """
-    if not isinstance(violation, expression_pb2.Violation):
-        raise TypeError(
-            "Expected an instance of expression_pb2.Violation, but got a different type."
-        )
-
-    field_path = None
-    constraint_id = None
-    message = None
-
-    # Iterate through all fields in the violation
-    for violation_field, violation_value in violation.ListFields():
-        if violation_field.name == "field_path":
-            field_path = violation_value
-        elif violation_field.name == "field":
-            field_path = violation_value
-        elif violation_field.name == "constraint_id":
-            constraint_id = violation_value
-        elif violation_field.name == "message":
-            message = violation_value
-        else:
-            logger.warning(f"Unknown field: {violation_field.name} {violation_value}")
-
-    return ProtoViolation(field_path, constraint_id, message)
-
-
-def _extract_protovalidate_violations(
-    violations: expression_pb2.Violations,
-) -> list[ProtoViolation]:
-    """
-    Extracts a list of ProtoViolation from an expression_pb2.Violations object.
-
-    Args:
-        violations (expression_pb2.Violations): The violations object containing multiple violations.
-
-    Returns:
-        list[ProtoViolation]: A list of ProtoViolation objects extracted from the input.
-
-    Raises:
-        TypeError: If the provided violations object is not an instance of expression_pb2.Violations.
-    """
-    if not isinstance(violations, expression_pb2.Violations):
-        raise TypeError(
-            "Expected an instance of expression_pb2.Violations, but got a different type."
-        )
-
-    extracted_violations = []
-    for field, value in violations.ListFields():
-        if field.name == "violations":  # Ensure we are handling the violations field
-            for violation in value:  # Iterate over each Violation object
-                extracted_violations.append(
-                    _extract_violation(violation)
-                )  # Pass the violation to the function
-
-    return extracted_violations  # Ensure the violations are returned
-
-
 __all__ = [
     "Violation",
-    "ProtoViolation",
     "YupyViolation",
     "A7PError",
     "A7PDataError",
     "A7PChecksumError",
     "A7PValidationError",
-    "A7PProtoValidationError",
     "A7PYupyValidationError",
-    "_extract_violation",
-    "_extract_protovalidate_violations",
 ]
