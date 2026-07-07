@@ -3,6 +3,32 @@
 Cross-language tooling for the `.a7p` ballistic profile format (`py` (the
 `a7p` Python package), `js`, `dart`).
 
+## proto/profedit.proto
+
+Canonical `.proto` source for the wire *shape* of a profile (as opposed to
+`schema/a7p.schema.json`, which covers value ranges/constraints — see
+`docs/DESIGN-schema-unification.md`). Previously copied verbatim into
+`py/proto/`, `js/src/proto/`, and `dart/proto/`; now lives here once, since
+it's only needed at codegen build-time (not packaged into any of the three
+language distributions) and each of `py`/`js`/`dart` is checked out inside
+this tree as a submodule.
+
+Regenerate all three languages' bindings after editing the `.proto`:
+
+```sh
+scripts/generate_proto.sh            # all three
+scripts/generate_proto.sh --python   # or one at a time
+scripts/generate_proto.sh --ts
+scripts/generate_proto.sh --dart
+```
+
+This shells out to each language's own toolchain (`protoc` directly for
+`python`; `yarn build:proto` for `ts`, which wraps `ts_proto`; `dart run
+bin/generate_proto.dart` for `dart`, which additionally resolves the
+`protoc-gen-dart` plugin path portably across platforms) — it's a thin
+orchestrator, not a reimplementation, so each language keeps whatever
+plugin-specific logic it already had.
+
 ## schema/a7p.schema.json
 
 Canonical JSON Schema for the `.a7p` profile format — the single source of

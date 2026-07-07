@@ -1,0 +1,98 @@
+name: Dart
+
+on:
+  push:
+    paths:
+      - "dart/**"
+      - "proto/**"
+      - ".github/workflows/dart.yml"
+  pull_request:
+    paths:
+      - "dart/**"
+      - "proto/**"
+      - ".github/workflows/dart.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Analyze ──────────────────────────────────────────────────────────────────
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./dart
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          submodules: "true"
+          fetch-depth: 0
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Analyze
+        run: dart analyze --fatal-infos
+
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed lib test bin
+
+  # ── Test ─────────────────────────────────────────────────────────────────────
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: ./dart
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          submodules: "true"
+          fetch-depth: 0
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Run tests
+        run: dart test
+
+  # ── pub.dev publish dry-run ───────────────────────────────────────────────────
+  publish-dry-run:
+    name: pub.dev dry-run
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./dart
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          submodules: "true"
+          fetch-depth: 0
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install dependencies
+        run: dart pub get
+
+      - name: Publish dry-run
+        run: dart pub publish --dry-run
