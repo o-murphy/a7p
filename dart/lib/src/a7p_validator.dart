@@ -1,3 +1,6 @@
+import 'package:json_schema/json_schema.dart';
+
+import 'generated/a7p_schema.g.dart';
 import 'proto/profedit.pb.dart';
 
 class A7pFieldError {
@@ -18,157 +21,116 @@ class A7pValidationException implements Exception {
 }
 
 class A7pValidator {
+  // Built once from the embedded schema constant (kA7pSchemaJson, generated
+  // by scripts/compile.py --dart) and reused for every validate() call --
+  // JsonSchema.create() parses the whole schema, so this avoids repeating
+  // that work per validation the way a fresh JsonSchema.create() call per
+  // validate() would.
+  static JsonSchema? _schemaCache;
+  static JsonSchema get _schema =>
+      _schemaCache ??= JsonSchema.create(kA7pSchemaJson);
+
   static void validate(Payload payload) {
     final errors = <A7pFieldError>[];
     if (!payload.hasProfile()) {
       errors.add(const A7pFieldError('payload', 'missing profile'));
       throw A7pValidationException(errors);
     }
-    _validateProfile(payload.profile, errors);
+
+    final data = _payloadToJson(payload);
+    final results = _schema.validate(data);
+    for (final e in results.errors) {
+      errors.add(A7pFieldError(_fieldPath(e.instancePath), e.message));
+    }
+
+    // Not expressible in plain JSON Schema (see coef_rows.x-unique-except-zero
+    // in schema/a7p.schema.json): all 'mv' values must be unique except that
+    // any number of rows may have mv == 0. Checked separately, same as py's
+    // schema_validator.py.
+    final mvError = _uniqueMvError(payload.profile.coefRows);
+    if (mvError != null) errors.add(mvError);
+
     if (errors.isNotEmpty) throw A7pValidationException(errors);
   }
 
-  static void _validateProfile(Profile p, List<A7pFieldError> errors) {
-    _requireString(errors, 'profile_name', p.profileName, maxLen: 50);
-    _requireString(errors, 'cartridge_name', p.cartridgeName, maxLen: 50);
-    _requireString(errors, 'bullet_name', p.bulletName, maxLen: 50);
-    _requireString(errors, 'caliber', p.caliber, maxLen: 50);
-    _requireString(errors, 'short_name_top', p.shortNameTop, maxLen: 8);
-    _requireString(errors, 'short_name_bot', p.shortNameBot, maxLen: 8);
-
-    _checkRange(errors, 'sc_height', p.scHeight, -5000, 5000);
-    _checkRange(errors, 'r_twist', p.rTwist, 0, 10000);
-    _checkRange(errors, 'zero_x', p.zeroX, -200000, 200000);
-    _checkRange(errors, 'zero_y', p.zeroY, -200000, 200000);
-
-    _checkRange(errors, 'c_muzzle_velocity', p.cMuzzleVelocity, 100, 30000);
-    _checkRange(errors, 'c_zero_temperature', p.cZeroTemperature, -100, 100);
-    _checkRange(errors, 'c_t_coeff', p.cTCoeff, 0, 5000);
-    _checkRange(errors, 'c_zero_p_temperature', p.cZeroPTemperature, -100, 100);
-    _checkRange(
-      errors,
-      'c_zero_air_temperature',
-      p.cZeroAirTemperature,
-      -100,
-      100,
-    );
-    _checkRange(errors, 'c_zero_air_pressure', p.cZeroAirPressure, 3000, 15000);
-    _checkRange(errors, 'c_zero_air_humidity', p.cZeroAirHumidity, 0, 100);
-    _checkRange(errors, 'c_zero_w_pitch', p.cZeroWPitch, -90, 90);
-
-    _checkRange(errors, 'b_diameter', p.bDiameter, 1, 50000);
-    _checkRange(errors, 'b_weight', p.bWeight, 10, 65535);
-    _checkRange(errors, 'b_length', p.bLength, 10, 200000);
-
-    final dists = p.distances;
-    if (dists.isEmpty || dists.length > 200) {
-      errors.add(
-        A7pFieldError(
-          'distances',
-          'must have 1–200 items, got ${dists.length}',
-        ),
-      );
-    } else {
-      for (var i = 0; i < dists.length; i++) {
-        _checkRange(errors, 'distances[$i]', dists[i], 100, 300000);
-      }
-      _checkRange(
-        errors,
-        'c_zero_distance_idx',
-        p.cZeroDistanceIdx,
-        0,
-        dists.length - 1,
-      );
-    }
-
-    if (p.switches.length < 4) {
-      errors.add(
-        A7pFieldError(
-          'switches',
-          'must have at least 4 items, got ${p.switches.length}',
-        ),
-      );
-    } else {
-      for (var i = 0; i < p.switches.length; i++) {
-        _validateSwPos(p.switches[i], i, errors);
-      }
-    }
-
-    _validateCoefRows(p.coefRows, p.bcType, errors);
-  }
-
-  static void _validateSwPos(SwPos sw, int idx, List<A7pFieldError> errors) {
-    _checkRange(errors, 'switches[$idx].reticle_idx', sw.reticleIdx, 0, 255);
-    _checkRange(errors, 'switches[$idx].zoom', sw.zoom, 0, 6);
-    if (sw.distanceFrom == DType.VALUE) {
-      _checkRange(errors, 'switches[$idx].distance', sw.distance, 100, 300000);
-    } else {
-      _checkRange(errors, 'switches[$idx].distance', sw.distance, 0, 255);
-    }
-    _checkRange(errors, 'switches[$idx].c_idx', sw.cIdx, 0, 255);
-  }
-
-  static void _validateCoefRows(
-    List<CoefRow> rows,
-    GType bcType,
-    List<A7pFieldError> errors,
-  ) {
-    final isCustom = bcType == GType.CUSTOM;
-    final maxItems = isCustom ? 200 : 5;
-    // G1/G7: bc_cd holds `bc` (0.0–10.0, 4 digits), mv holds real velocity
-    // in m/s (0.0–3000.0, 1 digit) → raw max 30000.
-    // Custom: bc_cd holds `cd` (0.0–10.0, 4 digits, same field/range as bc),
-    // mv holds `ma`, a Mach number (0.0–10.0, 4 digits) → raw max 100000,
-    // not a velocity — despite reusing the `mv` protobuf field name.
-    final maxMv = isCustom ? 100000 : 30000;
-
-    if (rows.isEmpty || rows.length > maxItems) {
-      errors.add(
-        A7pFieldError(
+  static A7pFieldError? _uniqueMvError(List<CoefRow> rows) {
+    final seen = <int>{};
+    for (final r in rows) {
+      if (r.mv != 0 && !seen.add(r.mv)) {
+        return const A7pFieldError(
           'coef_rows',
-          'must have 1–$maxItems items for $bcType, got ${rows.length}',
-        ),
-      );
-      return;
-    }
-
-    final seenMv = <int>{};
-    for (var i = 0; i < rows.length; i++) {
-      final r = rows[i];
-      _checkRange(errors, 'coef_rows[$i].bc_cd', r.bcCd, 0, 100000);
-      _checkRange(errors, 'coef_rows[$i].mv', r.mv, 0, maxMv);
-      if (r.mv != 0 && !seenMv.add(r.mv)) {
-        errors.add(
-          A7pFieldError('coef_rows[$i].mv', 'duplicate mv value ${r.mv}'),
+          "'mv' values must be unique, except for mv == 0",
         );
       }
     }
+    return null;
   }
 
-  static void _requireString(
-    List<A7pFieldError> errors,
-    String field,
-    String value, {
-    required int maxLen,
-  }) {
-    if (value.isEmpty) {
-      errors.add(A7pFieldError(field, 'required'));
-    } else if (value.length > maxLen) {
-      errors.add(
-        A7pFieldError(field, 'max $maxLen chars, got ${value.length}'),
-      );
+  // json_schema reports errors as JSON Pointers rooted at the whole Payload
+  // (e.g. "/profile/switches/0/c_idx"); strip the "/profile" prefix so field
+  // paths read the same as before this migration ("switches/0/c_idx").
+  static String _fieldPath(String instancePath) {
+    var path = instancePath;
+    if (path.startsWith('/profile')) {
+      path = path.substring('/profile'.length);
     }
+    if (path.startsWith('/')) path = path.substring(1);
+    return path.isEmpty ? 'payload' : path;
   }
 
-  static void _checkRange(
-    List<A7pFieldError> errors,
-    String field,
-    int value,
-    int min,
-    int max,
-  ) {
-    if (value < min || value > max) {
-      errors.add(A7pFieldError(field, 'must be $min–$max, got $value'));
-    }
+  // Converts the protobuf Payload into the plain snake_case JSON shape
+  // schema/a7p.schema.json is written against -- the same shape
+  // MessageToDict(preserving_proto_field_name=True) produces in py. Dart
+  // protobuf's own writeToJsonMap() uses camelCase (proto3 JSON mapping),
+  // which wouldn't match the schema's property names, so this is built by
+  // hand instead.
+  static Map<String, dynamic> _payloadToJson(Payload payload) {
+    final p = payload.profile;
+    return {
+      'profile': {
+        'profile_name': p.profileName,
+        'cartridge_name': p.cartridgeName,
+        'bullet_name': p.bulletName,
+        'short_name_top': p.shortNameTop,
+        'short_name_bot': p.shortNameBot,
+        'caliber': p.caliber,
+        'device_uuid': p.deviceUuid,
+        'user_note': p.userNote,
+        'zero_x': p.zeroX,
+        'zero_y': p.zeroY,
+        'sc_height': p.scHeight,
+        'r_twist': p.rTwist,
+        'twist_dir': p.twistDir.name,
+        'c_muzzle_velocity': p.cMuzzleVelocity,
+        'c_zero_temperature': p.cZeroTemperature,
+        'c_t_coeff': p.cTCoeff,
+        'c_zero_distance_idx': p.cZeroDistanceIdx,
+        'c_zero_air_temperature': p.cZeroAirTemperature,
+        'c_zero_air_pressure': p.cZeroAirPressure,
+        'c_zero_air_humidity': p.cZeroAirHumidity,
+        'c_zero_w_pitch': p.cZeroWPitch,
+        'c_zero_p_temperature': p.cZeroPTemperature,
+        'b_diameter': p.bDiameter,
+        'b_weight': p.bWeight,
+        'b_length': p.bLength,
+        'bc_type': p.bcType.name,
+        'switches': p.switches.map(_switchToJson).toList(),
+        'distances': p.distances.toList(),
+        'coef_rows': p.coefRows.map(_coefRowToJson).toList(),
+      },
+    };
   }
+
+  static Map<String, dynamic> _switchToJson(SwPos sw) => {
+    'c_idx': sw.cIdx,
+    'distance_from': sw.distanceFrom.name,
+    'distance': sw.distance,
+    'reticle_idx': sw.reticleIdx,
+    'zoom': sw.zoom,
+  };
+
+  static Map<String, dynamic> _coefRowToJson(CoefRow r) => {
+    'bc_cd': r.bcCd,
+    'mv': r.mv,
+  };
 }
