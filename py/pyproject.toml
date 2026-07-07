@@ -59,19 +59,18 @@ include = ["a7p*"]
 fallback_version = "0.0.0.dev0"
 
 [project.optional-dependencies]
-pydantic = ['pydantic==2.13.4']
 orjson = ['orjson==3.11.9']
 
 [project.scripts]
 a7p = "a7p.__main__:main"
-a7p-restore = "a7p.pydantic.restore_tool:main"
 
-[tool.pytest]
+[tool.pytest.ini_options]
 testpaths = ["tests"]
+python_files = ["test_*.py"]
 
 # uncomment to configure ruff linter/formatter
 [tool.ruff]
-include = ["pyproject.toml", "src/**/*.py"]
+include = ["pyproject.toml", "src/**/*.py", "tests/**/*.py"]
 exclude = [
     ".git",
     "__pypackages__",
@@ -81,15 +80,7 @@ exclude = [
     ".venv",
     "__init__.py",
     "src/**/*pb2.py",
-    "src/a7p/buf",
-    "src/a7p/protovalidate",
 ]
 
 [dependency-groups]
-dev = [
-    "protovalidate>=1.2.0",
-    "pydantic>=2.13.3",
-    "orjson>=3.11.8",
-    "pytest>=9.0.3",
-    "ruff>=0.12.11",
-]
+dev = ["orjson>=3.11.8", "pytest>=9.0.3", "ruff>=0.12.11"]

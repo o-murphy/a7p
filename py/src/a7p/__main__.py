@@ -7,12 +7,11 @@ from pathlib import Path
 import tqdm
 
 import a7p
-from a7p import exceptions, profedit_pb2, setUseProtovalidate
-from a7p.a7p import setUseSpecValidator, setUseYupyValidator
+from a7p import exceptions, profedit_pb2
+from a7p.a7p import setUseYupyValidator
 from a7p.exceptions import A7PValidationError
 from a7p.factory import DistanceTable
 from a7p.logger import logger, color_print, color_fmt
-from a7p.recover.recover_process import attempt_to_recover
 
 try:
     __version__ = metadata.version("a7p")
@@ -79,23 +78,17 @@ parser.add_argument(
     "--unsafe", action="store_true", help="Skip data validation (use with caution)."
 )
 
-recover_group = parser.add_argument_group("Single file specific options")
-recover_group.add_argument(
+single_file_group = parser.add_argument_group("Single file specific options")
+single_file_group.add_argument(
     "--jsonify",
     action="store_true",
     help="Print as json"
     "This option is only allowed for a single file.",
 )
-recover_group.add_argument(
+single_file_group.add_argument(
     "--verbose",
     action="store_true",
     help="Enable verbose output for detailed logs. "
-    "This option is only allowed for a single file.",
-)
-recover_group.add_argument(
-    "--recover",
-    action="store_true",
-    help="Attempt to recover from errors found in a file. "
     "This option is only allowed for a single file.",
 )
 
@@ -153,14 +146,6 @@ switches_exclusive_group.add_argument(
 
 advanced_group = parser.add_argument_group("Advanced")
 advanced_group.add_argument(
-    "--spec-validator",
-    action="store_true",
-    help="Use spec-based validator (deprecated).",
-)
-advanced_group.add_argument(
-    "--protovalidate", action="store_true", help="Use protovalidate (deprecated)."
-)
-advanced_group.add_argument(
     "--disable-yupy",
     action="store_false",
     default=True,
@@ -181,13 +166,8 @@ class Result:
     zero_update: bool = False
     distances: str = None
     zero_distance: str = None
-    recover: bool = False
     payload: profedit_pb2.Payload = None
     switches: bool = False
-
-    def reset_errors(self):
-        self.error = None
-        self.validation_error = None
 
     def print(self, verbose=False):
         if self.error:
@@ -224,13 +204,7 @@ class Result:
                 color_print(violation.format(), levelname="WARNING")
 
     def save_changes(self, force=False):
-        if (
-            self.zero_distance
-            or self.distances
-            or self.zero_update
-            or self.recover
-            or self.switches
-        ):
+        if self.zero_distance or self.distances or self.zero_update or self.switches:
             if not force:
                 yes_no = input(
                     color_fmt(
@@ -247,10 +221,6 @@ class Result:
 
                     # Write the validated data to the file
                     filepath = self.path.absolute()
-                    if self.recover:
-                        filepath = filepath.with_name(
-                            filepath.stem + "_recovered" + filepath.suffix
-                        )
 
                     with open(filepath, "wb") as fp:
                         fp.write(data)
@@ -332,7 +302,6 @@ def process_file(
     zero_offset=None,
     zero_sync=None,
     verbose=False,
-    recover=False,
     jsonify=False,
     copy_switches=None,
 ):
@@ -372,9 +341,6 @@ def process_file(
 
     result.payload = payload
 
-    if recover:
-        recover_payload(result)
-
     return result
 
 
@@ -402,22 +368,6 @@ def print_results_and_save(results, verbose=False, force=False):
     print(", ".join(output_strings))
 
 
-def recover_payload(result: Result):
-    if result.validation_error:
-        result.recover = True
-
-        color_print("Violations found:", levelname="ERROR")
-        for v in result.validation_error.all_violations:
-            color_print(v.format(), levelname="WARNING")
-
-        recover_error = attempt_to_recover(result.validation_error)
-        if not recover_error:
-            result.reset_errors()
-
-    else:
-        logger.info("No violations found")
-
-
 def process_files(
     path: Path = None,
     recursive: bool = False,
@@ -429,7 +379,6 @@ def process_files(
     force: bool = False,
     zero_offset: tuple[float, float] = None,
     zero_sync: Path = None,
-    recover: bool = False,
     copy_switches: Path = None,
 ):
     if not Path.exists(path):
@@ -452,27 +401,6 @@ def process_files(
         copy_switches = get_switches_to_copy(copy_switches, validate)
 
     if not path.is_dir():
-        if path and recover:
-            invalid_options_for_recover = [
-                recursive,
-                unsafe,
-                distances,
-                zero_distance,
-                jsonify,
-                verbose,
-                force,
-                zero_offset,
-                zero_sync,
-                copy_switches,
-            ]
-
-            if any(invalid_options_for_recover):
-                raise parser.error(
-                    "The '--recover' option cannot be combined with other options."
-                )
-
-            verbose = True
-
         results = [
             process_file(
                 path,
@@ -482,7 +410,6 @@ def process_files(
                 zero_offset,
                 zero_sync,
                 verbose,
-                recover,
                 jsonify,
                 copy_switches,
             )
@@ -490,10 +417,6 @@ def process_files(
         if jsonify:
             return  # Early return
     else:
-        if recover:
-            parser.warning(
-                "The '--recover' option is supported only when processing a single file."
-            )
         if verbose:
             parser.warning(
                 "The '--verbose' option is supported only when processing a single file."
@@ -532,11 +455,7 @@ def main():
         args = parser.parse_args()
         # print(args)
         args_dict = args.__dict__
-        use_proto = args_dict.pop("protovalidate", False)
-        use_spec = args_dict.pop("spec_validator", False)
         disable_yupy = args_dict.pop("disable_yupy", False)
-        setUseProtovalidate(use_proto)
-        setUseSpecValidator(use_spec)
         setUseYupyValidator(disable_yupy)
 
         process_files(**args.__dict__)
