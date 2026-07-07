@@ -85,6 +85,7 @@ exclude = [
     ".venv",
     "__init__.py",
     "src/**/*pb2.py",
+    "src/**/_compiled_schema.py",
 ]
 
 [dependency-groups]
