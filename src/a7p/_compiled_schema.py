@@ -1,6 +1,6 @@
 # GENERATED FILE -- DO NOT EDIT BY HAND.
 # Source:      schema/a7p.schema.json
-# Regenerate:  python schema/compile.py --python
+# Regenerate:  python scripts/compile.py --python
 # fastjsonschema version used to generate this file: 2.21.2
 
 VERSION = "2.21.2"
