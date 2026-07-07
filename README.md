@@ -8,7 +8,8 @@ a shared `.proto` (wire shape) and JSON Schema (validation rules), one
 together. `py`, `js`, and `dart` used to be separate repos/submodules; see
 `docs/DESIGN-schema-unification.md` for how and why they were merged in.
 
-[![PyPI Version](https://img.shields.io/pypi/v/a7p?logo=pypi)(https://pypi.org/project/a7p)]
+[![PyPI Version](https://img.shields.io/pypi/v/a7p?logo=pypi)
+](https://pypi.org/project/a7p)
 [![NPM Version](https://img.shields.io/npm/v/a7p-js?logo=npm)
 ](https://www.npmjs.com/package/a7p-js)
 [![Pub Version](https://img.shields.io/pub/v/a7p?logo=dart&cacheSeconds=0)
@@ -48,6 +49,42 @@ conditional rules that used to be hand-duplicated across `py`, `js`,
 and `dart`. See `docs/DESIGN-schema-unification.md` for the full design
 and the list of discrepancies found (and fixed) between the three repos'
 old hand-written validators.
+
+## Dimensions
+
+Numeric fields in `schema/a7p.schema.json` are raw wire-format integers —
+`x-fraction-digits` (and `x-unit` where applicable) on each property is the
+canonical source for the display-unit conversion (multiplier `10 ^
+x-fraction-digits`). `py/README.md`, `js/README.md`, and `dart/README.md`
+each carry the same table in their own field-naming convention
+(`snake_case`/`camelCase`) for that language's users; this one uses the
+schema's own (`snake_case`) property names.
+
+| key                      | unit           | multiplier | desc                                        |
+|--------------------------|----------------|------------|---------------------------------------------|
+| sc_height                | mm             | 1          | sight height in mm                          |
+| r_twist                  | inch           | 100        | positive twist value                        |
+| c_zero_temperature       | C              | 1          | temperature at c_muzzle_velocity            |
+| c_muzzle_velocity        | mps            | 10         | muzzle velocity at c_zero_temperature       |
+| c_t_coeff                | %/15C          | 1000       | temperature sensitivity                     |
+| c_zero_distance_idx      | \<int\>        | 1          | index of zero distance from distances table |
+| c_zero_air_temperature   | C              | 1          | air temperature at zero                     |
+| c_zero_air_pressure      | hPa            | 10         | air pressure at zero                        |
+| c_zero_air_humidity      | %              | 1          | air humidity at zero                        |
+| c_zero_p_temperature     | C              | 1          | powder temperature at zero                  |
+| c_zero_w_pitch           | deg            | 1          | zeroing look angle                          |
+| b_diameter               | inch           | 1000       | bullet diameter                             |
+| b_weight                 | grain          | 10         | bullet weight                               |
+| b_length                 | inch           | 1000       | bullet length                               |
+| twist_dir                | RIGHT\|LEFT    |            | twist direction                             |
+| bc_type                  | G1\|G7\|CUSTOM |            | g-func type                                 |
+| distances                | m              | 100        | distances table in m                        |
+| zero_x                   | \<int\>        | 1000       | zeroing h-clicks for specific device        |
+| zero_y                   | \<int\>        | 1000       | zeroing v-clicks for specific device        |
+| coef_rows.bc_cd (G1/G7)  |                | 10000      | bc coefficient for mv                       |
+| coef_rows.mv    (G1/G7)  | mps            | 10         | mv for bc provided                          |
+| coef_rows.bc_cd (CUSTOM) |                | 10000      | drag coefficient (Cd)                       |
+| coef_rows.mv    (CUSTOM) | mach           | 10000      | speed in mach                               |
 
 ## Regenerating per-language validators
 

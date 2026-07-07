@@ -1,6 +1,6 @@
 {
   "name": "a7p-js",
-  "version": "1.1.0",
+  "version": "1.2.0-alpha.1",
   "description": "Wrapper for .a7p files",
   "type": "module",
   "main": "dist/index.js",
@@ -35,7 +35,8 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/o-murphy/a7p-js.git"
+    "url": "git+https://github.com/o-murphy/a7p.git",
+    "directory": "js"
   },
   "keywords": [
     "ballistic",
@@ -45,9 +46,9 @@
     "es6"
   ],
   "bugs": {
-    "url": "https://github.com/o-murphy/a7p-js/issues"
+    "url": "https://github.com/o-murphy/a7p/issues"
   },
-  "homepage": "https://github.com/o-murphy/a7p-js#readme",
+  "homepage": "https://github.com/o-murphy/a7p/tree/main/js#readme",
   "dependencies": {
     "@bufbuild/protobuf": "^2.12.0",
     "base64-js": "^1.5.1",

@@ -14,5 +14,14 @@ into the `a7p` monorepo, so there's no frozen pre-merge history here
 to preserve (unlike `js`/`dart`).
 
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
-## [Unreleased]
+## [1.2.0-alpha.1] - 2026-07-08
+
+### Changed
+
+- Validation now runs against the shared `schema/a7p.schema.json` via
+  `schema_validator.py` (`fastjsonschema`-compiled, `jsonschema` fallback
+  for full error lists) instead of the hand-written `yupy_schema.py`
+  (kept temporarily, unused by the public API, as a reference/safety net)
+- `proto/profedit.proto` now lives once at the repo root instead of a
+  local copy under `proto/`
 <!-- END AUTO-GENERATED FROM ROOT CHANGELOG.md -->

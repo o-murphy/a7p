@@ -1,7 +1,7 @@
 name: a7p
 description: A7P ballistic profile format — encode/decode, validation, and field constraints.
-version: 0.1.0
-repository: https://github.com/o-murphy/a7p-dart
+version: 1.2.0-alpha.1
+repository: https://github.com/o-murphy/a7p/tree/main/dart
 
 environment:
   sdk: ^3.11.1

@@ -50,7 +50,7 @@ dynamic = ["version"]
 [project.urls]
 "Homepage" = "https://github.com/o-murphy/a7p"
 "Bug Reports" = "https://github.com/o-murphy/a7p/issues"
-"Source" = "https://github.com/o-murphy/a7p"
+"Source" = "https://github.com/o-murphy/a7p/tree/main/py"
 
 
 [tool.setuptools.packages.find]
