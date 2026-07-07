@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./a7p-py
+        working-directory: ./py
 
     steps:
       - name: Checkout code

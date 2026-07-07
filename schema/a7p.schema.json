@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://a7p-cross/schema/a7p.schema.json",
   "title": "A7P Payload",
-  "description": "Canonical schema for the .a7p profile format (protobuf Payload, snake_case as serialized on disk via MessageToDict(preserving_proto_field_name=True)). Numeric ranges are raw wire-format integers, i.e. the display-unit ranges from the original profile.clj (tvt.a7.profedit.profile) already multiplied by 10^x-fraction-digits. Fields tagged x-discrepancy document places where a7p-py / a7p-js / a7p-dart currently disagree with the value encoded here or with each other -- see DESIGN-schema-unification.md, open question #1, before treating this file as final.",
+  "description": "Canonical schema for the .a7p profile format (protobuf Payload, snake_case as serialized on disk via MessageToDict(preserving_proto_field_name=True)). Numeric ranges are raw wire-format integers, i.e. the display-unit ranges from the original profile.clj (tvt.a7.profedit.profile) already multiplied by 10^x-fraction-digits. Fields tagged x-discrepancy document places where py / js / dart currently disagree with the value encoded here or with each other -- see DESIGN-schema-unification.md, open question #1, before treating this file as final.",
   "$ref": "#/$defs/Payload",
   "$defs": {
     "TwistDir": {
@@ -29,14 +29,14 @@
           "x-fraction-digits": 4,
           "x-ui-fraction-digits": 3,
           "description": "Holds 'bc' (drag model G1/G7) or 'cd' (CUSTOM drag model); both share the same 0.0-10.0 display range.",
-          "x-fixed": "a7p-js validate.ts capped this at raw 10000 (display max 1.0) instead of 100000 (display max 10.0), matching profile.clj / a7p-py / a7p-dart -- fixed."
+          "x-fixed": "js validate.ts capped this at raw 10000 (display max 1.0) instead of 100000 (display max 10.0), matching profile.clj / py / dart -- fixed."
         },
         "mv": {
           "type": "integer",
           "minimum": 0,
           "x-unit": "m/s (G1/G7) or Ma (CUSTOM)",
           "description": "Muzzle velocity for G1/G7 rows (0.0-3000.0 m/s, 1 fraction digit -> raw max 30000), or Mach number 'ma' for CUSTOM rows (0.0-10.0, 4 fraction digits -> raw max 100000). Effective maximum is set contextually by the CoefRows if/then below.",
-          "x-fixed": "a7p-js capped CUSTOM mv at raw 10000 instead of 100000 -- same missing-factor-of-10 issue as bc_cd above -- fixed."
+          "x-fixed": "js capped CUSTOM mv at raw 10000 instead of 100000 -- same missing-factor-of-10 issue as bc_cd above -- fixed."
         }
       }
     },
@@ -51,8 +51,8 @@
             { "type": "integer", "minimum": 0, "maximum": 200 },
             { "const": 255 }
           ],
-          "x-decision": "Resolved: 201-254 is rejected (matches profile.clj / a7p-py). Locked in by tests/test_schema_validator.py::test_switch_c_idx_bounds in a7p-py, which now validates through the public a7p.validate() path (schema_validator.py), not just the old yupy_schema.py.",
-          "x-discrepancy": "a7p-js and a7p-dart's A7pValidator both still accept the full 0-255 range unconditionally -- not fixed there yet; would require changing validation logic (not just a numeric constant) in both."
+          "x-decision": "Resolved: 201-254 is rejected (matches profile.clj / py). Locked in by tests/test_schema_validator.py::test_switch_c_idx_bounds in py, which now validates through the public a7p.validate() path (schema_validator.py), not just the old yupy_schema.py.",
+          "x-discrepancy": "js and dart's A7pValidator both still accept the full 0-255 range unconditionally -- not fixed there yet; would require changing validation logic (not just a numeric constant) in both."
         },
         "distance_from": { "$ref": "#/$defs/DistanceFrom" },
         "distance": {
@@ -64,8 +64,8 @@
           "x-fraction-digits": 2,
           "x-ui-fraction-digits": 0,
           "x-unit": "m",
-          "x-decision": "Resolved: distance is 0-or-[100,300000] unconditionally, regardless of distance_from (matches profile.clj / a7p-py) -- distance_from is not consulted for this rule. Locked in by tests/test_schema_validator.py::test_switch_distance_bounds_independent_of_distance_from in a7p-py, which now validates through the public a7p.validate() path (schema_validator.py), not just the old yupy_schema.py.",
-          "x-discrepancy": "a7p-js and a7p-dart instead branch on distance_from: when INDEX, they validate 'distance' as an index in [0,255] into the distances array; when VALUE, as [100,300000]. Not fixed there yet -- this is a semantic fork, not just a range typo, and would require changing validation logic (not just a numeric constant) in both."
+          "x-decision": "Resolved: distance is 0-or-[100,300000] unconditionally, regardless of distance_from (matches profile.clj / py) -- distance_from is not consulted for this rule. Locked in by tests/test_schema_validator.py::test_switch_distance_bounds_independent_of_distance_from in py, which now validates through the public a7p.validate() path (schema_validator.py), not just the old yupy_schema.py.",
+          "x-discrepancy": "js and dart instead branch on distance_from: when INDEX, they validate 'distance' as an index in [0,255] into the distances array; when VALUE, as [100,300000]. Not fixed there yet -- this is a semantic fork, not just a range typo, and would require changing validation logic (not just a numeric constant) in both."
         },
         "reticle_idx": {
           "type": "integer",
@@ -79,8 +79,8 @@
           "maximum": 6,
           "x-fraction-digits": 0,
           "description": "0 = unset/default (observed in real profiles for switches with distance_from=INDEX acting as a placeholder entry), 1-6 = real zoom levels on the device.",
-          "x-fixed": "a7p-dart's A7pValidator already checked 0-6 (matching this schema); its A7pFieldConstraints.zoom metadata said min 1, contradicting its own validator and the real shipped profiles below -- doc comment updated to 0-6. a7p-js validate.ts previously did not restrict this at all (0-255) -- now bounded to 0-6. a7p-py's public a7p.validate() uses this schema directly (0-6), confirmed by tests/test_schema_validator.py::test_switch_zoom_bounds.",
-          "x-discrepancy": "profile.clj says 0-4 (documented bug, not used here). a7p-py's yupy_schema.py module still hard-codes 0-4 in its own tests/regression suite (test_yupy_schema.py), but that module is no longer wired into the public a7p.validate() path, so this doesn't affect real validation -- only relevant if someone imports a7p.yupy_schema directly. Confirmed against real shipped profiles: a7p-py/tests/data/example2.a7p and a7p-js/scripts/example2.a7p both ship a switch with zoom == 0."
+          "x-fixed": "dart's A7pValidator already checked 0-6 (matching this schema); its A7pFieldConstraints.zoom metadata said min 1, contradicting its own validator and the real shipped profiles below -- doc comment updated to 0-6. js validate.ts previously did not restrict this at all (0-255) -- now bounded to 0-6. py's public a7p.validate() uses this schema directly (0-6), confirmed by tests/test_schema_validator.py::test_switch_zoom_bounds.",
+          "x-discrepancy": "profile.clj says 0-4 (documented bug, not used here). py's yupy_schema.py module still hard-codes 0-4 in its own tests/regression suite (test_yupy_schema.py), but that module is no longer wired into the public a7p.validate() path, so this doesn't affect real validation -- only relevant if someone imports a7p.yupy_schema directly. Confirmed against real shipped profiles: py/tests/data/example2.a7p and js/scripts/example2.a7p both ship a switch with zoom == 0."
         }
       }
     },
@@ -129,7 +129,7 @@
         "c_muzzle_velocity": {
           "type": "integer", "minimum": 100, "maximum": 30000,
           "x-fraction-digits": 1, "x-ui-fraction-digits": 0, "x-unit": "m/s",
-          "x-fixed": "a7p-dart's A7pValidator checked minimum 10 instead of 100 (its own A7pFieldConstraints.muzzleVelocity implies raw min 100: 10.0 * 10^1) -- fixed."
+          "x-fixed": "dart's A7pValidator checked minimum 10 instead of 100 (its own A7pFieldConstraints.muzzleVelocity implies raw min 100: 10.0 * 10^1) -- fixed."
         },
         "c_zero_temperature": {
           "type": "integer", "minimum": -100, "maximum": 100,
@@ -144,7 +144,7 @@
           "type": "integer", "minimum": 0, "maximum": 255,
           "x-fraction-digits": 0,
           "description": "Index into 'distances'.",
-          "x-discrepancy": "a7p-dart's A7pValidator instead bounds this dynamically by len(distances)-1 rather than a fixed 255 -- a cross-field constraint plain JSON Schema can't express without a custom keyword/extension. profile.clj / a7p-py / a7p-js all use the static 0-255 range encoded here."
+          "x-discrepancy": "dart's A7pValidator instead bounds this dynamically by len(distances)-1 rather than a fixed 255 -- a cross-field constraint plain JSON Schema can't express without a custom keyword/extension. profile.clj / py / js all use the static 0-255 range encoded here."
         },
         "c_zero_air_temperature": {
           "type": "integer", "minimum": -100, "maximum": 100,
@@ -161,7 +161,7 @@
         "c_zero_w_pitch": {
           "type": "integer", "minimum": -90, "maximum": 90,
           "x-fraction-digits": 0, "x-unit": "°",
-          "x-fixed": "a7p-dart's A7pValidator did not check this field at all (present in A7pFieldConstraints but missing from _validateProfile) -- check added."
+          "x-fixed": "dart's A7pValidator did not check this field at all (present in A7pFieldConstraints but missing from _validateProfile) -- check added."
         },
         "c_zero_p_temperature": {
           "type": "integer", "minimum": -100, "maximum": 100,
@@ -175,12 +175,12 @@
         "b_weight": {
           "type": "integer", "minimum": 10, "maximum": 65535,
           "x-fraction-digits": 1, "x-unit": "gr",
-          "x-fixed": "a7p-dart's A7pValidator checked minimum 1 instead of 10 (its own A7pFieldConstraints.bulletWeight implies raw min 10: 1.0 * 10^1) -- fixed."
+          "x-fixed": "dart's A7pValidator checked minimum 1 instead of 10 (its own A7pFieldConstraints.bulletWeight implies raw min 10: 1.0 * 10^1) -- fixed."
         },
         "b_length": {
           "type": "integer", "minimum": 10, "maximum": 200000,
           "x-fraction-digits": 3, "x-unit": "in",
-          "x-fixed": "a7p-dart's A7pValidator used min 0 instead of 10 -- fixed. a7p-js validate.ts used min 1 instead of 10 -- fixed."
+          "x-fixed": "dart's A7pValidator used min 0 instead of 10 -- fixed. js validate.ts used min 1 instead of 10 -- fixed."
         },
 
         "bc_type": { "$ref": "#/$defs/BcType" },

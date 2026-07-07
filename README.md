@@ -1,14 +1,14 @@
 # a7p-cross
 
-Cross-language tooling for the `.a7p` ballistic profile format (`a7p-py`,
-`a7p-js`, `a7p-dart`).
+Cross-language tooling for the `.a7p` ballistic profile format (`py` (the
+`a7p` Python package), `js`, `dart`).
 
 ## schema/a7p.schema.json
 
 Canonical JSON Schema for the `.a7p` profile format — the single source of
 truth for field ranges, string lengths, enum values, and the coef_rows/bcType
-conditional rules that used to be hand-duplicated across `a7p-py`, `a7p-js`,
-and `a7p-dart`. See `docs/DESIGN-schema-unification.md` for the full design
+conditional rules that used to be hand-duplicated across `py`, `js`,
+and `dart`. See `docs/DESIGN-schema-unification.md` for the full design
 and the list of discrepancies found (and fixed) between the three repos'
 old hand-written validators.
 
@@ -20,14 +20,14 @@ every process start.
 
 ```sh
 python scripts/compile.py --python   # implemented
-python scripts/compile.py --ts       # not yet -- a7p-js still uses yup, not ajv
-python scripts/compile.py --dart     # not yet -- a7p-dart uses a hand-written A7pValidator
+python scripts/compile.py --ts       # not yet -- js still uses yup, not ajv
+python scripts/compile.py --dart     # not yet -- dart uses a hand-written A7pValidator
 ```
 
 ### `--python`
 
 Runs `fastjsonschema.compile_to_code()` on `a7p.schema.json` and writes the
-result to `a7p-py/src/a7p/_compiled_schema.py` (a generated file — do not
+result to `py/src/a7p/_compiled_schema.py` (a generated file — do not
 edit it by hand, and do not skip regenerating it after changing the schema).
 
 `a7p/schema_validator.py` imports this generated module for the common
@@ -56,8 +56,8 @@ the point it's actually needed, not pre-compiled.
 
 ## Benchmarked on the real gallery corpus
 
-484 real `.a7p` files (`a7p-py/a7p-lib/gallery/` + test fixtures), compared
-against the existing hand-written `yupy` validator in `a7p-py`:
+484 real `.a7p` files (`py/a7p-lib/gallery/` + test fixtures), compared
+against the existing hand-written `yupy` validator in `py`:
 
 | Validator                             | us/file | vs `yupy`           |
 | ------------------------------------- | ------- | ------------------- |
@@ -74,11 +74,11 @@ see `x-unique-except-zero` in the schema).
 A small set of plain-JSON payloads (the same shape `MessageToDict` /
 `protobuf.util.toJson` / `jsonEncode` on a `Payload` produce — snake_case
 keys, no protobuf decoding needed) for language repos that don't have their
-own corpus of real `.a7p` files to test against (`a7p-js` currently has no
-test suite at all; `a7p-dart` has no real-file corpus of its own):
+own corpus of real `.a7p` files to test against (`js` currently has no
+test suite at all; `dart` has no real-file corpus of its own):
 
 - `valid/g1_profile.json`, `valid/custom_profile.json` — real profiles
-  pulled from `a7p-py/a7p-lib/gallery/`, one per `bc_type` branch of the
+  pulled from `py/a7p-lib/gallery/`, one per `bc_type` branch of the
   `coef_rows` if/then (G1 vs CUSTOM have different `mv` ranges and
   `maxItems`).
 - `invalid/duplicate_mv.json` — a real file from `.unvalidated/`, invalid
@@ -90,6 +90,6 @@ test suite at all; `a7p-dart` has no real-file corpus of its own):
   (`maxLength`, `minimum`, `minItems`, `enum`) so a failing test points at
   one specific cause.
 
-Regenerate/extend this set with `a7p` (via `uv run --project a7p-py`) or
+Regenerate/extend this set with `a7p` (via `uv run --project py`) or
 any JSON-Schema validator against `schema/a7p.schema.json` — there's no
 script for it yet since the set has been small and hand-picked so far.
