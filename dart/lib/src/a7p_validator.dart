@@ -41,7 +41,7 @@ class A7pValidator {
     _checkRange(errors, 'zero_x', p.zeroX, -200000, 200000);
     _checkRange(errors, 'zero_y', p.zeroY, -200000, 200000);
 
-    _checkRange(errors, 'c_muzzle_velocity', p.cMuzzleVelocity, 10, 30000);
+    _checkRange(errors, 'c_muzzle_velocity', p.cMuzzleVelocity, 100, 30000);
     _checkRange(errors, 'c_zero_temperature', p.cZeroTemperature, -100, 100);
     _checkRange(errors, 'c_t_coeff', p.cTCoeff, 0, 5000);
     _checkRange(errors, 'c_zero_p_temperature', p.cZeroPTemperature, -100, 100);
@@ -54,10 +54,11 @@ class A7pValidator {
     );
     _checkRange(errors, 'c_zero_air_pressure', p.cZeroAirPressure, 3000, 15000);
     _checkRange(errors, 'c_zero_air_humidity', p.cZeroAirHumidity, 0, 100);
+    _checkRange(errors, 'c_zero_w_pitch', p.cZeroWPitch, -90, 90);
 
     _checkRange(errors, 'b_diameter', p.bDiameter, 1, 50000);
-    _checkRange(errors, 'b_weight', p.bWeight, 1, 65535);
-    _checkRange(errors, 'b_length', p.bLength, 0, 200000);
+    _checkRange(errors, 'b_weight', p.bWeight, 10, 65535);
+    _checkRange(errors, 'b_length', p.bLength, 10, 200000);
 
     final dists = p.distances;
     if (dists.isEmpty || dists.length > 200) {

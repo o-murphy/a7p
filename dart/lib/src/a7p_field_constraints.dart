@@ -219,8 +219,10 @@ abstract final class A7pFieldConstraints {
   static const reticleIdx = A7pFieldRange(min: 0, max: 255, fractionDigits: 0);
 
   /// `profile.clj`'s 0–4 is a bug in the original app; the device actually
-  /// accepts 1–6, matching `A7pValidator`.
-  static const zoom = A7pFieldRange(min: 1, max: 6, fractionDigits: 0);
+  /// accepts 0–6 (0 = unset/default, seen on real shipped profiles for
+  /// switches with `distanceFrom == INDEX`; 1–6 are real zoom levels),
+  /// matching `A7pValidator`.
+  static const zoom = A7pFieldRange(min: 0, max: 6, fractionDigits: 0);
   static const switchesCountMin = 4;
 
   // ── Ballistic coefficient table sizes ───────────────────────────────────
