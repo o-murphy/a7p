@@ -1,126 +1,106 @@
-import { object, string, number, array, mixed, ValidationError } from 'yup';
-import { BcType, Payload } from './types.js';
-import { InvalidBcTypeError } from './errors.js';
+import validateSchema from './generated/a7p_schema_validator.cjs';
+import { CoefRow, Payload, Profile, SwitchProps } from './types.js';
+import { ValidationError } from './errors.js';
 
+// Converts the Payload (camelCase, matching the ts-proto/protobuf field
+// names) into the plain snake_case JSON shape schema/a7p.schema.json is
+// written against -- the same shape MessageToDict(preserving_proto_field_name=True)
+// produces in py, and the manual conversion a7p_validator.dart does for dart.
+function payloadToSchemaJson(payload: Payload): unknown {
+    const p: Profile = payload.profile;
+    return {
+        profile: {
+            profile_name: p.profileName,
+            cartridge_name: p.cartridgeName,
+            bullet_name: p.bulletName,
+            short_name_top: p.shortNameTop,
+            short_name_bot: p.shortNameBot,
+            caliber: p.caliber,
+            device_uuid: p.deviceUuid,
+            user_note: p.userNote,
+            zero_x: p.zeroX,
+            zero_y: p.zeroY,
+            sc_height: p.scHeight,
+            r_twist: p.rTwist,
+            twist_dir: p.twistDir,
+            c_muzzle_velocity: p.cMuzzleVelocity,
+            c_zero_temperature: p.cZeroTemperature,
+            c_t_coeff: p.cTCoeff,
+            c_zero_distance_idx: p.cZeroDistanceIdx,
+            c_zero_air_temperature: p.cZeroAirTemperature,
+            c_zero_air_pressure: p.cZeroAirPressure,
+            c_zero_air_humidity: p.cZeroAirHumidity,
+            c_zero_w_pitch: p.cZeroWPitch,
+            c_zero_p_temperature: p.cZeroPTemperature,
+            b_diameter: p.bDiameter,
+            b_weight: p.bWeight,
+            b_length: p.bLength,
+            bc_type: p.bcType,
+            switches: (p.switches ?? []).map((sw: SwitchProps) => ({
+                c_idx: sw.cIdx,
+                distance_from: sw.distanceFrom,
+                distance: sw.distance,
+                reticle_idx: sw.reticleIdx,
+                zoom: sw.zoom,
+            })),
+            distances: p.distances,
+            coef_rows: (p.coefRows ?? []).map((r: CoefRow) => ({
+                bc_cd: r.bcCd,
+                mv: r.mv,
+            })),
+        },
+    };
+}
 
-// Define the validation schema for each field
-export const schema = object().shape({
-    profile: object().shape({
-        // descriptor
-        profileName: string().max(50).required('Profile name is required'),
-        cartridgeName: string().max(50).required('Cartridge name is required'),
-        bulletName: string().max(50).required('Bullet name is required'),
-        shortNameTop: string().max(8).required('Short name top is required'),
-        shortNameBot: string().max(8).required('Short name bottom is required'),
-        caliber: string().max(50).required('Caliber is required'),
-        deviceUuid: string().max(50).notRequired(),
-        userNote: string().max(1024).notRequired(),
+// ajv reports errors as JSON Pointers rooted at the whole payload (e.g.
+// "/profile/switches/0/c_idx"); strip the "/profile" prefix so messages
+// read the same as the old yup-based errors did.
+function fieldPath(instancePath: string): string {
+    let path = instancePath;
+    if (path.startsWith('/profile')) {
+        path = path.slice('/profile'.length);
+    }
+    if (path.startsWith('/')) {
+        path = path.slice(1);
+    }
+    return path.length === 0 ? 'payload' : path;
+}
 
-        // zeroing
-        zeroX: number().min(-200000).max(200000).integer().required('Zero X is required'),
-        zeroY: number().min(-200000).max(200000).integer().required('Zero Y is required'),
-
-        // lists
-        distances: array().of(number().min(100).max(300000).integer().required()).min(1).max(200),
-        switches: array().of(
-            object().shape({
-                cIdx: number().min(0).max(255).integer().required(),
-                distanceFrom: mixed().oneOf(['INDEX', 'VALUE']).required(),
-                distance: number().when('distanceFrom', {
-                    is: 'VALUE',
-                    then: (schema) => schema.min(100).max(300000).integer().required(),
-                    otherwise: (schema) => schema.min(0).max(255).integer().required(),
-                }),
-                reticleIdx: number().min(0).max(255).integer().required(),
-                zoom: number().min(0).max(6).integer().required(),
-            })
-        ).min(4),
-
-        // rifle
-        scHeight: number().min(-5000).max(5000).integer().required(),
-        rTwist: number().min(0).max(10000).integer().required(),
-        twistDir: mixed().oneOf(['RIGHT', 'LEFT']).required(),
-
-        // cartridge
-        cMuzzleVelocity: number().min(100).max(30000).integer().required(),
-        cZeroTemperature: number().min(-100).max(100).integer().required(),
-        cTCoeff: number().min(0).max(5000).integer().required(),
-
-        // zero params
-        cZeroDistanceIdx: number().min(0).max(255).integer().required(),
-        cZeroAirTemperature: number().min(-100).max(100).integer().required(),
-        cZeroAirPressure: number().min(3000).max(15000).integer().required(),
-        cZeroAirHumidity: number().min(0).max(100).integer().required(),
-        cZeroWPitch: number().min(-90).max(90).integer().required(),
-        cZeroPTemperature: number().min(-100).max(100).integer().required(),
-
-        // bullet
-        bDiameter: number().min(1).max(50000).integer().required(),
-        bWeight: number().min(10).max(65535).integer().required(),
-        bLength: number().min(10).max(200000).integer().required(),
-
-        // drag model
-        bcType: mixed().oneOf([BcType.G1, BcType.G7, BcType.CUSTOM]).required(),
-        coefRows: array().min(1).max(200).required()
-    }),
-});
-
-// Schema for coefRows when bcType is 'G1' or 'G7'
-const coefRowsStandard = array().of(
-    object().shape({
-        bcCd: number().min(0).max(100000).integer(),
-        mv: number().min(0).max(30000).integer(),
-    })
-).min(1).max(5).required('For G1 or G7, coefRows must contain between 1 and 5 items')
-    .test('unique-mv', 'mv values must be unique, except for mv == 0', (value) => {
-        if (!value) {
-            return false
+// Not expressible in plain JSON Schema (see coef_rows.x-unique-except-zero
+// in schema/a7p.schema.json): all 'mv' values must be unique except that
+// any number of rows may have mv == 0. Checked separately, same as py's
+// schema_validator.py and dart's A7pValidator.
+function uniqueMvError(rows: CoefRow[]): string | null {
+    const seen = new Set<number>();
+    for (const r of rows) {
+        if (r.mv !== 0) {
+            if (seen.has(r.mv)) {
+                return "coef_rows: 'mv' values must be unique, except for mv == 0";
+            }
+            seen.add(r.mv);
         }
-        const mvValues = value.map((row) => row.mv);
-        const filteredMvValues = mvValues.filter(mv => mv !== 0); // Exclude zeros for uniqueness check
-        const uniqueMvValues = new Set(filteredMvValues);
-        return filteredMvValues.length === uniqueMvValues.size;
-    });
-
-// Schema for coefRows when bcType is 'CUSTOM'
-const coefRowsCustom = array().of(
-    object().shape({
-        bcCd: number().min(0).max(100000).integer(),
-        mv: number().min(0).max(100000).integer()
-    })
-).min(1).max(200).required('For CUSTOM, coefRows must contain between 1 and 200 items')
-    .test('unique-mv', 'mv values must be unique, except for mv == 0', (value) => {
-        if (!value) {
-            return false
-        }
-        const mvValues = value.map((row) => row.mv);
-        const filteredMvValues = mvValues.filter(mv => mv !== 0); // Exclude zeros for uniqueness check
-        const uniqueMvValues = new Set(filteredMvValues);
-        return filteredMvValues.length === uniqueMvValues.size;
-    });
-
+    }
+    return null;
+}
 
 export const validate = (data: Payload, abortEarly: boolean = false): void => {
-    try {
-        const validData = schema.validateSync(data, { abortEarly });
+    if (!data.profile) {
+        throw new ValidationError(['payload: missing profile']);
+    }
 
-        switch (validData.profile.bcType) {
-            case BcType.G1:
-            case BcType.G7:
-                coefRowsStandard.validateSync(data.profile?.coefRows, { abortEarly });
-                break;
-            case BcType.CUSTOM:
-                coefRowsCustom.validateSync(data.profile?.coefRows, { abortEarly });
-                break;
-            default:
-                throw new InvalidBcTypeError(data.profile?.bcType);
+    const messages: string[] = [];
+
+    const ok = validateSchema(payloadToSchemaJson(data));
+    if (!ok) {
+        for (const e of validateSchema.errors ?? []) {
+            messages.push(`${fieldPath(e.instancePath)}: ${e.message}`);
         }
-    } catch (error: any) {
-        if (error.name === "ValidationError") {
-            const yupErrors = error.errors ?? [error.message];
-            throw new ValidationError(yupErrors);
-        } else {
-            throw error;
-        }
+    }
+
+    const mvError = uniqueMvError(data.profile.coefRows ?? []);
+    if (mvError) messages.push(mvError);
+
+    if (messages.length > 0) {
+        throw new ValidationError(abortEarly ? [messages[0]] : messages);
     }
 };

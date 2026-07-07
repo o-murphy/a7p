@@ -17,14 +17,18 @@
   },
   "scripts": {
     "build:proto": "protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=src --ts_proto_opt=esModuleInterop=true -I=../proto ../proto/profedit.proto",
+    "build:schema": "node scripts/build_schema_validator.mjs",
     "build:ts": "tsc",
-    "build": "yarn build:ts"
+    "build": "yarn build:ts && mkdir -p dist/generated && cp src/generated/a7p_schema_validator.cjs src/generated/a7p_schema_validator.d.cts dist/generated/",
+    "test": "jest"
   },
   "author": "o-murphy",
   "license": "ISC",
   "files": [
     "dist/**/*.js",
     "dist/**/*.d.ts",
+    "dist/**/*.cjs",
+    "dist/**/*.d.cts",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -47,8 +51,7 @@
   "dependencies": {
     "@bufbuild/protobuf": "^2.12.0",
     "base64-js": "^1.5.1",
-    "crypto-js": "^4.2.0",
-    "yup": "^1.7.1"
+    "crypto-js": "^4.2.0"
   },
   "devDependencies": {
     "@babel/core": "^8.0.0",
@@ -58,8 +61,9 @@
     "@types/base64-js": "^1.5.0",
     "@types/crypto-js": "^4.2.2",
     "@types/jest": "^30.0.0",
-    "@types/yup": "^0.32.0",
+    "ajv": "^8.20.0",
     "babel-jest": "^30.4.1",
+    "jest": "^30.4.1",
     "ts-proto": "^2.11.8",
     "typescript": "^6.0.3"
   }
