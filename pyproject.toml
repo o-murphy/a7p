@@ -59,12 +59,10 @@ include = ["a7p*"]
 fallback_version = "0.0.0.dev0"
 
 [project.optional-dependencies]
-pydantic = ['pydantic==2.13.4']
 orjson = ['orjson==3.11.9']
 
 [project.scripts]
 a7p = "a7p.__main__:main"
-a7p-restore = "a7p.pydantic.restore_tool:main"
 
 [tool.pytest]
 testpaths = ["tests"]
@@ -85,9 +83,4 @@ exclude = [
 ]
 
 [dependency-groups]
-dev = [
-    "pydantic>=2.13.3",
-    "orjson>=3.11.8",
-    "pytest>=9.0.3",
-    "ruff>=0.12.11",
-]
+dev = ["orjson>=3.11.8", "pytest>=9.0.3", "ruff>=0.12.11"]
