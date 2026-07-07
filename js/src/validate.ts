@@ -32,7 +32,7 @@ export const schema = object().shape({
                     otherwise: (schema) => schema.min(0).max(255).integer().required(),
                 }),
                 reticleIdx: number().min(0).max(255).integer().required(),
-                zoom: number().min(0).max(255).integer().required(),
+                zoom: number().min(0).max(6).integer().required(),
             })
         ).min(4),
 
@@ -57,7 +57,7 @@ export const schema = object().shape({
         // bullet
         bDiameter: number().min(1).max(50000).integer().required(),
         bWeight: number().min(10).max(65535).integer().required(),
-        bLength: number().min(1).max(200000).integer().required(),
+        bLength: number().min(10).max(200000).integer().required(),
 
         // drag model
         bcType: mixed().oneOf([BcType.G1, BcType.G7, BcType.CUSTOM]).required(),
