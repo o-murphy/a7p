@@ -7,7 +7,7 @@ if __name__ == "__main__":
     from pathlib import Path
 
     # test index switch distance
-    with open("tests/example2.a7p", "rb") as fp:
+    with open("tests/data/example2.a7p", "rb") as fp:
         p = load(fp, fail_fast=True, validate_=False)
         try:
             yupy_validate(p, fail_fast=False)
@@ -44,7 +44,7 @@ if __name__ == "__main__":
                 p = load(fp, validate_=False, fail_fast=True)
                 try:
                     validator(p)
-                except ValidationError as err:
+                except ValidationError:
                     pass
 
     def v_new():

@@ -64,12 +64,13 @@ orjson = ['orjson==3.11.9']
 [project.scripts]
 a7p = "a7p.__main__:main"
 
-[tool.pytest]
+[tool.pytest.ini_options]
 testpaths = ["tests"]
+python_files = ["test_*.py"]
 
 # uncomment to configure ruff linter/formatter
 [tool.ruff]
-include = ["pyproject.toml", "src/**/*.py"]
+include = ["pyproject.toml", "src/**/*.py", "tests/**/*.py"]
 exclude = [
     ".git",
     "__pypackages__",
