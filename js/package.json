@@ -1,0 +1,70 @@
+{
+  "name": "a7p-js",
+  "version": "1.1.0",
+  "description": "Wrapper for .a7p files",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "import": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build:proto": "protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=src --ts_proto_opt=esModuleInterop=true -I=../proto ../proto/profedit.proto",
+    "build:schema": "node scripts/build_schema_validator.mjs",
+    "build:ts": "tsc",
+    "build": "yarn build:ts && mkdir -p dist/generated && cp src/generated/a7p_schema_validator.cjs src/generated/a7p_schema_validator.d.cts dist/generated/",
+    "test": "jest"
+  },
+  "author": "o-murphy",
+  "license": "ISC",
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.cjs",
+    "dist/**/*.d.cts",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/o-murphy/a7p-js.git"
+  },
+  "keywords": [
+    "ballistic",
+    "calculator",
+    "js",
+    "typescript",
+    "es6"
+  ],
+  "bugs": {
+    "url": "https://github.com/o-murphy/a7p-js/issues"
+  },
+  "homepage": "https://github.com/o-murphy/a7p-js#readme",
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.12.0",
+    "base64-js": "^1.5.1",
+    "crypto-js": "^4.2.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^8.0.0",
+    "@babel/preset-env": "^8.0.0",
+    "@babel/preset-typescript": "^8.0.0",
+    "@jest/globals": "^30.4.1",
+    "@types/base64-js": "^1.5.0",
+    "@types/crypto-js": "^4.2.2",
+    "@types/jest": "^30.0.0",
+    "ajv": "^8.20.0",
+    "babel-jest": "^30.4.1",
+    "jest": "^30.4.1",
+    "ts-proto": "^2.11.8",
+    "typescript": "^6.0.3"
+  }
+}
