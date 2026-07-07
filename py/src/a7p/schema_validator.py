@@ -1,5 +1,5 @@
 """Validates a `profedit_pb2.Payload` against the canonical .a7p JSON Schema
-(bundled as a7p.schema.json, copied from a7p-cross/schema/a7p.schema.json).
+(bundled as a7p.schema.json, copied from a7p/schema/a7p.schema.json).
 
 Uses a7p._compiled_schema for the common (valid) case: a fastjsonschema
 validator function pre-compiled to plain Python source by

@@ -61,6 +61,11 @@ include = ["a7p*"]
 a7p = ["a7p.schema.json"]
 
 [tool.setuptools_scm]
+# `py` is a plain subdirectory of the a7p monorepo now (no longer its
+# own git repo) -- root points setuptools_scm at the actual git root so it
+# derives the version from a7p's own tags (one tag drives py/js/dart
+# together, see release.yml), not py's old, now-unrelated tag history.
+root = ".."
 fallback_version = "0.0.0.dev0"
 
 [project.optional-dependencies]

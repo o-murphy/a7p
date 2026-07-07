@@ -202,7 +202,7 @@ def from_dict(data: dict) -> profedit_pb2.Payload:
 def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
     """
     Validates a Payload object against the canonical .a7p JSON Schema
-    (schema/a7p.schema.json in a7p-cross, bundled here as a7p/a7p.schema.json).
+    (schema/a7p.schema.json in a7p, bundled here as a7p/a7p.schema.json).
 
     Args:
         payload (profedit_pb2.Payload): The Payload object to validate.

@@ -108,19 +108,15 @@ For the reverse operation, you need to perform the inverse operation and convert
 | coefRows[].mv   (CUSTOM) | mach           | 10         | speed in mach                               |
 
 ### Build notes
-Install & build proto
+
 ```shell
 yarn install
-yarn build:proto
+yarn build:proto   # regenerate protobuf bindings after editing ../proto/profedit.proto
+yarn build:schema  # regenerate the ajv validator after editing ../schema/a7p.schema.json
+yarn build         # tsc + copy the generated schema validator into dist/
 ```
-<!-- 
-Replace import declarations in profedit.js and profedit.d.ts
-```
-import * as $protobuf from "protobufjs/minimal"; -> import $protobuf from "protobufjs";
-``` -->
 
-Build
-```shell
-yarn build
-npx cpy 'src/profedit.*' 'dist/'
-```
+`build:proto`/`build:schema` only need re-running when the `.proto`/schema
+source changes — both write generated, checked-in files under `src/`
+(`src/profedit.ts`, `src/generated/a7p_schema_validator.cjs`), so a plain
+`yarn build` is enough day-to-day.

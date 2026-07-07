@@ -23,7 +23,7 @@
     "test": "jest"
   },
   "author": "o-murphy",
-  "license": "ISC",
+  "license": "LGPL-3.0-only",
   "files": [
     "dist/**/*.js",
     "dist/**/*.d.ts",

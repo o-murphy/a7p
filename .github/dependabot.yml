@@ -1,0 +1,41 @@
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Merged from py/js/dart's own dependabot.yml (each had its own before they
+# were separate repos) -- directory now points at each package's
+# subdirectory instead of "/", and github-actions is a single root-level
+# entry since all workflows live under the repo root's .github/workflows/
+# now, not one set per package.
+
+version: 2
+updates:
+  - package-ecosystem: "uv"
+    directory: "/py"
+    schedule:
+      interval: "weekly"
+    groups:
+      python-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "npm"
+    directory: "/js"
+    schedule:
+      interval: "weekly"
+    groups:
+      dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "pub"
+    directory: "/dart"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"

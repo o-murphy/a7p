@@ -1,9 +1,9 @@
 // Regenerates src/generated/a7p_schema_validator.{js,d.ts} from
 // ../schema/a7p.schema.json (the canonical copy, shared with py/dart --
-// see docs/DESIGN-schema-unification.md at the a7p-cross repo root).
+// see docs/DESIGN-schema-unification.md at the a7p repo root).
 //
 // Run after editing the schema (only works when js/ is checked out inside
-// an a7p-cross tree, same constraint as build:proto):
+// an a7p tree, same constraint as build:proto):
 //   node scripts/build_schema_validator.mjs
 //
 // There's no `ajv compile --standalone` CLI flag (ajv-cli's --spec= only

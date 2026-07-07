@@ -9,7 +9,7 @@ UI display precision).
 
 ![Linux] ![Windows] ![Android] ![iOS] ![macOS]
 
-[![CI](https://github.com/o-murphy/a7p-dart/actions/workflows/ci.yml/badge.svg)](https://github.com/o-murphy/a7p-dart/actions/workflows/ci.yml)
+[![CI](https://github.com/o-murphy/a7p/actions/workflows/dart.yml/badge.svg)](https://github.com/o-murphy/a7p/actions/workflows/dart.yml)
 
 ## Format
 
@@ -32,11 +32,23 @@ dart pub global activate protoc_plugin
 ```
 
 Then, after editing `../proto/profedit.proto` (the canonical copy lives at
-the `a7p-cross` repo root, shared with the `py`/`js` packages — this only
-works when `dart/` is checked out inside an `a7p-cross` tree):
+the `a7p` repo root, shared with the `py`/`js` packages — this only
+works when `dart/` is checked out inside an `a7p` tree):
 
 ```sh
 dart run bin/generate_proto.dart
+```
+
+## Regenerating the embedded validation schema
+
+`A7pValidator` validates against `../schema/a7p.schema.json` (also shared
+with `py`/`js`), embedded as a Dart string constant in
+`lib/src/generated/a7p_schema.g.dart` — see that file's header and
+`README.md` at the `a7p` repo root ("`--dart`" section) for why.
+After editing the schema:
+
+```sh
+python scripts/compile.py --dart   # from the a7p repo root
 ```
 
 ## Testing

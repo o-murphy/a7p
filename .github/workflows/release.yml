@@ -1,47 +1,157 @@
 name: Release
 
+# Triggered by pushing a tag like v1.2.3 -- that one tag drives everything:
+# py's version (via setuptools_scm, root=".." in py/pyproject.toml), and
+# dart/pubspec.yaml + js/package.json (bumped in place by bump-versions
+# below and committed to main). Rename the root CHANGELOG.md's
+# "## [Unreleased]" heading to "## [X.Y.Z] - DATE" (and add a fresh empty
+# "## [Unreleased]" above it) *before* tagging -- this workflow reads
+# whatever's under the matching version heading for release notes, falling
+# back to [Unreleased] (with a warning) if you forget.
 on:
   push:
     tags:
       - "v*"
 
-permissions:
-  contents: read
+env:
+  RELEASE_TAG: ${{ github.ref_name }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # ── run each package's own CI as reusable workflows ─────────────────────
   test-python:
-    uses workflow_call py.yml
-
-  test-dart:
-    uses workflow_call dart.yml
+    uses: ./.github/workflows/py.yml
 
   test-js:
-    uses workflow_call js.yml
+    uses: ./.github/workflows/js.yml
 
-  test-guard:
-    needs: [test-python, test-dart, test-js]
+  test-dart:
+    uses: ./.github/workflows/dart.yml
 
-  build-and-deploy-python:
-    needs: test-guard
+  # Single guard job downstream jobs depend on, instead of each repeating
+  # the full test-* job list -- adding a language later only means adding
+  # it here, not hunting down every job's `needs:`.
+  tests-passed:
+    needs: [test-python, test-js, test-dart]
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./py
+    steps:
+      - run: echo "All test legs passed."
 
-    environment:
-      name: pypi
+  # ── bump dart/pubspec.yaml + js/package.json to the tag's version,
+  # sync CHANGELOG.md into each package, commit + push to main ───────────
+  bump-versions:
+    needs: tests-passed
+    runs-on: ubuntu-latest
     permissions:
-      id-token: write
-
+      contents: write
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v7
         with:
-          submodules: "true"
           fetch-depth: 0
+          ref: main
+
+      - name: Extract version and detect pre-release
+        id: meta
+        run: |
+          VERSION="${RELEASE_TAG#v}"
+          if [[ "$RELEASE_TAG" =~ (alpha|beta|rc) ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # py isn't bumped here: setuptools_scm (py/pyproject.toml, root="..")
+      # derives its version directly from this same tag.
+      - name: Bump dart/pubspec.yaml and js/package.json (lockstep)
+        run: |
+          VERSION="${{ steps.meta.outputs.version }}"
+          sed -i "s/^version: .*/version: $VERSION/" dart/pubspec.yaml
+          sed -i "s/^  \"version\": \".*\"/  \"version\": \"$VERSION\"/" js/package.json
+          grep '^version:' dart/pubspec.yaml
+          grep '"version":' js/package.json
+
+      - name: Regenerate py/js/dart CHANGELOG.md from the root file
+        run: python3 scripts/ci/sync_changelogs.py
+
+      - name: Commit and push version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dart/pubspec.yaml js/package.json py/CHANGELOG.md js/CHANGELOG.md dart/CHANGELOG.md
+          git diff --cached --quiet || git commit -m "chore: bump version to ${{ steps.meta.outputs.version }}"
+          git push origin main
+
+  # ── create the GitHub release ────────────────────────────────────────────
+  create-release:
+    needs: bump-versions
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Post-bump (bump-versions pushed to main just above). fetch-tags:
+      # true -- actions/checkout@v7 defaults this to false independently of
+      # fetch-depth: 0.
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          VERSION="${{ needs.bump-versions.outputs.version }}"
+          ./scripts/ci/extract-changelog.sh "$VERSION" CHANGELOG.md > /tmp/release_notes.md
+
+          if [ ! -s /tmp/release_notes.md ]; then
+            echo "No changelog entry found for $VERSION (or [Unreleased]) in CHANGELOG.md -- add one first"
+            exit 1
+          fi
+
+          PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${RELEASE_TAG}$" | head -1 || true)
+          if [ -n "$PREV_TAG" ]; then
+            {
+              echo ""
+              echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${RELEASE_TAG}"
+            } >> /tmp/release_notes.md
+          fi
+
+          echo "--- release notes ---"
+          cat /tmp/release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          body_path: /tmp/release_notes.md
+          prerelease: ${{ needs.bump-versions.outputs.prerelease }}
+
+  # ── publish a7p to PyPI ──────────────────────────────────────────────────
+  publish-py:
+    needs: [bump-versions, create-release]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+    permissions:
+      id-token: write # PyPI trusted publishing
+    defaults:
+      run:
+        working-directory: py
+    steps:
+      # fetch-depth: 0 AND fetch-tags: true -- setuptools_scm derives the
+      # version from the git tag via `git describe`; py/pyproject.toml's
+      # [tool.setuptools_scm] root=".." points it at this checkout's root.
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Install uv
         uses: astral-sh/setup-uv@f98e06938123ccabd21905ea5d0069192241f9f1
@@ -53,19 +163,64 @@ jobs:
         run: uv build
 
       - name: Publish
-        if: github.event_name == 'release'
         run: uv publish --trusted-publishing always
 
-  build-and-deploy-dart:
-    needs: test-guard
+  # ── publish a7p-js to npm ────────────────────────────────────────────────
+  publish-js:
+    needs: [bump-versions, create-release]
     runs-on: ubuntu-latest
+    environment: nmpjs
+    permissions:
+      id-token: write # npm OIDC trusted publishing (provenance)
     defaults:
       run:
-        working-directory: ./dart
+        working-directory: js
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
 
-  build-and-deploy-js:
-    needs: test-guard
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org/
+
+      - run: yarn install --frozen-lockfile
+      - run: yarn build
+
+      - name: Use OIDC auth
+        run: npm config delete //registry.npmjs.org/:_authToken
+
+      - name: Publish to npm
+        run: |
+          VERSION="${{ needs.bump-versions.outputs.version }}"
+          if [ "${{ needs.bump-versions.outputs.prerelease }}" = "true" ]; then
+            DIST_TAG=$(echo "$VERSION" | grep -oE '(alpha|beta|rc|pre)' | head -1)
+            npm publish --provenance --tag "${DIST_TAG:-prerelease}"
+          else
+            npm publish --provenance
+          fi
+
+  # ── publish a7p to pub.dev ───────────────────────────────────────────────
+  publish-dart:
+    needs: [bump-versions, create-release]
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # pub.dev OIDC trusted publisher
     defaults:
       run:
-        working-directory: ./js
+        working-directory: dart
+    steps:
+      # `main` already has bump-versions' commit; the tag itself still
+      # points at the pre-bump commit, so we can't just use github.ref.
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - run: dart pub get
+      - run: dart pub publish --dry-run
+      - run: dart pub publish --force

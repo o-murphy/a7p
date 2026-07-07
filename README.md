@@ -1,7 +1,12 @@
-# a7p-cross
+# a7p
 
-Cross-language tooling for the `.a7p` ballistic profile format (`py` (the
-`a7p` Python package), `js`, `dart`).
+Monorepo for the `.a7p` ballistic profile format across three languages —
+[`py`](py/) (PyPI: `a7p`), [`js`](js/) (npm: `a7p-js`), and
+[`dart`](dart/) (pub.dev: `a7p`) — plus the tooling that keeps them in sync:
+a shared `.proto` (wire shape) and JSON Schema (validation rules), one
+`CHANGELOG.md`, and one `release.yml` that tags/publishes all three
+together. `py`, `js`, and `dart` used to be separate repos/submodules; see
+`docs/DESIGN-schema-unification.md` for how and why they were merged in.
 
 ## proto/profedit.proto
 
@@ -10,8 +15,8 @@ Canonical `.proto` source for the wire *shape* of a profile (as opposed to
 `docs/DESIGN-schema-unification.md`). Previously copied verbatim into
 `py/proto/`, `js/src/proto/`, and `dart/proto/`; now lives here once, since
 it's only needed at codegen build-time (not packaged into any of the three
-language distributions) and each of `py`/`js`/`dart` is checked out inside
-this tree as a submodule.
+language distributions) and `py`/`js`/`dart` are plain subdirectories of
+this repo.
 
 Regenerate all three languages' bindings after editing the `.proto`:
 
@@ -121,6 +126,22 @@ are gone.
 **Run this whenever `a7p.schema.json` changes** and commit the regenerated
 files alongside it, same as `--python`/`--dart`.
 
+## License
+
+The repo root (`schema/`, `scripts/`, `docs/`, `proto/`, and everything
+else outside `py/`/`js/`/`dart/`) is **LGPL-3.0** — see [LICENSE](LICENSE).
+`proto/profedit.proto` itself is sourced from
+[`JAremko/ArcherBC2`](https://github.com/JAremko/ArcherBC2) (LGPL-3.0),
+which is why.
+
+`py/`, `js/`, and `dart/` are published as separate packages (PyPI/npm/
+pub.dev) and each carry their own `LICENSE`: `py` is **GPL-3.0** (it traces
+back to
+[`JAremko/a7p_transfer_example`](https://github.com/JAremko/a7p_transfer_example),
+also GPL-3.0), `dart` and `js` are **LGPL-3.0** (same reason as the root —
+both generate bindings from `proto/profedit.proto`). See each package's own
+`LICENSE`/README for the exact terms that apply to it.
+
 On failure, `schema_validator.py` falls back to `jsonschema` (pure Python,
 slower, but reports every violation instead of only the first one) so the
 existing "list every invalid field, not just the first" behavior is
@@ -130,7 +151,7 @@ the point it's actually needed, not pre-compiled.
 
 ## Benchmarked on the real gallery corpus
 
-484 real `.a7p` files (`py/a7p-lib/gallery/` + test fixtures), compared
+484 real `.a7p` files (`a7p-lib/gallery/` + test fixtures), compared
 against the existing hand-written `yupy` validator in `py`:
 
 | Validator                             | us/file | vs `yupy`           |
@@ -147,12 +168,14 @@ see `x-unique-except-zero` in the schema).
 
 A small set of plain-JSON payloads (the same shape `MessageToDict` /
 `protobuf.util.toJson` / `jsonEncode` on a `Payload` produce — snake_case
-keys, no protobuf decoding needed) for language repos that don't have their
-own corpus of real `.a7p` files to test against (`js` currently has no
-test suite at all; `dart` has no real-file corpus of its own):
+keys, no protobuf decoding needed) for language packages that don't have
+their own corpus of real `.a7p` files to test against (`js`/`dart` have no
+real-file corpus of their own — `js/test/validate.test.ts` and
+`dart/test/a7p_validator_test.dart` both cover the same categories against
+hand-built payloads instead):
 
 - `valid/g1_profile.json`, `valid/custom_profile.json` — real profiles
-  pulled from `py/a7p-lib/gallery/`, one per `bc_type` branch of the
+  pulled from `a7p-lib/gallery/`, one per `bc_type` branch of the
   `coef_rows` if/then (G1 vs CUSTOM have different `mv` ranges and
   `maxItems`).
 - `invalid/duplicate_mv.json` — a real file from `.unvalidated/`, invalid

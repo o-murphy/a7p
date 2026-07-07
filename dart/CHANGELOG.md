@@ -4,19 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Generated from the repo root's `CHANGELOG.md` (the single source of truth,
+including this package's full history — see that file's own header) by
+`scripts/ci/sync_changelogs.py` — edit that file, not this one, then
+regenerate.
 
-## [Unreleased]
-
+<!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
 ## [0.1.0] - 2026-07-05
 
-First stable release, no changes from [0.1.0-beta.1]
+First stable release, no changes from [0.1.0-beta.1](#010-beta1---2026-07-04).
 
 ## [0.1.0-beta.1] - 2026-07-04
 
-Initial extraction from `archerbc2_flutter/packages/a7p` into a standalone
-package.
-
 ### Added
+
 - `A7pFile` — `.a7p` binary format encode/decode (`[32-byte MD5 hex string][protobuf bytes]`)
 - `A7pValidator` — profile field validation
 - `A7pFieldConstraints` — per-field raw wire scale (`fractionDigits`) and
@@ -29,6 +30,6 @@ package.
 - CI workflow (`.github/workflows/ci.yml`): analyze, format check, test
   (Linux/macOS/Windows), pub.dev dry-run jobs
 
-[Unreleased]: https://github.com/o-murphy/a7p-dart/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/o-murphy/a7p-dart/compare/v0.1.0-beta.1...v0.1.0
-[0.1.0-beta.1]: https://github.com/o-murphy/a7p-dart/releases/tag/v0.1.0-beta.1
+Initial extraction from `archerbc2_flutter/packages/a7p` into a standalone
+package.
+<!-- END AUTO-GENERATED FROM ROOT CHANGELOG.md -->

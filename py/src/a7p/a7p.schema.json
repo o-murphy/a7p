@@ -1,7 +1,7 @@
 {
-  "$comment": "Canonical source: a7p-cross/schema/a7p.schema.json. Copied here for standalone packaging (pip install) until the a7p-cross monorepo migration removes the need for a copy.",
+  "$comment": "Canonical source: a7p/schema/a7p.schema.json. Copied here for standalone packaging (pip install) until the a7p monorepo migration removes the need for a copy.",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://a7p-cross/schema/a7p.schema.json",
+  "$id": "https://a7p/schema/a7p.schema.json",
   "title": "A7P Payload",
   "description": "Canonical schema for the .a7p profile format (protobuf Payload, snake_case as serialized on disk via MessageToDict(preserving_proto_field_name=True)). Numeric ranges are raw wire-format integers, i.e. the display-unit ranges from the original profile.clj (tvt.a7.profedit.profile) already multiplied by 10^x-fraction-digits. Fields tagged x-discrepancy document places where a7p-py / a7p-js / a7p-dart currently disagree with the value encoded here or with each other -- see DESIGN-schema-unification.md, open question #1, before treating this file as final.",
   "$ref": "#/$defs/Payload",

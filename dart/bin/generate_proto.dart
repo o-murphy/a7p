@@ -1,5 +1,5 @@
 // Re-generates lib/src/proto/*.dart from ../proto/profedit.proto (the
-// canonical copy lives at the a7p-cross repo root, shared with py/js).
+// canonical copy lives at the a7p repo root, shared with py/js).
 //
 // Run after editing the .proto source:
 //   dart run bin/generate_proto.dart
