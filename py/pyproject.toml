@@ -1,0 +1,92 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "a7p"
+authors = [{ name = "o-murphy" }]
+
+description = "Simple python3 wrapper for .a7p files"
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["protobuf", "archer", "a7p"]
+license = { file = "LICENSE" }
+classifiers = [
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+dependencies = [
+    "google==3.0.0",
+    "protobuf>=7.35.1",
+    "cel-python==0.5.0",
+    "tqdm==4.68.3",
+    "typing_extensions==4.16.0",
+    "yupy>=0.2.0b3",
+    "fastjsonschema>=2.21.2",
+    "jsonschema>=4.25.2",
+    # We need at least this version, which started publishing wheels for Python 3.14.
+    # Ref: https://github.com/google/re2/issues/580
+    "google-re2>=1.1.20251105; python_version == '3.14'",
+    # We need at least this version, which started publishing wheels for Python 3.13.
+    # Ref: https://github.com/google/re2/issues/516
+    "google-re2>=1.1.20250722; python_version == '3.13'",
+    # 1.1 started supporting 3.12.
+    "google-re2>=1.1; python_version == '3.12'",
+    "google-re2>=1",
+]
+dynamic = ["version"]
+
+
+[project.urls]
+"Homepage" = "https://github.com/o-murphy/a7p"
+"Bug Reports" = "https://github.com/o-murphy/a7p/issues"
+"Source" = "https://github.com/o-murphy/a7p"
+
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["a7p*"]
+
+[tool.setuptools.package-data]
+a7p = ["a7p.schema.json"]
+
+[tool.setuptools_scm]
+fallback_version = "0.0.0.dev0"
+
+[project.optional-dependencies]
+orjson = ['orjson==3.11.9']
+
+[project.scripts]
+a7p = "a7p.__main__:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+# uncomment to configure ruff linter/formatter
+[tool.ruff]
+include = ["pyproject.toml", "src/**/*.py", "tests/**/*.py"]
+exclude = [
+    ".git",
+    "__pypackages__",
+    "*.egg-info",
+    ".ruff_cache",
+    "venv",
+    ".venv",
+    "__init__.py",
+    "src/**/*pb2.py",
+    "src/**/_compiled_schema.py",
+]
+
+[dependency-groups]
+dev = ["orjson>=3.11.8", "pytest>=9.0.3", "ruff>=0.12.11"]

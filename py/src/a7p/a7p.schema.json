@@ -1,0 +1,389 @@
+{
+  "$comment": "Canonical source: a7p-cross/schema/a7p.schema.json. Copied here for standalone packaging (pip install) until the a7p-cross monorepo migration removes the need for a copy.",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://a7p-cross/schema/a7p.schema.json",
+  "title": "A7P Payload",
+  "description": "Canonical schema for the .a7p profile format (protobuf Payload, snake_case as serialized on disk via MessageToDict(preserving_proto_field_name=True)). Numeric ranges are raw wire-format integers, i.e. the display-unit ranges from the original profile.clj (tvt.a7.profedit.profile) already multiplied by 10^x-fraction-digits. Fields tagged x-discrepancy document places where a7p-py / a7p-js / a7p-dart currently disagree with the value encoded here or with each other -- see DESIGN-schema-unification.md, open question #1, before treating this file as final.",
+  "$ref": "#/$defs/Payload",
+  "$defs": {
+    "TwistDir": {
+      "type": "string",
+      "enum": [
+        "RIGHT",
+        "LEFT"
+      ]
+    },
+    "BcType": {
+      "type": "string",
+      "enum": [
+        "G1",
+        "G7",
+        "CUSTOM"
+      ]
+    },
+    "DistanceFrom": {
+      "type": "string",
+      "enum": [
+        "VALUE",
+        "INDEX"
+      ]
+    },
+    "CoefRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bc_cd",
+        "mv"
+      ],
+      "properties": {
+        "bc_cd": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000,
+          "x-fraction-digits": 4,
+          "x-ui-fraction-digits": 3,
+          "description": "Holds 'bc' (drag model G1/G7) or 'cd' (CUSTOM drag model); both share the same 0.0-10.0 display range.",
+          "x-fixed": "a7p-js validate.ts capped this at raw 10000 (display max 1.0) instead of 100000 (display max 10.0), matching profile.clj / a7p-py / a7p-dart -- fixed."
+        },
+        "mv": {
+          "type": "integer",
+          "minimum": 0,
+          "x-unit": "m/s (G1/G7) or Ma (CUSTOM)",
+          "description": "Muzzle velocity for G1/G7 rows (0.0-3000.0 m/s, 1 fraction digit -> raw max 30000), or Mach number 'ma' for CUSTOM rows (0.0-10.0, 4 fraction digits -> raw max 100000). Effective maximum is set contextually by the CoefRows if/then below.",
+          "x-fixed": "a7p-js capped CUSTOM mv at raw 10000 instead of 100000 -- same missing-factor-of-10 issue as bc_cd above -- fixed."
+        }
+      }
+    },
+    "SwitchProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "c_idx",
+        "distance_from",
+        "distance",
+        "reticle_idx",
+        "zoom"
+      ],
+      "properties": {
+        "c_idx": {
+          "description": "Index into coef_rows, or 255 meaning 'unused'.",
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 200
+            },
+            {
+              "const": 255
+            }
+          ],
+          "x-discrepancy": "a7p-js and a7p-dart's A7pValidator both accept the full 0-255 range unconditionally, i.e. they don't reject the undefined 201-254 gap that profile.clj / a7p-py exclude via oneOf. Confirm whether 201-254 should be rejected or the gap-exclusion should be dropped everywhere."
+        },
+        "distance_from": {
+          "$ref": "#/$defs/DistanceFrom"
+        },
+        "distance": {
+          "description": "Either the 'unused' sentinel 0, or a real distance in [100, 300000] raw (1.0-3000.0 m, 2 fraction digits) -- per profile.clj's (s/or :distance ::distance :unused zero?), unconditional on distance_from.",
+          "oneOf": [
+            {
+              "const": 0
+            },
+            {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 300000
+            }
+          ],
+          "x-fraction-digits": 2,
+          "x-ui-fraction-digits": 0,
+          "x-unit": "m",
+          "x-discrepancy": "a7p-js and a7p-dart instead branch on distance_from: when INDEX, they validate 'distance' as an index in [0,255] into the distances array; when VALUE, as [100,300000]. a7p-py/profile.clj do not make this distinction. This is a semantic fork, not just a range typo -- needs an explicit decision (see DESIGN doc open question) before encoding it here as an if/then on distance_from."
+        },
+        "reticle_idx": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "x-fraction-digits": 0
+        },
+        "zoom": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6,
+          "x-fraction-digits": 0,
+          "description": "0 = unset/default (observed in real profiles for switches with distance_from=INDEX acting as a placeholder entry), 1-6 = real zoom levels on the device.",
+          "x-fixed": "a7p-dart's A7pValidator already checked 0-6 (matching this schema); its A7pFieldConstraints.zoom metadata said min 1, contradicting its own validator and the real shipped profiles below -- doc comment updated to 0-6.",
+          "x-discrepancy": "profile.clj says 0-4 (documented bug, not used here). a7p-js validate.ts does not restrict this at all (0-255) -- not fixed yet. a7p-py's yupy_schema.py still hard-codes 0-4 -- narrower than canonical 0-6, meaning a legitimate zoom==5 or zoom==6 profile would currently be wrongly rejected by a7p-py (no real profile in the 484-file corpus currently hits this, so it hasn't surfaced as a test failure, but it's a latent bug). Confirmed against real shipped profiles: a7p-py/tests/data/example2.a7p and a7p-js/scripts/example2.a7p both ship a switch with zoom == 0."
+        }
+      }
+    },
+    "Profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile_name",
+        "cartridge_name",
+        "bullet_name",
+        "short_name_top",
+        "short_name_bot",
+        "caliber",
+        "device_uuid",
+        "user_note",
+        "zero_x",
+        "zero_y",
+        "sc_height",
+        "r_twist",
+        "twist_dir",
+        "c_muzzle_velocity",
+        "c_zero_temperature",
+        "c_t_coeff",
+        "c_zero_distance_idx",
+        "c_zero_air_temperature",
+        "c_zero_air_pressure",
+        "c_zero_air_humidity",
+        "c_zero_w_pitch",
+        "c_zero_p_temperature",
+        "b_diameter",
+        "b_weight",
+        "b_length",
+        "bc_type",
+        "switches",
+        "distances",
+        "coef_rows"
+      ],
+      "properties": {
+        "profile_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "cartridge_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "bullet_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "short_name_top": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8
+        },
+        "short_name_bot": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8
+        },
+        "caliber": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "device_uuid": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "user_note": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "zero_x": {
+          "type": "integer",
+          "minimum": -200000,
+          "maximum": 200000,
+          "x-fraction-digits": 3,
+          "x-unit": "click"
+        },
+        "zero_y": {
+          "type": "integer",
+          "minimum": -200000,
+          "maximum": 200000,
+          "x-fraction-digits": 3,
+          "x-unit": "click"
+        },
+        "sc_height": {
+          "type": "integer",
+          "minimum": -5000,
+          "maximum": 5000,
+          "x-fraction-digits": 0,
+          "x-unit": "mm"
+        },
+        "r_twist": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000,
+          "x-fraction-digits": 2,
+          "x-unit": "in/turn"
+        },
+        "twist_dir": {
+          "$ref": "#/$defs/TwistDir"
+        },
+        "c_muzzle_velocity": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 30000,
+          "x-fraction-digits": 1,
+          "x-ui-fraction-digits": 0,
+          "x-unit": "m/s",
+          "x-fixed": "a7p-dart's A7pValidator checked minimum 10 instead of 100 (its own A7pFieldConstraints.muzzleVelocity implies raw min 100: 10.0 * 10^1) -- fixed."
+        },
+        "c_zero_temperature": {
+          "type": "integer",
+          "minimum": -100,
+          "maximum": 100,
+          "x-fraction-digits": 0,
+          "x-unit": "°C"
+        },
+        "c_t_coeff": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5000,
+          "x-fraction-digits": 3,
+          "x-unit": "%/15°C"
+        },
+        "c_zero_distance_idx": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "x-fraction-digits": 0,
+          "description": "Index into 'distances'.",
+          "x-discrepancy": "a7p-dart's A7pValidator instead bounds this dynamically by len(distances)-1 rather than a fixed 255 -- a cross-field constraint plain JSON Schema can't express without a custom keyword/extension. profile.clj / a7p-py / a7p-js all use the static 0-255 range encoded here."
+        },
+        "c_zero_air_temperature": {
+          "type": "integer",
+          "minimum": -100,
+          "maximum": 100,
+          "x-fraction-digits": 0,
+          "x-unit": "°C"
+        },
+        "c_zero_air_pressure": {
+          "type": "integer",
+          "minimum": 3000,
+          "maximum": 15000,
+          "x-fraction-digits": 1,
+          "x-ui-fraction-digits": 0,
+          "x-unit": "hPa"
+        },
+        "c_zero_air_humidity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "x-fraction-digits": 0,
+          "x-unit": "%"
+        },
+        "c_zero_w_pitch": {
+          "type": "integer",
+          "minimum": -90,
+          "maximum": 90,
+          "x-fraction-digits": 0,
+          "x-unit": "°",
+          "x-fixed": "a7p-dart's A7pValidator did not check this field at all (present in A7pFieldConstraints but missing from _validateProfile) -- check added."
+        },
+        "c_zero_p_temperature": {
+          "type": "integer",
+          "minimum": -100,
+          "maximum": 100,
+          "x-fraction-digits": 0,
+          "x-unit": "°C"
+        },
+        "b_diameter": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50000,
+          "x-fraction-digits": 3,
+          "x-unit": "in"
+        },
+        "b_weight": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 65535,
+          "x-fraction-digits": 1,
+          "x-unit": "gr",
+          "x-fixed": "a7p-dart's A7pValidator checked minimum 1 instead of 10 (its own A7pFieldConstraints.bulletWeight implies raw min 10: 1.0 * 10^1) -- fixed."
+        },
+        "b_length": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 200000,
+          "x-fraction-digits": 3,
+          "x-unit": "in",
+          "x-fixed": "a7p-dart's A7pValidator used min 0 instead of 10 -- fixed.",
+          "x-discrepancy": "a7p-js validate.ts still uses min 1 instead of 10 (profile.clj / a7p-py / a7p-dart all use raw min 10 = 0.01 * 10^3) -- not fixed yet, out of the confirmed fix scope for this pass."
+        },
+        "bc_type": {
+          "$ref": "#/$defs/BcType"
+        },
+        "switches": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "$ref": "#/$defs/SwitchProps"
+          }
+        },
+        "distances": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "items": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 300000,
+            "x-fraction-digits": 2,
+            "x-ui-fraction-digits": 0,
+            "x-unit": "m"
+          }
+        },
+        "coef_rows": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/CoefRow"
+          },
+          "x-unique-except-zero": "mv",
+          "description": "Not expressible in plain JSON Schema: all 'mv' values must be unique except that any number of rows may have mv == 0. Enforce with one small hand-written check per language, run against schema/fixtures/ to keep behavior in sync.",
+          "if": {
+            "properties": {
+              "bc_type": {
+                "const": "CUSTOM"
+              }
+            }
+          },
+          "then": {
+            "maxItems": 200,
+            "items": {
+              "properties": {
+                "mv": {
+                  "maximum": 100000
+                }
+              }
+            }
+          },
+          "else": {
+            "maxItems": 5,
+            "items": {
+              "properties": {
+                "mv": {
+                  "maximum": 30000
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile"
+      ],
+      "properties": {
+        "profile": {
+          "$ref": "#/$defs/Profile"
+        }
+      }
+    }
+  }
+}

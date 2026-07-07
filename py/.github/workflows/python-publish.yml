@@ -1,0 +1,34 @@
+name: Upload Python Package
+
+on:
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+    permissions:
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@f98e06938123ccabd21905ea5d0069192241f9f1
+
+      - name: Install the project
+        run: uv sync --dev
+
+      - name: Build
+        run: uv build
+
+      - name: Publish
+        if: github.event_name == 'release'
+        run: uv publish --trusted-publishing always
