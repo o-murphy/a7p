@@ -1,0 +1,15 @@
+Installed 7 packages in 16ms
+Decoded 484 files
+
+yupy:               301.7 ms total,    623.3 us/file, 52 flagged invalid
+jsonschema:        1307.8 ms total,   2702.2 us/file, 52 flagged invalid
+fastjsonschema:      56.1 ms total,    115.9 us/file, 52 flagged invalid
+jsonschema      is 0.23x the speed of yupy (>1 means faster)
+fastjsonschema  is 5.38x the speed of yupy (>1 means faster)
+fastjsonschema  is 23.32x the speed of jsonschema
+
+Files flagged by yupy only (jsonschema missed / schema too loose): 0
+
+Reason breakdown (first line of each violation, counted):
+
+Full detail for first 3 examples:

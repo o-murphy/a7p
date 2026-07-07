@@ -1,0 +1,9 @@
+[submodule "a7p-py"]
+	path = a7p-py
+	url = https://github.com/o-murphy/a7p
+[submodule "a7p-js"]
+	path = a7p-js
+	url = https://github.com/o-murphy/a7p-js
+[submodule "a7p-dart"]
+	path = a7p-dart
+	url = https://github.com/o-murphy/a7p-dart
