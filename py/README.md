@@ -1,5 +1,7 @@
 # Simple python3 wrapper for .a7p files
 
+[![PyPI Version](https://img.shields.io/pypi/v/a7p?logo=pypi)(https://pypi.org/project/a7p)]
+
 `.a7p` is the most common ballistic profile format for the latest `Archer` thermal vision devices
 
 ## Table of Contents

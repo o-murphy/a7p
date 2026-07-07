@@ -8,6 +8,12 @@ a shared `.proto` (wire shape) and JSON Schema (validation rules), one
 together. `py`, `js`, and `dart` used to be separate repos/submodules; see
 `docs/DESIGN-schema-unification.md` for how and why they were merged in.
 
+[![PyPI Version](https://img.shields.io/pypi/v/a7p?logo=pypi)(https://pypi.org/project/a7p)]
+[![NPM Version](https://img.shields.io/npm/v/a7p-js?logo=npm)
+](https://www.npmjs.com/package/a7p-js)
+[![Pub Version](https://img.shields.io/pub/v/a7p?logo=dart&cacheSeconds=0)
+](https://pub.dev/packages/a7p)
+
 ## proto/profedit.proto
 
 Canonical `.proto` source for the wire *shape* of a profile (as opposed to

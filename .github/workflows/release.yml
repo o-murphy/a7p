@@ -205,6 +205,7 @@ jobs:
   publish-dart:
     needs: [bump-versions, create-release]
     runs-on: ubuntu-latest
+    environment: pub
     permissions:
       id-token: write # pub.dev OIDC trusted publisher
     defaults:
