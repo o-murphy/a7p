@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-python:
+    uses workflow_call py.yml
+
+  test-dart:
+    uses workflow_call dart.yml
+
+  test-js:
+    uses workflow_call js.yml
+
+  test-guard:
+    needs: [test-python, test-dart, test-js]
+
+  build-and-deploy-python:
+    needs: test-guard
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./py
+
+    environment:
+      name: pypi
+    permissions:
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: "true"
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@f98e06938123ccabd21905ea5d0069192241f9f1
+
+      - name: Install the project
+        run: uv sync --dev
+
+      - name: Build
+        run: uv build
+
+      - name: Publish
+        if: github.event_name == 'release'
+        run: uv publish --trusted-publishing always
+
+  build-and-deploy-dart:
+    needs: test-guard
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./dart
+
+  build-and-deploy-js:
+    needs: test-guard
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./js

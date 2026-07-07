@@ -8,7 +8,7 @@ root for usage and the numbers behind it.
 
 Usage:
     python scripts/compile.py --python
-    python scripts/compile.py --ts      (not yet implemented)
+    python scripts/compile.py --ts
     python scripts/compile.py --dart
 """
 
@@ -52,11 +52,23 @@ def compile_python() -> None:
 
 
 def compile_ts() -> None:
-    sys.exit(
-        "not implemented yet: js still validates with yup, not ajv. "
-        "Migrate js/src/validate.ts to ajv first (see docs/DESIGN-schema-unification.md), "
-        "then this can call `ajv compile --standalone` the same way --python calls fastjsonschema."
-    )
+    """Compiles a7p.schema.json into a standalone ajv validator for js/.
+
+    There's no `ajv compile --standalone` CLI flag -- ajv-cli's --spec= only
+    covers draft7/draft2019-09, not the draft 2020-12 this schema uses.
+    Standalone codegen only exists via ajv's JS API (Ajv2020 + standaloneCode()),
+    so unlike --python this can't be done from Python directly; it shells out
+    to js/scripts/build_schema_validator.mjs, the actual codegen script (kept
+    in js/ so it can `require`/`import` the ajv devDependency already
+    installed there). See that script for why the output is CommonJS (.cjs)
+    rather than ESM despite js/ being "type": "module".
+    """
+    import subprocess
+
+    script = REPO_ROOT / "js" / "scripts" / "build_schema_validator.mjs"
+    result = subprocess.run(["node", str(script)], cwd=REPO_ROOT / "js")
+    if result.returncode != 0:
+        sys.exit(result.returncode)
 
 
 def compile_dart() -> None:
@@ -109,7 +121,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--python", action="store_true", help="regenerate py/'s compiled validator")
-    group.add_argument("--ts", action="store_true", help="(not yet implemented)")
+    group.add_argument("--ts", action="store_true", help="regenerate js/'s standalone ajv validator")
     group.add_argument("--dart", action="store_true", help="regenerate dart/'s embedded schema constant")
     args = parser.parse_args()
 

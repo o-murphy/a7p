@@ -46,7 +46,7 @@ every process start.
 
 ```sh
 python scripts/compile.py --python   # implemented
-python scripts/compile.py --ts       # not yet -- js still uses yup, not ajv
+python scripts/compile.py --ts       # implemented
 python scripts/compile.py --dart     # implemented
 ```
 
@@ -92,6 +92,34 @@ would otherwise try to interpolate the `$`.
 
 **Run this whenever `a7p.schema.json` changes** and commit the regenerated
 `a7p_schema.g.dart` alongside it, same as `--python`.
+
+### `--ts`
+
+`ajv-cli`'s `--spec=` only covers draft-07/draft-2019-09, not the draft
+2020-12 this schema uses — there's no `ajv compile --standalone` CLI
+invocation that works here. Standalone codegen only exists via ajv's JS API
+(`Ajv2020` + `standaloneCode()`), so this step shells out to
+`js/scripts/build_schema_validator.mjs` (the actual codegen script, kept in
+`js/` so it can use the `ajv` devDependency already installed there) instead
+of doing it in Python directly.
+
+That script writes `js/src/generated/a7p_schema_validator.cjs` +
+`.d.cts` (generated files — do not edit by hand). It's CommonJS, not ESM,
+even though `js/` is `"type": "module"`: ajv's `code.esm: true` option still
+leaves a bare `require("ajv/dist/runtime/ucs2length")` in the emitted code
+(for Unicode-aware `maxLength`/`minLength` checks), which crashes under
+Node's ESM loader. Node's ESM loader can `import` a `.cjs` file directly
+(wrapped as the default export), so `js/src/validate.ts` (ESM) still
+consumes it with no runtime dependency on `ajv` itself — `ajv` is a
+devDependency, used only by the codegen script, not shipped.
+
+`js/src/validate.ts` builds a plain snake_case object from the `Payload`
+(matching the schema's property names) and calls the compiled validator on
+it; the previous `yup`-based `validate.ts` (and the `yup` dependency itself)
+are gone.
+
+**Run this whenever `a7p.schema.json` changes** and commit the regenerated
+files alongside it, same as `--python`/`--dart`.
 
 On failure, `schema_validator.py` falls back to `jsonschema` (pure Python,
 slower, but reports every violation instead of only the first one) so the
