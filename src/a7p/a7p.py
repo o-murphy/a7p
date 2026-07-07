@@ -11,7 +11,7 @@ Functions:
     from_json: Converts a JSON string to a Payload object.
     to_dict: Converts a Payload object to a dictionary.
     from_dict: Converts a dictionary to a Payload object.
-    validate: Validates a Payload object against proto and spec validation rules.
+    validate: Validates a Payload object against proto and yupy validation rules.
 """
 
 import hashlib
@@ -24,12 +24,10 @@ from google.protobuf.json_format import MessageToJson, MessageToDict, Parse
 from a7p import exceptions
 from a7p import profedit_pb2
 from a7p import protovalidate
-from a7p.spec_validator import validate_spec
 from a7p.yupy_schema import validate as validate_yupy
 from yupy import ValidationError as YupyValidationError
 
 USE_PROTOVALIDATE = False
-USE_SPEC_VALIDATOR = False
 USE_YUPY_VALIDATOR = True
 
 
@@ -38,13 +36,6 @@ def setUseProtovalidate(flag: bool):
         warnings.warn("protovalidate", DeprecationWarning)
     global USE_PROTOVALIDATE
     USE_PROTOVALIDATE = flag
-
-
-def setUseSpecValidator(flag: bool):
-    if flag:
-        warnings.warn("spec_validator", DeprecationWarning)
-    global USE_SPEC_VALIDATOR
-    USE_SPEC_VALIDATOR = flag
 
 
 def setUseYupyValidator(flag: bool):
@@ -221,7 +212,7 @@ def from_dict(data: dict) -> profedit_pb2.Payload:
 
 def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
     """
-    Validates a Payload object against proto and spec validation rules.
+    Validates a Payload object against proto and yupy validation rules.
 
     Args:
         payload (profedit_pb2.Payload): The Payload object to validate.
@@ -233,7 +224,6 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
 
     Raises:
         A7PProtoValidationError: If there are proto validation errors.
-        A7PSpecValidationError: If there are spec validation errors.
         A7PValidationError: If there are any violations.
     """
     violations = {"violations": []}
@@ -255,22 +245,6 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
                 exceptions.Violation(
                     "Proto validation error",
                     "Validation failed during proto validation",
-                    "",
-                )
-            )
-
-    if USE_SPEC_VALIDATOR:
-        try:
-            validate_spec(payload)
-        except exceptions.A7PSpecValidationError as err:
-            if fail_fast:
-                raise err
-            is_errors = True
-            violations["spec_violations"] = err.spec_violations
-            violations["violations"].append(
-                exceptions.Violation(
-                    "Spec validation error",
-                    "Validation failed during spec validation",
                     "",
                 )
             )
@@ -307,7 +281,6 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
             payload,
             violations=violations["violations"],  # Загальний список порушень
             proto_violations=violations.get("proto_violations"),
-            spec_violations=violations.get("spec_violations"),
             yupy_violations=violations.get("yupy_violations"),
         )
 

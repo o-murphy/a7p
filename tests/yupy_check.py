@@ -1,6 +1,5 @@
 if __name__ == "__main__":
     from a7p import load
-    from a7p.spec_validator import validate_spec
     from a7p.protovalidate import validate as proto_validate
     from a7p.yupy_schema import validate as yupy_validate
     from yupy import ValidationError
@@ -49,9 +48,6 @@ if __name__ == "__main__":
                 except ValidationError as err:
                     pass
 
-    def v_old():
-        speedtest(validate_spec)
-
     def v_new():
         speedtest(yupy_validate)
 
@@ -59,9 +55,6 @@ if __name__ == "__main__":
         speedtest(proto_validate)
 
     num = 1
-    told = timeit.timeit(v_old, number=num)
-    print("spec validator", told)  # 0.0601s
-
     tnew = timeit.timeit(v_new, number=num)
     print("yupy validator", tnew)  # 0.0059s
 

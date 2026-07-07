@@ -71,7 +71,6 @@ Zeroing:
                         Set the offset for zeroing in clicks (X_OFFSET and Y_OFFSET).
                         
 Advanced:
-  --spec-validator      Use spec-based validator (deprecated).
   --protovalidate       Use protovalidate (deprecated).
 ```
 

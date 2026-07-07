@@ -8,7 +8,7 @@ import tqdm
 
 import a7p
 from a7p import exceptions, profedit_pb2, setUseProtovalidate
-from a7p.a7p import setUseSpecValidator, setUseYupyValidator
+from a7p.a7p import setUseYupyValidator
 from a7p.exceptions import A7PValidationError
 from a7p.factory import DistanceTable
 from a7p.logger import logger, color_print, color_fmt
@@ -152,11 +152,6 @@ switches_exclusive_group.add_argument(
 )
 
 advanced_group = parser.add_argument_group("Advanced")
-advanced_group.add_argument(
-    "--spec-validator",
-    action="store_true",
-    help="Use spec-based validator (deprecated).",
-)
 advanced_group.add_argument(
     "--protovalidate", action="store_true", help="Use protovalidate (deprecated)."
 )
@@ -533,10 +528,8 @@ def main():
         # print(args)
         args_dict = args.__dict__
         use_proto = args_dict.pop("protovalidate", False)
-        use_spec = args_dict.pop("spec_validator", False)
         disable_yupy = args_dict.pop("disable_yupy", False)
         setUseProtovalidate(use_proto)
-        setUseSpecValidator(use_spec)
         setUseYupyValidator(disable_yupy)
 
         process_files(**args.__dict__)
