@@ -1,12 +1,13 @@
-name: Pytest
+name: Ruff
 
 on:
-  push:
   pull_request:
+    branches:
+      - "*"
   workflow_dispatch:
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -27,5 +28,5 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Run tests
-        run: uv run pytest
+      - name: Run ruff
+        run: uv run ruff check
