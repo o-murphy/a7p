@@ -1,7 +1,5 @@
 if __name__ == "__main__":
     from a7p import load
-    from a7p.spec_validator import validate_spec
-    from a7p.protovalidate import validate as proto_validate
     from a7p.yupy_schema import validate as yupy_validate
     from yupy import ValidationError
     import timeit
@@ -9,7 +7,7 @@ if __name__ == "__main__":
     from pathlib import Path
 
     # test index switch distance
-    with open("tests/example2.a7p", "rb") as fp:
+    with open("tests/data/example2.a7p", "rb") as fp:
         p = load(fp, fail_fast=True, validate_=False)
         try:
             yupy_validate(p, fail_fast=False)
@@ -46,24 +44,12 @@ if __name__ == "__main__":
                 p = load(fp, validate_=False, fail_fast=True)
                 try:
                     validator(p)
-                except ValidationError as err:
+                except ValidationError:
                     pass
-
-    def v_old():
-        speedtest(validate_spec)
 
     def v_new():
         speedtest(yupy_validate)
 
-    def v_pro():
-        speedtest(proto_validate)
-
     num = 1
-    told = timeit.timeit(v_old, number=num)
-    print("spec validator", told)  # 0.0601s
-
     tnew = timeit.timeit(v_new, number=num)
     print("yupy validator", tnew)  # 0.0059s
-
-    tpro = timeit.timeit(v_pro, number=num)
-    print("protovalidate", tpro)  # 3.4331s

@@ -57,47 +57,34 @@ _schema = mapping().shape(
                     ),
                     "switches": array()
                     .of(
-                        union().one_of(
-                            (
-                                mapping().shape(
-                                    {
-                                        "c_idx": required(
-                                            number().ge(0).le(255).integer()
-                                        ),
-                                        "distance_from": required(
-                                            mixed().one_of(["VALUE"])
-                                        ),
-                                        "distance": required(
-                                            number().ge(100).le(300000).integer()
-                                        ),
-                                        "reticle_idx": required(
-                                            number().ge(0).le(255).integer()
-                                        ),
-                                        "zoom": required(
-                                            number().ge(0).le(255).integer()
-                                        ),
-                                    }
+                        mapping().shape(
+                            {
+                                # c_idx: 0..200, or the special "unused" value 255
+                                "c_idx": required(
+                                    union().one_of(
+                                        (
+                                            number().ge(0).le(200).integer(),
+                                            number().eq(255).integer(),
+                                        )
+                                    )
                                 ),
-                                mapping().shape(
-                                    {
-                                        "c_idx": required(
-                                            number().ge(0).le(255).integer()
-                                        ),
-                                        "distance_from": required(
-                                            mixed().one_of(["INDEX"])
-                                        ),
-                                        "distance": required(
-                                            number().ge(0).le(255).integer()
-                                        ),
-                                        "reticle_idx": required(
-                                            number().ge(0).le(255).integer()
-                                        ),
-                                        "zoom": required(
-                                            number().ge(0).le(255).integer()
-                                        ),
-                                    }
+                                "distance_from": required(
+                                    mixed().one_of(["VALUE", "INDEX"])
                                 ),
-                            )
+                                # distance: 0 ("unused"), or a real distance in [100, 300000]
+                                "distance": required(
+                                    union().one_of(
+                                        (
+                                            number().eq(0).integer(),
+                                            number().ge(100).le(300000).integer(),
+                                        )
+                                    )
+                                ),
+                                "reticle_idx": required(
+                                    number().ge(0).le(255).integer()
+                                ),
+                                "zoom": required(number().ge(0).le(4).integer()),
+                            }
                         )
                     )
                     .min(4),
@@ -125,7 +112,7 @@ _schema = mapping().shape(
                     # bullet
                     "b_diameter": required(number().ge(1).le(50000).integer()),
                     "b_weight": required(number().ge(10).le(65535).integer()),
-                    "b_length": required(number().ge(1).le(200000).integer()),
+                    "b_length": required(number().ge(10).le(200000).integer()),
                     # drag model
                     "bc_type": required(mixed().one_of(["G1", "G7", "CUSTOM"])),
                     "coef_rows": required(array().min(1).max(200)),
@@ -157,7 +144,7 @@ _coef_rows_std_schema = required(
     .of(
         mapping().shape(
             {
-                "bc_cd": number().ge(0).le(10000).integer(),
+                "bc_cd": number().ge(0).le(100000).integer(),
                 "mv": number().ge(0).le(30000).integer(),
             }
         )
@@ -173,8 +160,8 @@ _coef_rows_custom_schema = required(
     .of(
         mapping().shape(
             {
-                "bc_cd": number().ge(0).le(10000).integer(),
-                "mv": number().ge(0).le(10000).integer(),
+                "bc_cd": number().ge(0).le(100000).integer(),
+                "mv": number().ge(0).le(100000).integer(),
             }
         )
     )

@@ -17,7 +17,6 @@ __all__ = (
     'from_dict',
     'to_dict',
     'validate',
-    'setUseProtovalidate',
 
     'Payload',
     'Profile',
@@ -33,5 +32,4 @@ __all__ = (
     'exceptions',
     'logger',
     'profedit_pb2',
-    'recover',
 )
