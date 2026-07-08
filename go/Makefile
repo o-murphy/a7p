@@ -1,10 +1,12 @@
-# OS and Architecture lists based on the OS
+# OS and Architecture lists based on the OS -- must match `go tool dist
+# list`'s actual supported pairs (darwin has no 386/arm port; windows has no
+# arm, only arm64 -- unlike linux, which supports all of these).
 ifeq ($(OS),Windows_NT)
     GOOS = windows
-    GOARCH_LIST = 386 amd64 arm arm64
+    GOARCH_LIST = 386 amd64 arm64
 else ifeq ($(shell uname), Darwin)
     GOOS = darwin
-    GOARCH_LIST = 386 amd64 arm arm64
+    GOARCH_LIST = amd64 arm64
 else
     GOOS = linux
     GOARCH_LIST = 386 amd64 arm arm64 mips mips64 mipsle  # Add mipsle for linux

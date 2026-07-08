@@ -240,8 +240,11 @@ jobs:
   # the bump-versions comment above) -- it's go-gettable at this same tag
   # already (module github.com/o-murphy/a7p). test-go (./.github/workflows/go.yml,
   # part of this same run via tests-passed -> bump-versions) already
-  # cross-compiled and uploaded a "a7p-binary-<os>" artifact per OS in its
-  # matrix, so this just downloads those and attaches them here instead of
+  # cross-compiled and uploaded one "a7p-go-binaries-<os>.tar.gz" artifact
+  # per OS in its matrix (already suffixed per-OS internally, since
+  # ubuntu-latest/ubuntu-24.04-arm and windows-latest/windows-11-arm each
+  # cross-compile the same GOARCH set and would otherwise collide), so this
+  # just downloads and repacks them into one combined archive instead of
   # rebuilding -- softprops/action-gh-release upserts by tag_name, so it
   # doesn't need to wait on create-release specifically (only on
   # bump-versions, to stay after the version-bump commit).
@@ -254,12 +257,18 @@ jobs:
       - name: Download binaries built by test-go
         uses: actions/download-artifact@v8
         with:
-          path: go/dist
+          path: artifacts
           pattern: a7p-binary-*
-          merge-multiple: true
+
+      - name: Combine per-OS tarballs into one release archive
+        shell: bash
+        run: |
+          mkdir combined
+          find artifacts -name '*.tar.gz' -exec tar xzf {} -C combined \;
+          tar czf a7p-go-binaries.tar.gz -C combined .
 
       - name: Attach binaries to the release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.RELEASE_TAG }}
-          files: go/dist/a7p*
+          files: a7p-go-binaries.tar.gz

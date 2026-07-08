@@ -110,14 +110,36 @@ jobs:
       - name: Build using Make
         run: make
 
+      - name: Suffix binaries with the runner OS
+        # The Makefile's cross-compile branches only on host OS (uname/OS),
+        # not host architecture -- so ubuntu-latest/ubuntu-24.04-arm (and
+        # windows-latest/windows-11-arm) each produce identically-named
+        # files (e.g. both "a7p-linux-amd64"). GitHub Release assets must
+        # have unique filenames, so suffix every built file with this job's
+        # matrix.os before it's uploaded/merged with the other runners'.
+        shell: bash
+        run: |
+          cd dist
+          for f in a7p-*; do
+            case "$f" in
+              *.exe) mv "$f" "${f%.exe}-${{ matrix.os }}.exe" ;;
+              *.wasm) mv "$f" "${f%.wasm}-${{ matrix.os }}.wasm" ;;
+              *) mv "$f" "$f-${{ matrix.os }}" ;;
+            esac
+          done
+
       - name: List dist directory contents
         shell: bash
         run: |
           ls -la dist/
+
+      - name: Package binaries into a tarball
+        shell: bash
+        run: tar czf a7p-go-binaries-${{ matrix.os }}.tar.gz -C dist .
 
       - name: Upload binaries
         if: success()
         uses: actions/upload-artifact@v7
         with:
           name: a7p-binary-${{ matrix.os }}
-          path: go/dist/a7p*
+          path: go/a7p-go-binaries-${{ matrix.os }}.tar.gz
