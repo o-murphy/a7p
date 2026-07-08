@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 name = "a7p"
 authors = [{ name = "o-murphy" }]
 
-description = "Simple python3 wrapper for .a7p files"
+description = "A7P ballistic profile format — encode/decode and validation"
 readme = "README.md"
 requires-python = ">=3.10"
 keywords = ["protobuf", "archer", "a7p"]

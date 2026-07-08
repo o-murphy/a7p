@@ -1,7 +1,7 @@
 {
   "name": "a7p-js",
   "version": "1.2.0-alpha.1",
-  "description": "Wrapper for .a7p files",
+  "description": "A7P ballistic profile format — encode/decode and validation",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
