@@ -1,6 +1,7 @@
 # Simple python3 wrapper for .a7p files
 
 [![PyPI Version](https://img.shields.io/pypi/v/a7p?logo=pypi)(https://pypi.org/project/a7p)]
+[![license](https://img.shields.io/npm/l/a7p-js.svg)](LICENSE)
 
 `.a7p` is the most common ballistic profile format for the latest `Archer` thermal vision devices
 
@@ -129,7 +130,7 @@ To obtain values from an .a7p profile in the desired units, you need to divide t
 For the reverse operation, you need to perform the inverse operation and convert to an integer.
 
 | key                      | unit           | multiplier | desc                                        |
-|--------------------------|----------------|------------|---------------------------------------------|
+| ------------------------ | -------------- | ---------- | ------------------------------------------- |
 | sc_height                | mm             | 1          | sight height in mm                          |
 | r_twist                  | inch           | 100        | positive twist value                        |
 | c_zero_temperature       | C              | 1          | temperature at c_muzzle_velocity            |

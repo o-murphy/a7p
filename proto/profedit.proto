@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package profedit;
 
-option go_package = "github.com/jaremko/a7p_transfer_example/profedit";
+option go_package = "github.com/o-murphy/a7p/go/a7p/profedit";
 
 message Payload {
   Profile profile = 1;

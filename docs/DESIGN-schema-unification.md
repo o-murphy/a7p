@@ -336,3 +336,52 @@ jsonschema-fallback, публічний API незмінний, скомпіль
    (патерн з `ob-dump`, адаптований), `py/pyproject.toml` (`setuptools_scm` тепер
    `root = ".."`), і `.github/dependabot.yml` в корені (злитий з трьох per-package
    конфігів, `directory:` тепер вказує на `/py`/`/js`/`/dart`).
+8. ~~**Долучити `go` як четвертий пакет.**~~ **Зроблено.** `o-murphy/a7p-go`
+   (152 KB, 27 комітів, без тегів/релізів) злито тим самим прийомом, що й п.7 —
+   `git filter-repo --to-subdirectory-filter go` + `git merge --allow-unrelated-histories`
+   (спершу спробувано голий `git subtree add`, і на практиці підтверджено саме те
+   обмеження, що й задокументовано в п.7: історія reachable, але кожен старий коміт
+   лишається з путями без `go/`-префікса, тож `git log -- go/a7p/decode.go` не працює;
+   передомено через `filter-repo`, де це вже коректно). На відміну від `py`/`js`/`dart`,
+   `go` — рівноправний четвертий пакет, який має **ту саму** версію-тег `vX.Y.Z`, а не
+   власну — і саме тому `go.mod`/`go.sum` лежать у **корені** репозиторію
+   (`module github.com/o-murphy/a7p`), а не в `go/`: версіонування Go-модулів вимагає
+   tag-префікса з підпапки (`go/vX.Y.Z`) для будь-якого `go.mod` не в корені репо;
+   лише кореневий `go.mod` версіюється голим `vX.Y.Z`-тегом — тим самим, що вже водить
+   `py`/`js`/`dart`. Практичний наслідок: на відміну від `js`/`dart` (яких `bump-versions`
+   у `release.yml` явно бампає щорелізу), `go` взагалі не потребує кроку бампу версії —
+   вона *є* тегом.
+
+   Проєкт мав власну (застарілу) валідацію — вендорена копія `profedit.proto` з
+   `buf.validate`-анотаціями + `protovalidate-go`/`go-playground/validator` — замість
+   спільної `schema/a7p.schema.json`. Мігровано за тим самим принципом, що й `dart`
+   (п.1 вище): еквівалента `fastjsonschema.compile_to_code()`/`ajv standaloneCode()` для
+   Go не існує (єдиний проєкт, що це обіцяє, `tfkhsr/jsonschema`, мертвий з 2018 і не
+   підтримує draft 2020-12 — перевірено емпірично через `gh api`, а не вгадано), тож
+   `scripts/compile.py --go` просто копіює `schema/a7p.schema.json` в
+   `go/a7p/generated/a7p_schema.g.json` для нативного `//go:embed` (без raw-string-хаку,
+   який був потрібен для Dart). `go/a7p/schema_validator.go` компілює схему один раз
+   (lazy singleton, `github.com/santhosh-tekuri/jsonschema/v6`) і валідує payload,
+   змаршалений через `protojson.MarshalOptions{UseProtoNames: true, EmitDefaultValues: true}`
+   — оскільки власні назви полів/enum'ів proto вже snake_case і збігаються зі схемою
+   1:1, це не потребує ручного мапінгу camelCase↔snake_case, на відміну від Dart-івського
+   `_payloadToJson`; `EmitDefaultValues` обов'язковий, бо без нього protojson пропускає
+   нульові скалярні поля (`zero_x: 0` тощо), а схемні `required`-перевірки очікують їх
+   присутності. Публічні `ValidateProto`/`ValidateSpec` лишились (обидві тепер викликають
+   ту саму `validateSchema`), внутрішній `protovalidate-go`/`go-playground` код видалено
+   повністю (на відміну від `py`, де стара `yupy_schema.py` навмисно лишена як референс —
+   п.5 вище; тут старого коду просто не було сенсу лишати, він ніколи не перевіряв
+   реальні межі значень, лише довжину масивів).
+
+   Міграція вивела на поверхню реальний, раніше непомічений розрив: стара
+   `buf.validate`-анотація на `distances` перевіряла лише `min_items`/`max_items`, і
+   ніколи — значення елементів, тож `go/assets/example.a7p` (і `dump.a7p`/`switches.a7p`,
+   ті самі дані) містять `distances[0] == 0`, що канонічна схема відхиляє
+   (`minimum: 100`) — цей факт задокументовано прямо в `go/tests/a7p_test.go`
+   (`TestValidator` тепер очікує саме цю помилку, а не мовчки вимагає чистої валідації).
+   `go_package`-опція в `proto/profedit.proto` оновлена на
+   `github.com/o-murphy/a7p/go/a7p/profedit` (була успадкована від оригінального
+   `jaremko/a7p_transfer_example`); невикористаний `protoc-gen-go-grpc`-кодоген прибрано
+   (proto не оголошує жодного `service`). Ліцензія: `go/LICENSE` — **GPL-3.0** (як і
+   `py`, з тієї ж причини — успадкована від оригінального `o-murphy/a7p-go`), корінь
+   лишається LGPL-3.0.

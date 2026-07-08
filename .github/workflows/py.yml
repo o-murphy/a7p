@@ -2,7 +2,17 @@ name: Python
 
 on:
   push:
+    paths:
+      - "py/**"
+      - "proto/**"
+      - "schema/**"
+      - ".github/workflows/py.yml"
   pull_request:
+    paths:
+      - "py/**"
+      - "proto/**"
+      - "schema/**"
+      - ".github/workflows/py.yml"
   workflow_dispatch:
   workflow_call:
 

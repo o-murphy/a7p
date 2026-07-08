@@ -10,6 +10,7 @@ Usage:
     python scripts/compile.py --python
     python scripts/compile.py --ts
     python scripts/compile.py --dart
+    python scripts/compile.py --go
 """
 
 import argparse
@@ -117,12 +118,31 @@ def compile_dart() -> None:
     print(f"wrote {out_path} ({len(compact)} bytes embedded)")
 
 
+def compile_go() -> None:
+    """Copies a7p.schema.json verbatim for go/'s //go:embed.
+
+    Same reasoning as compile_dart() -- no fastjsonschema/ajv-style
+    compile-to-source-code tool exists for Go either (the one project
+    claiming this, tfkhsr/jsonschema, is dead since 2018 and only supports
+    pre-2020-12 draft). go/ instead validates at runtime with
+    github.com/santhosh-tekuri/jsonschema/v6 against a *jsonschema.Schema
+    built once from this embedded file (a lazy singleton, see
+    go/a7p/schema_validator.go). Unlike Dart, Go's //go:embed (stdlib since
+    1.16) embeds a plain file directly -- no raw-string-escaping step needed.
+    """
+    out_path = REPO_ROOT / "go" / "a7p" / "generated" / "a7p_schema.g.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_bytes(SCHEMA_PATH.read_bytes())
+    print(f"wrote {out_path} ({out_path.stat().st_size} bytes embedded)")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--python", action="store_true", help="regenerate py/'s compiled validator")
     group.add_argument("--ts", action="store_true", help="regenerate js/'s standalone ajv validator")
     group.add_argument("--dart", action="store_true", help="regenerate dart/'s embedded schema constant")
+    group.add_argument("--go", action="store_true", help="regenerate go/'s embedded schema file")
     args = parser.parse_args()
 
     if args.python:
@@ -131,6 +151,8 @@ def main() -> None:
         compile_ts()
     elif args.dart:
         compile_dart()
+    elif args.go:
+        compile_go()
 
 
 if __name__ == "__main__":

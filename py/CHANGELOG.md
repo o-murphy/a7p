@@ -14,6 +14,8 @@ into the `a7p` monorepo, so there's no frozen pre-merge history here
 to preserve (unlike `js`/`dart`).
 
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
+## [Unreleased]
+
 ## [1.2.0] - 2026-07-08
 
 ### Changed
@@ -24,4 +26,7 @@ to preserve (unlike `js`/`dart`).
   (kept temporarily, unused by the public API, as a reference/safety net)
 - `proto/profedit.proto` now lives once at the repo root instead of a
   local copy under `proto/`
+
+[Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/o-murphy/a7p/releases/tag/v1.2.0
 <!-- END AUTO-GENERATED FROM ROOT CHANGELOG.md -->
