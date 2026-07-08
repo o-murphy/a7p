@@ -1,5 +1,9 @@
 # a7p-go
 
+[![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/o-murphy/a7p?logo=go)
+](https://pkg.go.dev/github.com/o-murphy/a7p)
+[![license](https://img.shields.io/npm/l/a7p-js.svg)](LICENSE)
+
 #### Simple Go-lang wrapper for .a7p (ballistic profile) files \
 
 This package is `go/` inside the [`o-murphy/a7p`](https://github.com/o-murphy/a7p)
@@ -128,7 +132,7 @@ To obtain values from an .a7p profile in the desired units, you need to divide t
 For the reverse operation, you need to perform the inverse operation and convert to an integer.
 
 | key                      | unit           | multiplier | desc                                        |
-|--------------------------|----------------|------------|---------------------------------------------|
+| ------------------------ | -------------- | ---------- | ------------------------------------------- |
 | sc_height                | mm             | 1          | sight height in mm                          |
 | r_twist                  | inch           | 100        | positive twist value                        |
 | c_zero_temperature       | C              | 1          | temperature at c_muzzle_velocity            |

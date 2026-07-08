@@ -1,5 +1,16 @@
 # a7p
 
+
+[![PyPI Version](https://img.shields.io/pypi/v/a7p?logo=pypi)
+](https://pypi.org/project/a7p)
+[![NPM Version](https://img.shields.io/npm/v/a7p-js?logo=npm)
+](https://www.npmjs.com/package/a7p-js)
+[![Pub Version](https://img.shields.io/pub/v/a7p?logo=dart&cacheSeconds=0)
+](https://pub.dev/packages/a7p)
+[![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/o-murphy/a7p?logo=go)
+](https://pkg.go.dev/github.com/o-murphy/a7p)
+[![license](https://img.shields.io/npm/l/a7p-js.svg)](LICENSE)
+
 Monorepo for the `.a7p` ballistic profile format across four languages —
 [`py`](py/) (PyPI: `a7p`), [`js`](js/) (npm: `a7p-js`),
 [`dart`](dart/) (pub.dev: `a7p`), and [`go`](go/) (`go get
@@ -8,13 +19,6 @@ sync: a shared `.proto` (wire shape) and JSON Schema (validation rules),
 one `CHANGELOG.md`, and one `release.yml` that tags/publishes all four
 together. `py`, `js`, `dart`, and `go` used to be separate repos/submodules;
 see `docs/DESIGN-schema-unification.md` for how and why they were merged in.
-
-[![PyPI Version](https://img.shields.io/pypi/v/a7p?logo=pypi)
-](https://pypi.org/project/a7p)
-[![NPM Version](https://img.shields.io/npm/v/a7p-js?logo=npm)
-](https://www.npmjs.com/package/a7p-js)
-[![Pub Version](https://img.shields.io/pub/v/a7p?logo=dart&cacheSeconds=0)
-](https://pub.dev/packages/a7p)
 
 ## proto/profedit.proto
 
