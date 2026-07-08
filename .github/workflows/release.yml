@@ -235,33 +235,28 @@ jobs:
       - run: dart pub publish --dry-run
       - run: dart pub publish --force
 
-  # ── build go/ binaries and attach them to the same GitHub Release ──────────
+  # ── attach go/ binaries (built by test-go's matrix) to the same Release ────
   # go/ has no separate registry to publish to and no version to bump (see
   # the bump-versions comment above) -- it's go-gettable at this same tag
-  # already (module github.com/o-murphy/a7p). This just cross-compiles the
-  # CLI and attaches the binaries as assets on this tag's release --
-  # softprops/action-gh-release upserts by tag_name, so it doesn't need to
-  # wait on create-release specifically (only on bump-versions, since it
-  # checks out post-bump `main`).
+  # already (module github.com/o-murphy/a7p). test-go (./.github/workflows/go.yml,
+  # part of this same run via tests-passed -> bump-versions) already
+  # cross-compiled and uploaded a "a7p-binary-<os>" artifact per OS in its
+  # matrix, so this just downloads those and attaches them here instead of
+  # rebuilding -- softprops/action-gh-release upserts by tag_name, so it
+  # doesn't need to wait on create-release specifically (only on
+  # bump-versions, to stay after the version-bump commit).
   publish-go:
     needs: [bump-versions]
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    defaults:
-      run:
-        working-directory: go
     steps:
-      - uses: actions/checkout@v7
+      - name: Download binaries built by test-go
+        uses: actions/download-artifact@v8
         with:
-          ref: main
-
-      - uses: actions/setup-go@v6
-        with:
-          go-version: ">=1.26.5"
-
-      - name: Build
-        run: make build
+          path: go/dist
+          pattern: a7p-binary-*
+          merge-multiple: true
 
       - name: Attach binaries to the release
         uses: softprops/action-gh-release@v3
