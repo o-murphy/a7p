@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.2.0-alpha.1] - 2026-07-08
+## [1.2.0-alpha.2] - 2026-07-08
 
 `py`, `js`, and `dart` merged from separate repos/submodules into this
 monorepo, with full git history preserved — see
@@ -214,5 +214,5 @@ package.
 
 - Initial release
 
-[Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.0-alpha.1...HEAD
-[1.2.0-alpha.1]: https://github.com/o-murphy/a7p/releases/tag/v1.2.0-alpha.1
+[Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.0-alpha.2...HEAD
+[1.2.0-alpha.2]: https://github.com/o-murphy/a7p/releases/tag/v1.2.0-alpha.2

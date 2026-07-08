@@ -14,7 +14,7 @@ into the `a7p` monorepo, so there's no frozen pre-merge history here
 to preserve (unlike `js`/`dart`).
 
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
-## [1.2.0-alpha.1] - 2026-07-08
+## [1.2.0-alpha.2] - 2026-07-08
 
 ### Changed
 

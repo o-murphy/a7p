@@ -169,7 +169,7 @@ jobs:
   publish-js:
     needs: [bump-versions, create-release]
     runs-on: ubuntu-latest
-    environment: nmpjs
+    environment: npmjs
     permissions:
       id-token: write # npm OIDC trusted publishing (provenance)
     defaults:
