@@ -2,6 +2,7 @@
 
 [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/o-murphy/a7p?logo=go)
 ](https://pkg.go.dev/github.com/o-murphy/a7p)
+[![Pkg.go.dev Version](https://img.shields.io/github/v/release/o-murphy/a7p?label=go.pkg.dev&logo=go)](https://pkg.go.dev/github.com/o-murphy/a7p/go/a7p)
 [![license](https://img.shields.io/npm/l/a7p-js.svg)](LICENSE)
 
 #### Simple Go-lang wrapper for .a7p (ballistic profile) files \

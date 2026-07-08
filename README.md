@@ -7,8 +7,7 @@
 ](https://www.npmjs.com/package/a7p-js)
 [![Pub Version](https://img.shields.io/pub/v/a7p?logo=dart&cacheSeconds=0)
 ](https://pub.dev/packages/a7p)
-[![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/o-murphy/a7p?logo=go)
-](https://pkg.go.dev/github.com/o-murphy/a7p)
+[![Pkg.go.dev Version](https://img.shields.io/github/v/release/o-murphy/a7p?label=go.pkg.dev&logo=go)](https://pkg.go.dev/github.com/o-murphy/a7p/go/a7p)
 [![license](https://img.shields.io/npm/l/a7p-js.svg)](LICENSE)
 
 Monorepo for the `.a7p` ballistic profile format across four languages —
@@ -68,7 +67,7 @@ convention (`snake_case`/`camelCase`) for that language's users; this one
 uses the schema's own (`snake_case`) property names.
 
 | key                      | unit           | multiplier | desc                                        |
-|--------------------------|----------------|------------|---------------------------------------------|
+| ------------------------ | -------------- | ---------- | ------------------------------------------- |
 | sc_height                | mm             | 1          | sight height in mm                          |
 | r_twist                  | inch           | 100        | positive twist value                        |
 | c_zero_temperature       | C              | 1          | temperature at c_muzzle_velocity            |
