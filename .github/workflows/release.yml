@@ -16,10 +16,6 @@ on:
 env:
   RELEASE_TAG: ${{ github.ref_name }}
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   # ── run each package's own CI as reusable workflows ─────────────────────
   test-python:
