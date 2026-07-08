@@ -5,11 +5,13 @@ on:
     paths:
       - "dart/**"
       - "proto/**"
+      - "schema/**"
       - ".github/workflows/dart.yml"
   pull_request:
     paths:
       - "dart/**"
       - "proto/**"
+      - "schema/**"
       - ".github/workflows/dart.yml"
   workflow_dispatch:
   workflow_call:
