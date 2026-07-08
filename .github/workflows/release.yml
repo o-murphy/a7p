@@ -31,11 +31,14 @@ jobs:
   test-dart:
     uses: ./.github/workflows/dart.yml
 
+  test-go:
+    uses: ./.github/workflows/go.yml
+
   # Single guard job downstream jobs depend on, instead of each repeating
   # the full test-* job list -- adding a language later only means adding
   # it here, not hunting down every job's `needs:`.
   tests-passed:
-    needs: [test-python, test-js, test-dart]
+    needs: [test-python, test-js, test-dart, test-go]
     runs-on: ubuntu-latest
     steps:
       - run: echo "All test legs passed."
@@ -68,7 +71,13 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       # py isn't bumped here: setuptools_scm (py/pyproject.toml, root="..")
-      # derives its version directly from this same tag.
+      # derives its version directly from this same tag. go/ isn't bumped
+      # either, for a stronger reason -- go.mod lives at the repo root
+      # (module github.com/o-murphy/a7p, see docs/DESIGN-schema-unification.md),
+      # so this same "v*" tag *is* its module version already; there's no
+      # manifest field to touch at all. (go/CHANGELOG.md still gets
+      # regenerated below, same as py/js/dart -- only the version *number*
+      # has nothing to bump.)
       - name: Bump dart/pubspec.yaml and js/package.json (lockstep)
         run: |
           VERSION="${{ steps.meta.outputs.version }}"
@@ -77,14 +86,14 @@ jobs:
           grep '^version:' dart/pubspec.yaml
           grep '"version":' js/package.json
 
-      - name: Regenerate py/js/dart CHANGELOG.md from the root file
+      - name: Regenerate py/js/dart/go CHANGELOG.md from the root file
         run: python3 scripts/ci/sync_changelogs.py
 
       - name: Commit and push version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add dart/pubspec.yaml js/package.json py/CHANGELOG.md js/CHANGELOG.md dart/CHANGELOG.md
+          git add dart/pubspec.yaml js/package.json py/CHANGELOG.md js/CHANGELOG.md dart/CHANGELOG.md go/CHANGELOG.md
           git diff --cached --quiet || git commit -m "chore: bump version to ${{ steps.meta.outputs.version }}"
           git push origin main
 
@@ -225,3 +234,37 @@ jobs:
       - run: dart pub get
       - run: dart pub publish --dry-run
       - run: dart pub publish --force
+
+  # ── build go/ binaries and attach them to the same GitHub Release ──────────
+  # go/ has no separate registry to publish to and no version to bump (see
+  # the bump-versions comment above) -- it's go-gettable at this same tag
+  # already (module github.com/o-murphy/a7p). This just cross-compiles the
+  # CLI and attaches the binaries as assets on this tag's release --
+  # softprops/action-gh-release upserts by tag_name, so it doesn't need to
+  # wait on create-release specifically (only on bump-versions, since it
+  # checks out post-bump `main`).
+  publish-go:
+    needs: [bump-versions]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: go
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ">=1.22"
+
+      - name: Build
+        run: make build
+
+      - name: Attach binaries to the release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: go/dist/a7p*

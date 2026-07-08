@@ -31,6 +31,15 @@ updates:
     schedule:
       interval: "weekly"
 
+  - package-ecosystem: "gomod"
+    directory: "/" # uses: go.mod and go.sum form the repo root
+    schedule:
+      interval: "weekly"
+    groups:
+      go-dependencies:
+        patterns:
+          - "*"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

@@ -1,12 +1,13 @@
 # a7p
 
-Monorepo for the `.a7p` ballistic profile format across three languages —
-[`py`](py/) (PyPI: `a7p`), [`js`](js/) (npm: `a7p-js`), and
-[`dart`](dart/) (pub.dev: `a7p`) — plus the tooling that keeps them in sync:
-a shared `.proto` (wire shape) and JSON Schema (validation rules), one
-`CHANGELOG.md`, and one `release.yml` that tags/publishes all three
-together. `py`, `js`, and `dart` used to be separate repos/submodules; see
-`docs/DESIGN-schema-unification.md` for how and why they were merged in.
+Monorepo for the `.a7p` ballistic profile format across four languages —
+[`py`](py/) (PyPI: `a7p`), [`js`](js/) (npm: `a7p-js`),
+[`dart`](dart/) (pub.dev: `a7p`), and [`go`](go/) (`go get
+github.com/o-murphy/a7p/go/a7p`) — plus the tooling that keeps them in
+sync: a shared `.proto` (wire shape) and JSON Schema (validation rules),
+one `CHANGELOG.md`, and one `release.yml` that tags/publishes all four
+together. `py`, `js`, `dart`, and `go` used to be separate repos/submodules;
+see `docs/DESIGN-schema-unification.md` for how and why they were merged in.
 
 [![PyPI Version](https://img.shields.io/pypi/v/a7p?logo=pypi)
 ](https://pypi.org/project/a7p)
@@ -20,22 +21,23 @@ together. `py`, `js`, and `dart` used to be separate repos/submodules; see
 Canonical `.proto` source for the wire *shape* of a profile (as opposed to
 `schema/a7p.schema.json`, which covers value ranges/constraints — see
 `docs/DESIGN-schema-unification.md`). Previously copied verbatim into
-`py/proto/`, `js/src/proto/`, and `dart/proto/`; now lives here once, since
-it's only needed at codegen build-time (not packaged into any of the three
-language distributions) and `py`/`js`/`dart` are plain subdirectories of
-this repo.
+`py/proto/`, `js/src/proto/`, `dart/proto/`, and `go/a7p/profedit/`; now
+lives here once, since it's only needed at codegen build-time (not packaged
+into any of the four language distributions) and `py`/`js`/`dart`/`go` are
+plain subdirectories of this repo.
 
-Regenerate all three languages' bindings after editing the `.proto`:
+Regenerate all four languages' bindings after editing the `.proto`:
 
 ```sh
-scripts/generate_proto.sh            # all three
+scripts/generate_proto.sh            # all four
 scripts/generate_proto.sh --python   # or one at a time
 scripts/generate_proto.sh --ts
 scripts/generate_proto.sh --dart
+scripts/generate_proto.sh --go
 ```
 
 This shells out to each language's own toolchain (`protoc` directly for
-`python`; `yarn build:proto` for `ts`, which wraps `ts_proto`; `dart run
+`python`/`go`; `yarn build:proto` for `ts`, which wraps `ts_proto`; `dart run
 bin/generate_proto.dart` for `dart`, which additionally resolves the
 `protoc-gen-dart` plugin path portably across platforms) — it's a thin
 orchestrator, not a reimplementation, so each language keeps whatever
@@ -46,8 +48,9 @@ plugin-specific logic it already had.
 Canonical JSON Schema for the `.a7p` profile format — the single source of
 truth for field ranges, string lengths, enum values, and the coef_rows/bcType
 conditional rules that used to be hand-duplicated across `py`, `js`,
-and `dart`. See `docs/DESIGN-schema-unification.md` for the full design
-and the list of discrepancies found (and fixed) between the three repos'
+`dart` (and, later, `go`'s own `protovalidate`/`go-playground` annotations).
+See `docs/DESIGN-schema-unification.md` for the full design and the list of
+discrepancies found (and fixed) between the original three repos'
 old hand-written validators.
 
 ## Dimensions
@@ -55,10 +58,10 @@ old hand-written validators.
 Numeric fields in `schema/a7p.schema.json` are raw wire-format integers —
 `x-fraction-digits` (and `x-unit` where applicable) on each property is the
 canonical source for the display-unit conversion (multiplier `10 ^
-x-fraction-digits`). `py/README.md`, `js/README.md`, and `dart/README.md`
-each carry the same table in their own field-naming convention
-(`snake_case`/`camelCase`) for that language's users; this one uses the
-schema's own (`snake_case`) property names.
+x-fraction-digits`). `py/README.md`, `js/README.md`, `dart/README.md`, and
+`go/README.md` each carry the same table in their own field-naming
+convention (`snake_case`/`camelCase`) for that language's users; this one
+uses the schema's own (`snake_case`) property names.
 
 | key                      | unit           | multiplier | desc                                        |
 |--------------------------|----------------|------------|---------------------------------------------|
@@ -96,6 +99,7 @@ every process start.
 python scripts/compile.py --python   # implemented
 python scripts/compile.py --ts       # implemented
 python scripts/compile.py --dart     # implemented
+python scripts/compile.py --go       # implemented
 ```
 
 ### `--python`
@@ -169,21 +173,49 @@ are gone.
 **Run this whenever `a7p.schema.json` changes** and commit the regenerated
 files alongside it, same as `--python`/`--dart`.
 
+### `--go`
+
+Same situation as `--dart` — no compile-to-source-code JSON Schema tool
+exists for Go either (the one project that claims this,
+[`tfkhsr/jsonschema`](https://github.com/tfkhsr/jsonschema), is unmaintained
+since 2018 and only supports pre-2020-12 draft, so it can't parse this
+schema's `if`/`then`/`else`). Unlike Dart, this step doesn't need a
+raw-string-escaping trick: it just copies `a7p.schema.json` verbatim to
+`go/a7p/generated/a7p_schema.g.json` (a generated file — do not edit by
+hand) for Go's native `//go:embed` (stdlib since 1.16, see
+`go/a7p/generated/embed.go`).
+
+`go/a7p/schema_validator.go` compiles the embedded schema into a
+`*jsonschema.Schema` once (a lazy singleton, via
+`github.com/santhosh-tekuri/jsonschema/v6`) and reuses it for every
+`ValidateProto`/`ValidateSpec` call. The payload is marshaled with
+`protojson.MarshalOptions{UseProtoNames: true, EmitDefaultValues: true}` —
+since the proto's own field/enum names are already snake_case and match the
+schema's property names exactly, this needs no manual remapping (unlike
+Dart's `_payloadToJson`); `EmitDefaultValues` is required so zero-valued
+scalar fields (e.g. `zero_x: 0`, `twist_dir`'s default enum) are still
+present in the JSON instead of omitted, which the schema's `required`
+checks need to see.
+
+**Run this whenever `a7p.schema.json` changes** and commit the regenerated
+`a7p_schema.g.json` alongside it, same as `--python`/`--dart`/`--ts`.
+
 ## License
 
 The repo root (`schema/`, `scripts/`, `docs/`, `proto/`, and everything
-else outside `py/`/`js/`/`dart/`) is **LGPL-3.0** — see [LICENSE](LICENSE).
-`proto/profedit.proto` itself is sourced from
+else outside `py/`/`js/`/`dart/`/`go/`) is **LGPL-3.0** — see
+[LICENSE](LICENSE). `proto/profedit.proto` itself is sourced from
 [`JAremko/ArcherBC2`](https://github.com/JAremko/ArcherBC2) (LGPL-3.0),
 which is why.
 
-`py/`, `js/`, and `dart/` are published as separate packages (PyPI/npm/
-pub.dev) and each carry their own `LICENSE`: `py` is **GPL-3.0** (it traces
-back to
-[`JAremko/a7p_transfer_example`](https://github.com/JAremko/a7p_transfer_example),
-also GPL-3.0), `dart` and `js` are **LGPL-3.0** (same reason as the root —
-both generate bindings from `proto/profedit.proto`). See each package's own
-`LICENSE`/README for the exact terms that apply to it.
+`py/`, `js/`, `dart/`, and `go/` are published as separate packages
+(PyPI/npm/pub.dev/`go get`) and each carry their own `LICENSE`: `py` and
+`go` are **GPL-3.0** (`py` traces back to
+[`JAremko/a7p_transfer_example`](https://github.com/JAremko/a7p_transfer_example);
+`go` traces back to the original `o-murphy/a7p-go`, also GPL-3.0), `dart`
+and `js` are **LGPL-3.0** (same reason as the root — both generate bindings
+from `proto/profedit.proto`). See each package's own `LICENSE`/README for
+the exact terms that apply to it.
 
 On failure, `schema_validator.py` falls back to `jsonschema` (pure Python,
 slower, but reports every violation instead of only the first one) so the

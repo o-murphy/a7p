@@ -1,10 +1,10 @@
 package main
 
 import (
-	a7p "a7p-go/a7p"
-	profedit "a7p-go/a7p/profedit"
-	log "a7p-go/log"
 	"fmt"
+	a7p "github.com/o-murphy/a7p/go/a7p"
+	profedit "github.com/o-murphy/a7p/go/a7p/profedit"
+	log "github.com/o-murphy/a7p/go/log"
 	"os"
 	"path/filepath"
 	"slices"
@@ -66,7 +66,7 @@ func (r *resultT) print() {
 		updates = append(updates, fmt.Sprintf("\tNew zero:\t%s", r.newZero))
 	}
 	if *r.distances != "" {
-		updates = append(updates, fmt.Sprintf("\tNew range:\t%s", r.distances))
+		updates = append(updates, fmt.Sprintf("\tNew range:\t%s", *r.distances))
 	}
 	if *r.zeroDistance > -1 {
 		updates = append(updates, fmt.Sprintf("\tNew zero distance:\t%d", *r.zeroDistance))

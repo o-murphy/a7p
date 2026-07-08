@@ -1,10 +1,11 @@
 package tests
 
 import (
-	a7p "a7p-go/a7p"
 	"bytes"
 	"fmt"
+	a7p "github.com/o-murphy/a7p/go/a7p"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -39,10 +40,22 @@ func TestA7p(t *testing.T) {
 	}
 }
 
+// TestValidator documents a pre-existing data issue in ../assets/example.a7p
+// (and dump.a7p/switches.a7p, which share the same distances table): its
+// distances[0] is 0. The old protovalidate-go annotation on this field only
+// checked repeated.min_items/max_items (array length), never each item's
+// value -- so this was never actually caught before the migration to the
+// shared schema/a7p.schema.json, which does enforce distances[i] >= 100 (see
+// docs/DESIGN-schema-unification.md). This asserts the specific, now-correct
+// rejection rather than silently requiring a clean validate() here.
 func TestValidator(t *testing.T) {
-	protoPayload, _ := a7p.Load("../assets/example.a7p", true)
+	protoPayload, _ := a7p.Load("../assets/example.a7p", false)
 
-	if err := a7p.ValidateSpec(protoPayload); err != nil {
-		t.Error(err)
+	err := a7p.ValidateSpec(protoPayload)
+	if err == nil {
+		t.Fatal("expected validation error for known-bad distances[0] == 0 in example.a7p, got nil")
+	}
+	if !strings.Contains(err.Error(), "distances/0") {
+		t.Errorf("expected error about distances/0, got: %s", err)
 	}
 }

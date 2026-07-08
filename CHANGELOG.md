@@ -1,31 +1,54 @@
 # Changelog
 
-All notable changes to the `a7p` packages (`py`, `js`, `dart`) are
+All notable changes to the `a7p` packages (`py`, `js`, `dart`, `go`) are
 documented together in this one file — the single source of truth for all
-three, including their pre-monorepo history (`js` as `o-murphy/a7p-js`,
-`dart` as `o-murphy/a7p-dart`; `py` had no `CHANGELOG.md` of its own).
-`py/CHANGELOG.md`, `js/CHANGELOG.md`, and `dart/CHANGELOG.md` are
-**generated** from this file by `scripts/ci/sync_changelogs.py` (each
-package registry — pub.dev, and generally npm/PyPI too — expects to find
-one in the published package). **Edit this file, then run
+four, including their pre-monorepo history (`js` as `o-murphy/a7p-js`,
+`dart` as `o-murphy/a7p-dart`, `go` as `o-murphy/a7p-go`; `py` had no
+`CHANGELOG.md` of its own). `py/CHANGELOG.md`, `js/CHANGELOG.md`,
+`dart/CHANGELOG.md`, and `go/CHANGELOG.md` are **generated** from this file
+by `scripts/ci/sync_changelogs.py` (each package registry — pub.dev, and
+generally npm/PyPI too — expects to find one in the published package;
+`go get`/pkg.go.dev don't strictly require one, but `go/` carries one too
+for consistency with the other three). **Edit this file, then run
 `scripts/ci/sync_changelogs.py` and commit the regenerated
-`py/`/`js`/`dart/CHANGELOG.md` alongside your change.**
+`py/`/`js`/`dart/`/`go/CHANGELOG.md` alongside your change.**
 
 From this repo's own first release onward, one version tag drives a
-release across all three packages together (see
+release across all four packages together (see
 `.github/workflows/release.yml`) — but not every package necessarily
 changed in every release, so a version heading below may have only some of
-`### py/`, `### js/`, `### dart/`. Versions before that point are each
-package's own independent pre-merge history — `js` and `dart` had entirely
-unrelated version numbers and release schedules back then (e.g. `js`'s
-`[1.1.0]` and `dart`'s `[0.1.0]` are unrelated releases that happened to
-land close together), so a heading below only ever has one package's
-subsection until the monorepo's own version numbers start.
+`### py/`, `### js/`, `### dart/`, `### go/`. Versions before that point are
+each package's own independent pre-merge history — `js`, `dart`, and `go`
+had entirely unrelated version numbers and release schedules back then
+(e.g. `js`'s `[1.1.0]` and `dart`'s `[0.1.0]` are unrelated releases that
+happened to land close together), so a heading below only ever has one
+package's subsection until the monorepo's own version numbers start.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### go/
+
+`go` merged from `o-murphy/a7p-go` into this monorepo, with full git
+history preserved — see `docs/DESIGN-schema-unification.md` for the design
+behind this merge.
+
+#### Changed
+
+- Validation now runs against the shared `schema/a7p.schema.json` via
+  `schema_validator.go` (`github.com/santhosh-tekuri/jsonschema/v6`,
+  compiled once into a lazy singleton) instead of the vendored
+  `protovalidate-go`/`go-playground/validator` checks
+- `proto/profedit.proto` now lives once at the repo root instead of a
+  vendored copy (with `buf`/`protovalidate` annotations) under
+  `a7p/profedit/`; the unused `buf`/`protovalidate` toolchain and
+  `protoc-gen-go-grpc` codegen (the proto defines no `service`) are gone
+- `go.mod`'s module path is now `github.com/o-murphy/a7p` (was the
+  non-resolvable `a7p-go`), with `go.mod`/`go.sum` at the repo root so this
+  module shares the same `vX.Y.Z` release tag as `py`/`js`/`dart` instead of
+  needing its own subdirectory-prefixed `go/vX.Y.Z` tags
 
 ## [1.2.0] - 2026-07-08
 

@@ -1,8 +1,8 @@
 package a7p
 
 import (
-	profedit "a7p-go/a7p/profedit"
 	"fmt"
+	profedit "github.com/o-murphy/a7p/go/a7p/profedit"
 	"io"
 	"os"
 )

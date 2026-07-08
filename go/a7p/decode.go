@@ -1,10 +1,10 @@
 package a7p
 
 import (
-	profedit "a7p-go/a7p/profedit"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	profedit "github.com/o-murphy/a7p/go/a7p/profedit"
 
 	proto "google.golang.org/protobuf/proto"
 )

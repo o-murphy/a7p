@@ -2,6 +2,13 @@
 
 #### Simple Go-lang wrapper for .a7p (ballistic profile) files \
 
+This package is `go/` inside the [`o-murphy/a7p`](https://github.com/o-murphy/a7p)
+monorepo (merged from the standalone `o-murphy/a7p-go` repo with full git
+history preserved — see `../docs/DESIGN-schema-unification.md`), alongside
+its `py`/`js`/`dart` siblings. `go.mod` lives at the repo root (module
+`github.com/o-murphy/a7p`) so this package shares the exact same `vX.Y.Z`
+release tag as the other three instead of needing its own.
+
 ## Table of Contents
 
 - [Instalation](#instalation)
@@ -16,9 +23,17 @@ Simple Go-lang wrapper for .a7p files
 
 ## Instalation
 
+As a library:
+
 ```bash
-git clone https://github.com/o-murphy/a7p-go.git
-cd a7p-go
+go get github.com/o-murphy/a7p/go/a7p@latest
+```
+
+As the CLI tool, from a clone of the monorepo:
+
+```bash
+git clone https://github.com/o-murphy/a7p.git
+cd a7p/go
 go install .
 ```
 
@@ -85,30 +100,20 @@ ARCHER device specific:
      choco install make
      ```
 
-4. **Protoc (Protocol Buffers Compiler)**  
-   - **Linux**: Install `protoc` using `apt`:
-     ```bash
-     sudo apt-get install -y protobuf-compiler
-     ```
-   - **macOS**: Install `protoc` using Homebrew:
-     ```bash
-     brew install protobuf
-     ```
-   - **Windows**: Use [Chocolatey](https://chocolatey.org/) to install `protoc`:
-     ```bash
-     choco install protoc
-     ```
-
-This ensures you have all the necessary tools to build and work with Go, Git, Make, and Protocol Buffers.
+`protoc` (Protocol Buffers Compiler) is only needed to *regenerate*
+`a7p/profedit/profedit.pb.go` after editing `../proto/profedit.proto` (see
+`../scripts/generate_proto.sh --go` at the repo root) — not for an ordinary
+build, since the generated file is checked into git like the other three
+languages' bindings.
 
 <!-- * GCC compiler (only required if using cgo or specific C libraries, not needed for most Go projects) -->
 
 #### Build Instructions
 
-1. Clone the repository:
+1. Clone the monorepo:
     ```bash
-    git clone https://github.com/o-murphy/a7p-go
-    cd a7p-go
+    git clone https://github.com/o-murphy/a7p
+    cd a7p/go
     ```
 
 2. Run the `make` command:

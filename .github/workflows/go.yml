@@ -1,0 +1,124 @@
+name: GoLang
+
+on:
+  push:
+    paths:
+      - "go/**"
+      - "proto/**"
+      - "schema/**"
+      - ".github/workflows/go.yml"
+  pull_request:
+    paths:
+      - "go/**"
+      - "proto/**"
+      - "schema/**"
+      - ".github/workflows/go.yml"
+  workflow_dispatch:
+  workflow_call:
+
+concurrency:
+  group: go-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Lint ─────────────────────────────────────────────────────────────────────
+  lint:
+    name: Vet & gofmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ">=1.26"
+
+      - name: go vet
+        run: go vet ./go/...
+
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l ./go)"
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            echo "-- run 'gofmt -w' on the files above --"
+            exit 1
+          fi
+
+  # ── Schema/proto drift guard ─────────────────────────────────────────────────
+  # go/a7p/generated/a7p_schema.g.json and go/a7p/profedit/profedit.pb.go are
+  # generated, checked-in files (see docs/DESIGN-schema-unification.md) --
+  # this catches an edit to schema/a7p.schema.json or proto/profedit.proto
+  # that forgot to regenerate them.
+  drift-guard:
+    name: Schema/proto drift guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ">=1.26"
+
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Install protoc-gen-go
+        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+
+      - name: Regenerate and diff
+        run: |
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          python3 scripts/compile.py --go
+          bash scripts/generate_proto.sh --go
+          git diff --exit-code go/a7p/generated/a7p_schema.g.json go/a7p/profedit/profedit.pb.go
+
+  # ── Build & Test ──────────────────────────────────────────────────────────────
+  test:
+    name: Build & Test (${{ matrix.os }})
+    needs: [lint]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: # One for each OS
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - windows-latest
+          - windows-11-arm
+          - macos-latest
+        go-version: [">=1.26"]
+
+    defaults:
+      run:
+        working-directory: ./go
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Run Go version
+        run: go version
+
+      - name: Run tests
+        run: make test
+
+      - name: Build using Make
+        run: make
+
+      - name: List dist directory contents
+        shell: bash
+        run: |
+          ls -la dist/
+
+      - name: Upload binaries
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: a7p-binary-${{ matrix.os }}
+          path: go/dist/a7p*

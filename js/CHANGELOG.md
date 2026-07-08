@@ -10,6 +10,8 @@ including this package's full history — see that file's own header) by
 regenerate.
 
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
+## [Unreleased]
+
 ## [1.2.0] - 2026-07-08
 
 ### Changed
@@ -110,4 +112,7 @@ regenerate.
 ### Added
 
 - Initial release
+
+[Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/o-murphy/a7p/releases/tag/v1.2.0
 <!-- END AUTO-GENERATED FROM ROOT CHANGELOG.md -->
