@@ -10,7 +10,7 @@ including this package's full history — see that file's own header) by
 regenerate.
 
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
-## [1.2.0-alpha.2] - 2026-07-08
+## [1.2.0] - 2026-07-08
 
 ### Changed
 
