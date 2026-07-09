@@ -18,6 +18,8 @@ to preserve (unlike `js`/`dart`).
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
 ## [Unreleased]
 
+## [1.2.1] - 2026-07-09
+
 `go` merged from `o-murphy/a7p-go` into this monorepo, with full git
 history preserved — see `docs/DESIGN-schema-unification.md` for the design
 behind this merge.
@@ -38,4 +40,5 @@ behind this merge.
   needing its own subdirectory-prefixed `go/vX.Y.Z` tags
 
 [Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.0...HEAD
+[1.2.1]: https://github.com/o-murphy/a7p/compare/v1.2.0...v1.2.1
 <!-- END AUTO-GENERATED FROM ROOT CHANGELOG.md -->
