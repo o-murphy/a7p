@@ -12,6 +12,20 @@ regenerate.
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
 ## [Unreleased]
 
+## [1.2.1] - 2026-07-09
+
+### Fixed
+
+- `ajv` moved from `devDependencies` to `dependencies` — the compiled
+  standalone validator (`src/generated/a7p_schema_validator.cjs`) calls
+  `require("ajv/dist/runtime/ucs2length")` at runtime (ajv's standalone
+  codegen emits this for unicode-safe string length checks), so `ajv` must
+  ship with the package, not just be available at build time. Consumers
+  installing `a7p-js` without `ajv` already present elsewhere in their tree
+  hit `Cannot find module 'ajv/dist/runtime/ucs2length'` (e.g. under
+  Metro). The `1.2.0` changelog entry below claiming "`ajv` is a
+  devDependency only (used by the codegen script, not shipped)" was wrong.
+
 ## [1.2.0] - 2026-07-08
 
 ### Changed
@@ -114,5 +128,6 @@ regenerate.
 - Initial release
 
 [Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.0...HEAD
+[1.2.1]: https://github.com/o-murphy/a7p/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/o-murphy/a7p/releases/tag/v1.2.0
 <!-- END AUTO-GENERATED FROM ROOT CHANGELOG.md -->

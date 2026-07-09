@@ -12,6 +12,10 @@ regenerate.
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
 ## [Unreleased]
 
+## [1.2.1] - 2026-07-09
+
+### No changes since 1.2.0 (patch has been applied to js package)
+
 ## [1.2.0] - 2026-07-08
 
 ### Changed
@@ -58,5 +62,6 @@ Initial extraction from `archerbc2_flutter/packages/a7p` into a standalone
 package.
 
 [Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.0...HEAD
+[1.2.1]: https://github.com/o-murphy/a7p/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/o-murphy/a7p/releases/tag/v1.2.0
 <!-- END AUTO-GENERATED FROM ROOT CHANGELOG.md -->
