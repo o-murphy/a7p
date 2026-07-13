@@ -31,7 +31,7 @@ dependencies = [
     "cel-python==0.5.0",
     "tqdm==4.68.4",
     "typing_extensions==4.16.0",
-    "yupy>=0.2.0b3",
+    "yupy>=0.2.0",
     "fastjsonschema>=2.21.2",
     "jsonschema>=4.25.2",
     # We need at least this version, which started publishing wheels for Python 3.14.
