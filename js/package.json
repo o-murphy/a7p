@@ -1,6 +1,6 @@
 {
   "name": "a7p-js",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "A7P ballistic profile format — encode/decode and validation",
   "type": "module",
   "main": "dist/index.js",

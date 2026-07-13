@@ -18,6 +18,10 @@ to preserve (unlike `js`/`dart`).
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
 ## [Unreleased]
 
+## [1.2.2] - 2026-07-09
+
+### No changes since 1.2.1 (patch has been applied to js package)
+
 ## [1.2.1] - 2026-07-09
 
 `go` merged from `o-murphy/a7p-go` into this monorepo, with full git
@@ -39,6 +43,7 @@ behind this merge.
   module shares the same `vX.Y.Z` release tag as `py`/`js`/`dart` instead of
   needing its own subdirectory-prefixed `go/vX.Y.Z` tags
 
-[Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.2...HEAD
+[1.2.2]: https://github.com/o-murphy/a7p/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/o-murphy/a7p/compare/v1.2.0...v1.2.1
 <!-- END AUTO-GENERATED FROM ROOT CHANGELOG.md -->
