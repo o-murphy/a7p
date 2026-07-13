@@ -32,10 +32,15 @@ them -- pub.dev/npm/PyPI/pkg.go.dev all render a package's CHANGELOG.md in
 isolation, with no access to the root file's definitions, so a heading
 without its own matching "[X]: url" line renders as dead text there.
 
-Usage: scripts/ci/sync_changelogs.py [pkg ...]
+Usage: scripts/ci/sync_changelogs.py [--check] [pkg ...]
   No args: syncs py/CHANGELOG.md, js/CHANGELOG.md, dart/CHANGELOG.md,
   go/CHANGELOG.md. With args, only the named package(s), e.g.:
     scripts/ci/sync_changelogs.py dart
+  --check: verifies each package's file already matches what the root file
+  would generate, without writing anything -- exits 1 (listing which
+  package(s) are stale) if not. Used by release.yml to block a release
+  whose tag doesn't already carry a fully-synced changelog, instead of
+  silently regenerating it during the release run.
 """
 
 import re
@@ -164,8 +169,13 @@ def render_package_block(
 
 
 def sync_package(
-    pkg: str, versions: list[tuple[str, dict]], link_refs: dict[str, str]
-) -> None:
+    pkg: str,
+    versions: list[tuple[str, dict]],
+    link_refs: dict[str, str],
+    check: bool = False,
+) -> bool:
+    """Returns True if `pkg`'s CHANGELOG.md was already in sync (check mode)
+    or was successfully written (write mode)."""
     dest = REPO_ROOT / pkg / "CHANGELOG.md"
     text = dest.read_text()
 
@@ -178,17 +188,29 @@ def sync_package(
         )
 
     before, rest = text.split(BEGIN_MARKER, 1)
-    _old_block, after = rest.split(END_MARKER, 1)
+    old_block, after = rest.split(END_MARKER, 1)
 
     block = render_package_block(pkg, versions, link_refs)
     new_text = f"{before}{BEGIN_MARKER}\n{block}\n{END_MARKER}{after}"
 
+    if check:
+        in_sync = new_text == text
+        if not in_sync:
+            print(
+                f"{dest.relative_to(REPO_ROOT)} is stale -- run "
+                f"scripts/ci/sync_changelogs.py {pkg} and commit the result."
+            )
+        return in_sync
+
     dest.write_text(new_text)
     print(f"Synced {dest.relative_to(REPO_ROOT)}")
+    return True
 
 
 def main() -> int:
-    requested = sys.argv[1:] or list(PACKAGES)
+    args = sys.argv[1:]
+    check = "--check" in args
+    requested = [a for a in args if a != "--check"] or list(PACKAGES)
     unknown = set(requested) - set(PACKAGES)
     if unknown:
         print(
@@ -198,9 +220,11 @@ def main() -> int:
         return 1
 
     versions, link_refs = parse_root((REPO_ROOT / "CHANGELOG.md").read_text())
+    all_in_sync = True
     for pkg in requested:
-        sync_package(pkg, versions, link_refs)
-    return 0
+        if not sync_package(pkg, versions, link_refs, check=check):
+            all_in_sync = False
+    return 0 if all_in_sync else 1
 
 
 if __name__ == "__main__":

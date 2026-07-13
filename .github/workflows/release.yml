@@ -1,13 +1,25 @@
 name: Release
 
-# Triggered by pushing a tag like v1.2.3 -- that one tag drives everything:
-# py's version (via setuptools_scm, root=".." in py/pyproject.toml), and
-# dart/pubspec.yaml + js/package.json (bumped in place by bump-versions
-# below and committed to main). Rename the root CHANGELOG.md's
-# "## [Unreleased]" heading to "## [X.Y.Z] - DATE" (and add a fresh empty
-# "## [Unreleased]" above it) *before* tagging -- this workflow reads
-# whatever's under the matching version heading for release notes, falling
-# back to [Unreleased] (with a warning) if you forget.
+# Triggered by pushing a tag like v1.2.3 -- that tag must already be sitting
+# on a commit where py/js/dart/go are fully consistent with it:
+#   - py's version comes from the tag itself (via setuptools_scm, root=".."
+#     in py/pyproject.toml, `git describe` against this exact commit) --
+#     which is why every job below checks out the tag (env.RELEASE_TAG),
+#     never `main`. A commit sitting *after* the tag (like the old
+#     bump-versions job used to push) makes `git describe` report a
+#     "N commits past the tag" dev version, e.g. 1.2.3.dev1+gXXXXXXX -- PyPI
+#     rejects local versions like that outright.
+#   - dart/pubspec.yaml and js/package.json must already read the tag's
+#     version, and CHANGELOG.md must already have a "## [X.Y.Z] - DATE"
+#     heading (not just [Unreleased]) for it, with py/js/dart/go/CHANGELOG.md
+#     already regenerated from it.
+#
+# Run `scripts/ci/prepare_release.py X.Y.Z` locally to prepare all of the
+# above as uncommitted edits for you to review, then commit + push to main
+# + tag yourself -- see that script's docstring. verify-release below only
+# checks this is all true; it never fixes anything on your behalf, so a
+# release with any of it missing fails loudly instead of silently
+# publishing something inconsistent.
 on:
   push:
     tags:
@@ -43,21 +55,25 @@ jobs:
     steps:
       - run: echo "All test legs passed."
 
-  # ── bump dart/pubspec.yaml + js/package.json to the tag's version,
-  # sync CHANGELOG.md into each package, commit + push to main ───────────
-  bump-versions:
+  # ── verify the tag's commit already has consistent versions/changelogs
+  # everywhere -- no writes, no commits. Fails the whole release instead of
+  # auto-fixing anything; see scripts/ci/prepare_release.py for the local
+  # tool that gets a commit into this state before you tag it ─────────────
+  verify-release:
     needs: tests-passed
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     outputs:
       version: ${{ steps.meta.outputs.version }}
       prerelease: ${{ steps.meta.outputs.prerelease }}
     steps:
+      # Checking out the tag itself (not main) is the point: this is the
+      # exact commit publish-py/js/dart/go will build from, so whatever's
+      # wrong here is exactly what would otherwise break publishing.
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: main
+          fetch-tags: true
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Extract version and detect pre-release
         id: meta
@@ -70,52 +86,61 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      # py isn't bumped here: setuptools_scm (py/pyproject.toml, root="..")
-      # derives its version directly from this same tag. go/ isn't bumped
-      # either, for a stronger reason -- go.mod lives at the repo root
-      # (module github.com/o-murphy/a7p, see docs/DESIGN-schema-unification.md),
-      # so this same "v*" tag *is* its module version already; there's no
-      # manifest field to touch at all. (go/CHANGELOG.md still gets
-      # regenerated below, same as py/js/dart -- only the version *number*
-      # has nothing to bump.)
-      - name: Bump dart/pubspec.yaml and js/package.json (lockstep)
+      # py isn't checked here: setuptools_scm (py/pyproject.toml, root="..")
+      # derives its version directly from this same tag, so there's no
+      # separate field that could drift. go/ has no version field either,
+      # for a stronger reason -- go.mod lives at the repo root (module
+      # github.com/o-murphy/a7p, see docs/DESIGN-schema-unification.md), so
+      # this same "v*" tag *is* its module version already.
+      - name: dart/pubspec.yaml and js/package.json must already read this tag's version
         run: |
           VERSION="${{ steps.meta.outputs.version }}"
-          sed -i "s/^version: .*/version: $VERSION/" dart/pubspec.yaml
-          sed -i "s/^  \"version\": \".*\"/  \"version\": \"$VERSION\"/" js/package.json
-          grep '^version:' dart/pubspec.yaml
-          grep '"version":' js/package.json
+          DART_VERSION="$(grep '^version:' dart/pubspec.yaml | awk '{print $2}')"
+          JS_VERSION="$(grep '"version":' js/package.json | sed -E 's/.*"version": "([^"]*)".*/\1/')"
+          fail=0
+          if [ "$DART_VERSION" != "$VERSION" ]; then
+            echo "dart/pubspec.yaml has version $DART_VERSION, expected $VERSION"
+            fail=1
+          fi
+          if [ "$JS_VERSION" != "$VERSION" ]; then
+            echo "js/package.json has version $JS_VERSION, expected $VERSION"
+            fail=1
+          fi
+          if [ "$fail" = 1 ]; then
+            echo "Run scripts/ci/prepare_release.py $VERSION locally, commit, and re-tag."
+            exit 1
+          fi
 
-      - name: Regenerate py/js/dart/go CHANGELOG.md from the root file
-        run: python3 scripts/ci/sync_changelogs.py
-
-      - name: Commit and push version bump
+      - name: CHANGELOG.md must already have a "## [$VERSION]" heading (not just [Unreleased])
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add dart/pubspec.yaml js/package.json py/CHANGELOG.md js/CHANGELOG.md dart/CHANGELOG.md go/CHANGELOG.md
-          git diff --cached --quiet || git commit -m "chore: bump version to ${{ steps.meta.outputs.version }}"
-          git push origin main
+          VERSION="${{ steps.meta.outputs.version }}"
+          V_RE="${VERSION//./\\.}"
+          if ! grep -qE "^## \[$V_RE\]" CHANGELOG.md; then
+            echo "CHANGELOG.md has no '## [$VERSION]' heading -- run scripts/ci/prepare_release.py $VERSION locally, commit, and re-tag."
+            exit 1
+          fi
+
+      - name: py/js/dart/go CHANGELOG.md must already be synced from the root file
+        run: python3 scripts/ci/sync_changelogs.py --check
 
   # ── create the GitHub release ────────────────────────────────────────────
   create-release:
-    needs: bump-versions
+    needs: verify-release
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      # Post-bump (bump-versions pushed to main just above). fetch-tags:
-      # true -- actions/checkout@v7 defaults this to false independently of
-      # fetch-depth: 0.
+      # fetch-tags: true -- actions/checkout@v7 defaults this to false
+      # independently of fetch-depth: 0.
       - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ env.RELEASE_TAG }}
           fetch-depth: 0
           fetch-tags: true
 
       - name: Extract release notes from CHANGELOG.md
         run: |
-          VERSION="${{ needs.bump-versions.outputs.version }}"
+          VERSION="${{ needs.verify-release.outputs.version }}"
           ./scripts/ci/extract-changelog.sh "$VERSION" CHANGELOG.md > /tmp/release_notes.md
 
           if [ ! -s /tmp/release_notes.md ]; then
@@ -139,11 +164,11 @@ jobs:
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           body_path: /tmp/release_notes.md
-          prerelease: ${{ needs.bump-versions.outputs.prerelease }}
+          prerelease: ${{ needs.verify-release.outputs.prerelease }}
 
   # ── publish a7p to PyPI ──────────────────────────────────────────────────
   publish-py:
-    needs: [bump-versions, create-release]
+    needs: [verify-release, create-release]
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -156,9 +181,13 @@ jobs:
       # fetch-depth: 0 AND fetch-tags: true -- setuptools_scm derives the
       # version from the git tag via `git describe`; py/pyproject.toml's
       # [tool.setuptools_scm] root=".." points it at this checkout's root.
+      # Checking out the tag itself (not main) is required: verify-release
+      # already guarantees this exact commit is the one carrying the tag,
+      # with no later commits that would make `git describe` report a
+      # "past the tag" dev version.
       - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ env.RELEASE_TAG }}
           fetch-depth: 0
           fetch-tags: true
 
@@ -176,7 +205,7 @@ jobs:
 
   # ── publish a7p-js to npm ────────────────────────────────────────────────
   publish-js:
-    needs: [bump-versions, create-release]
+    needs: [verify-release, create-release]
     runs-on: ubuntu-latest
     environment: npmjs
     permissions:
@@ -187,7 +216,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ env.RELEASE_TAG }}
 
       - uses: actions/setup-node@v6
         with:
@@ -202,8 +231,8 @@ jobs:
 
       - name: Publish to npm
         run: |
-          VERSION="${{ needs.bump-versions.outputs.version }}"
-          if [ "${{ needs.bump-versions.outputs.prerelease }}" = "true" ]; then
+          VERSION="${{ needs.verify-release.outputs.version }}"
+          if [ "${{ needs.verify-release.outputs.prerelease }}" = "true" ]; then
             DIST_TAG=$(echo "$VERSION" | grep -oE '(alpha|beta|rc|pre)' | head -1)
             npm publish --provenance --tag "${DIST_TAG:-prerelease}"
           else
@@ -212,7 +241,7 @@ jobs:
 
   # ── publish a7p to pub.dev ───────────────────────────────────────────────
   publish-dart:
-    needs: [bump-versions, create-release]
+    needs: [verify-release, create-release]
     runs-on: ubuntu-latest
     environment: pub
     permissions:
@@ -221,11 +250,9 @@ jobs:
       run:
         working-directory: dart
     steps:
-      # `main` already has bump-versions' commit; the tag itself still
-      # points at the pre-bump commit, so we can't just use github.ref.
       - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ env.RELEASE_TAG }}
 
       - uses: dart-lang/setup-dart@v1
         with:
@@ -237,9 +264,9 @@ jobs:
 
   # ── attach go/ binaries (built by test-go's matrix) to the same Release ────
   # go/ has no separate registry to publish to and no version to bump (see
-  # the bump-versions comment above) -- it's go-gettable at this same tag
+  # verify-release's comment above) -- it's go-gettable at this same tag
   # already (module github.com/o-murphy/a7p). test-go (./.github/workflows/go.yml,
-  # part of this same run via tests-passed -> bump-versions) already
+  # part of this same run via tests-passed -> verify-release) already
   # cross-compiled and uploaded one "a7p-go-binaries-<os>.tar.gz" artifact
   # per OS in its matrix (already suffixed per-OS internally, since
   # ubuntu-latest/ubuntu-24.04-arm and windows-latest/windows-11-arm each
@@ -247,9 +274,9 @@ jobs:
   # just downloads and repacks them into one combined archive instead of
   # rebuilding -- softprops/action-gh-release upserts by tag_name, so it
   # doesn't need to wait on create-release specifically (only on
-  # bump-versions, to stay after the version-bump commit).
+  # verify-release, to confirm the tag is publishable).
   publish-go:
-    needs: [bump-versions]
+    needs: [verify-release]
     runs-on: ubuntu-latest
     permissions:
       contents: write
