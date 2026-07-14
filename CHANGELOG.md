@@ -29,6 +29,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+`schema/a7p.schema.json`'s required string fields (`profile_name`,
+`cartridge_name`, `bullet_name`, `short_name_top`, `short_name_bot`,
+`caliber`) wrongly carried `minLength: 1`, rejecting the empty string —
+real device profiles ship these unset. Fixed at the source and
+regenerated into all four packages via `scripts/compile.py`.
+
+### py/
+
+#### Fixed
+
+- `caliber`, `profile_name`, `cartridge_name`, `bullet_name`,
+  `short_name_top`, and `short_name_bot` now accept an empty string,
+  matching real device profiles — `_compiled_schema.py` and the bundled
+  `a7p.schema.json` regenerated from `schema/a7p.schema.json`
+
+### js/
+
+#### Fixed
+
+- Same `minLength` fix as `py/`, regenerated into
+  `src/generated/a7p_schema_validator.cjs`
+
+### dart/
+
+#### Fixed
+
+- Same `minLength` fix as `py/`, regenerated into
+  `lib/src/generated/a7p_schema.g.dart`
+
+### go/
+
+#### Fixed
+
+- Same `minLength` fix as `py/`, regenerated into
+  `a7p/generated/a7p_schema.g.json`
+
 ## [1.2.2] - 2026-07-09
 
 ### py/

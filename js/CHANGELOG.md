@@ -12,6 +12,11 @@ regenerate.
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
 ## [Unreleased]
 
+### Fixed
+
+- Same `minLength` fix as `py/`, regenerated into
+  `src/generated/a7p_schema_validator.cjs`
+
 ## [1.2.2] - 2026-07-09
 
 ### No changes since 1.2.1 (patch has been applied to js package)

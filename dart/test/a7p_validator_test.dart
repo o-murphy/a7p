@@ -74,6 +74,37 @@ void main() {
     expect(() => A7pValidator.validate(_validPayload()), returnsNormally);
   });
 
+  for (final field in [
+    'profileName',
+    'cartridgeName',
+    'bulletName',
+    'shortNameTop',
+    'shortNameBot',
+    'caliber',
+  ]) {
+    test(
+      'required string field $field may be empty (mirrors schema/fixtures/valid/empty_required_strings.json)',
+      () {
+        final payload = _validPayload();
+        switch (field) {
+          case 'profileName':
+            payload.profile.profileName = '';
+          case 'cartridgeName':
+            payload.profile.cartridgeName = '';
+          case 'bulletName':
+            payload.profile.bulletName = '';
+          case 'shortNameTop':
+            payload.profile.shortNameTop = '';
+          case 'shortNameBot':
+            payload.profile.shortNameBot = '';
+          case 'caliber':
+            payload.profile.caliber = '';
+        }
+        expect(() => A7pValidator.validate(payload), returnsNormally);
+      },
+    );
+  }
+
   test('a real custom-drag profile passes validation', () {
     final payload = _validPayload();
     payload.profile
