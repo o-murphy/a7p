@@ -12,6 +12,8 @@ regenerate.
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
 ## [Unreleased]
 
+## [1.2.3] - 2026-07-14
+
 ### Fixed
 
 - Same `minLength` fix as `py/`, regenerated into
@@ -70,7 +72,8 @@ First stable release, no changes from [0.1.0-beta.1](#010-beta1---2026-07-04).
 Initial extraction from `archerbc2_flutter/packages/a7p` into a standalone
 package.
 
-[Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.2...HEAD
+[Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.3...HEAD
+[1.2.3]: https://github.com/o-murphy/a7p/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/o-murphy/a7p/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/o-murphy/a7p/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/o-murphy/a7p/releases/tag/v1.2.0
