@@ -98,12 +98,12 @@
         "switches", "distances", "coef_rows"
       ],
       "properties": {
-        "profile_name": { "type": "string", "minLength": 1, "maxLength": 50 },
-        "cartridge_name": { "type": "string", "minLength": 1, "maxLength": 50 },
-        "bullet_name": { "type": "string", "minLength": 1, "maxLength": 50 },
-        "short_name_top": { "type": "string", "minLength": 1, "maxLength": 8 },
-        "short_name_bot": { "type": "string", "minLength": 1, "maxLength": 8 },
-        "caliber": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "profile_name": { "type": "string", "maxLength": 50 },
+        "cartridge_name": { "type": "string", "maxLength": 50 },
+        "bullet_name": { "type": "string", "maxLength": 50 },
+        "short_name_top": { "type": "string", "maxLength": 8 },
+        "short_name_bot": { "type": "string", "maxLength": 8 },
+        "caliber": { "type": "string", "maxLength": 50 },
         "device_uuid": { "type": "string", "maxLength": 50 },
         "user_note": { "type": "string", "maxLength": 1024 },
 

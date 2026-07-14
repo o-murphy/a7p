@@ -1,0 +1,67 @@
+{
+  "profile": {
+    "b_diameter": 338,
+    "b_length": 1800,
+    "b_weight": 3000,
+    "bc_type": "G1",
+    "bullet_name": "",
+    "c_muzzle_velocity": 7920,
+    "c_t_coeff": 1000,
+    "c_zero_air_humidity": 50,
+    "c_zero_air_pressure": 10000,
+    "c_zero_air_temperature": 15,
+    "c_zero_distance_idx": 0,
+    "c_zero_p_temperature": 15,
+    "c_zero_temperature": 15,
+    "c_zero_w_pitch": 0,
+    "caliber": "",
+    "cartridge_name": "",
+    "coef_rows": [
+      {
+        "bc_cd": 7160,
+        "mv": 7920
+      }
+    ],
+    "device_uuid": "",
+    "distances": [10000, 20000, 25000, 30000],
+    "profile_name": "",
+    "r_twist": 1000,
+    "sc_height": 90,
+    "short_name_bot": "",
+    "short_name_top": "",
+    "switches": [
+      {
+        "c_idx": 255,
+        "distance": 10000,
+        "distance_from": "VALUE",
+        "reticle_idx": 0,
+        "zoom": 1
+      },
+      {
+        "c_idx": 255,
+        "distance": 20000,
+        "distance_from": "VALUE",
+        "reticle_idx": 0,
+        "zoom": 2
+      },
+      {
+        "c_idx": 255,
+        "distance": 30000,
+        "distance_from": "VALUE",
+        "reticle_idx": 0,
+        "zoom": 3
+      },
+      {
+        "c_idx": 255,
+        "distance": 100000,
+        "distance_from": "VALUE",
+        "reticle_idx": 0,
+        "zoom": 4
+      }
+    ],
+    "twist_dir": "RIGHT",
+    "user_note": "\n",
+    "zero_x": 0,
+    "zero_y": 0
+  }
+}

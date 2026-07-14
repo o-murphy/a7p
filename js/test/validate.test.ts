@@ -52,6 +52,22 @@ describe('validate', () => {
         expect(() => validate(validPayload())).not.toThrow();
     });
 
+    test.each([
+        'profileName',
+        'cartridgeName',
+        'bulletName',
+        'shortNameTop',
+        'shortNameBot',
+        'caliber',
+    ] as const)(
+        'required string field %s may be empty (mirrors schema/fixtures/valid/empty_required_strings.json)',
+        (field) => {
+            const payload = validPayload();
+            payload.profile[field] = '';
+            expect(() => validate(payload)).not.toThrow();
+        },
+    );
+
     test('a real custom-drag profile passes validation', () => {
         const payload = validPayload();
         payload.profile.bcType = BcType.CUSTOM;

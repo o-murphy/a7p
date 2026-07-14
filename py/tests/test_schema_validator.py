@@ -129,3 +129,21 @@ def test_coef_row_mv_zero_duplicates_allowed(build_payload):
 
 def test_minimal_payload_is_valid(build_payload):
     assert is_valid(build_payload()) is True
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "profile_name",
+        "cartridge_name",
+        "bullet_name",
+        "short_name_top",
+        "short_name_bot",
+        "caliber",
+    ],
+)
+def test_required_string_fields_may_be_empty(build_payload, field):
+    """None of the required string fields have a minLength -- devices ship
+    real profiles with these left unset (empty string)."""
+    payload = build_payload({field: ""})
+    assert is_valid(payload) is True

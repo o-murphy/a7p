@@ -16,6 +16,13 @@ to preserve (unlike `js`/`dart`).
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
 ## [Unreleased]
 
+### Fixed
+
+- `caliber`, `profile_name`, `cartridge_name`, `bullet_name`,
+  `short_name_top`, and `short_name_bot` now accept an empty string,
+  matching real device profiles — `_compiled_schema.py` and the bundled
+  `a7p.schema.json` regenerated from `schema/a7p.schema.json`
+
 ## [1.2.2] - 2026-07-09
 
 ### Changed
