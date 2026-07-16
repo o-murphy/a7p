@@ -12,6 +12,7 @@ Classes:
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from a7p import profedit_pb2
 
@@ -28,7 +29,7 @@ class Violation:
     """
 
     path: Path | str
-    value: any
+    value: Any
     reason: str
 
     def format(self) -> str:
@@ -85,7 +86,7 @@ class A7PValidationError(A7PDataError):
         self,
         msg: str,
         payload: profedit_pb2.Payload,
-        violations: list[Violation] = None,
+        violations: list[Violation] | None = None,
     ):
         """
         Initializes the validation error with the provided message, payload, and violations.

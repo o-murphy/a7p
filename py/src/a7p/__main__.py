@@ -82,7 +82,7 @@ single_file_group = parser.add_argument_group("Single file specific options")
 single_file_group.add_argument(
     "--jsonify",
     action="store_true",
-    help="Print as jsonThis option is only allowed for a single file.",
+    help="Print as json. This option is only allowed for a single file.",
 )
 single_file_group.add_argument(
     "--verbose",
@@ -161,12 +161,12 @@ class Result:
     path: Path
     error = None
     validation_error: A7PValidationError | None = None
-    zero: tuple[float, float] = None
-    new_zero: tuple[float, float] = None
+    zero: tuple[float, float] | None = None
+    new_zero: tuple[float, float] | None = None
     zero_update: bool = False
-    distances: str = None
-    zero_distance: str = None
-    payload: profedit_pb2.Payload = None
+    distances: str | None = None
+    zero_distance: str | None = None
+    payload: profedit_pb2.Payload | None = None
     switches: bool = False
 
     def print(self, verbose=False):
@@ -369,17 +369,17 @@ def print_results_and_save(results, verbose=False, force=False):
 
 
 def process_files(
-    path: Path = None,
+    path: Path,
     recursive: bool = False,
     unsafe: bool = False,
-    distances: str = None,
-    zero_distance: int = None,
-    jsonify: Path = None,
+    distances: str | None = None,
+    zero_distance: int | None = None,
+    jsonify: Path | None = None,
     verbose: bool = False,
     force: bool = False,
-    zero_offset: tuple[float, float] = None,
-    zero_sync: Path = None,
-    copy_switches: Path = None,
+    zero_offset: tuple[float, float] | None = None,
+    zero_sync: Path | None = None,
+    copy_switches: Path | None = None,
 ):
     if not Path.exists(path):
         parser.warning(f"The '{path}' is not a valid path")
@@ -400,6 +400,7 @@ def process_files(
     if copy_switches:
         copy_switches = get_switches_to_copy(copy_switches, validate)
 
+    results: list[Result]
     if not path.is_dir():
         results = [
             process_file(
@@ -426,7 +427,7 @@ def process_files(
                 "The '--jsonify' option is supported only when processing a single file."
             )
 
-        results: tuple[Result] | list[Result] = []
+        results = []
 
         if recursive:
             paths = path.rglob("*")

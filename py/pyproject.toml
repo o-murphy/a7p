@@ -57,7 +57,7 @@ where = ["src"]
 include = ["a7p*"]
 
 [tool.setuptools.package-data]
-a7p = ["a7p.schema.json"]
+a7p = ["a7p.schema.json", "py.typed"]
 
 [tool.setuptools_scm]
 # `py` is a plain subdirectory of the a7p monorepo now (no longer its
@@ -95,5 +95,22 @@ exclude = [
     "a7p-lib",
 ]
 
+[tool.mypy]
+packages = ["a7p"]
+
+# fastjsonschema ships no py.typed marker and has no types-fastjsonschema
+# stub package on PyPI (unlike protobuf/jsonschema/tqdm above).
+[[tool.mypy.overrides]]
+module = "fastjsonschema.*"
+ignore_missing_imports = true
+
 [dependency-groups]
-dev = ["orjson>=3.11.8", "pytest>=9.0.3", "ruff>=0.12.11"]
+dev = [
+    "mypy>=2.3.0",
+    "orjson>=3.11.8",
+    "pytest>=9.0.3",
+    "ruff>=0.12.11",
+    "types-protobuf>=6.30.0",
+    "types-jsonschema>=4.25.0",
+    "types-tqdm>=4.67.0",
+]

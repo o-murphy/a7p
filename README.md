@@ -211,10 +211,11 @@ only runs when you actually touch that package:
 
 | Package | Hooks |
 |---|---|
-| `py/` | `uv sync`, `ruff check --fix`, `ruff format` |
-| `js/` | `prettier --write` (via `yarn format`) |
-| `dart/` | `dart format`, `dart analyze --fatal-infos` |
-| `go/` | `gofmt -w`, `go vet` |
+| `py/` | `uv sync`, `ruff check --fix`, `ruff format`, `mypy`, `pytest` |
+| `js/` | `prettier --write` (via `yarn format`), `jest` (via `yarn test`) |
+| `dart/` | `dart format`, `dart analyze --fatal-infos`, `dart test` |
+| `go/` | `gofmt -w`, `go vet`, `go test ./...` |
+| root | `scripts/ci/sync_changelogs.py` whenever `CHANGELOG.md` changes, keeping `py`/`js`/`dart`/`go/CHANGELOG.md` in sync |
 
 Plus a remote hook (`astral-sh/uv-pre-commit`) that keeps `py/uv.lock` in
 sync with `py/pyproject.toml`.

@@ -710,7 +710,7 @@ class Barrel:
     caliber: str = "New caliber"
     sight_height: int = 90
     twist: float = 9.0
-    twist_dir: profedit_pb2.TwistDir = profedit_pb2.TwistDir.RIGHT
+    twist_dir: profedit_pb2.TwistDir = profedit_pb2.RIGHT
 
 
 @dataclass
@@ -745,7 +745,7 @@ class Bullet:
     diameter: float = 0.308
     weight: float = 178.0
     length: float = 1.2
-    drag_type: profedit_pb2.GType = profedit_pb2.GType.G7
+    drag_type: profedit_pb2.GType = profedit_pb2.G7
     drag_model: tuple[DragPoint] = (DragPoint(1.0, 0.0),)
 
 
@@ -767,7 +767,7 @@ class A7PFactory:
     such as metadata, zeroing, atmosphere, barrel, cartridge, bullet, and distance tables.
     """
 
-    def __new__(
+    def __new__(  # type: ignore[misc]  # intentional: A7PFactory(...) is called as a Payload-returning function, never instantiated
         cls,
         meta: Meta = Meta(),
         barrel: Barrel = Barrel(),
@@ -776,7 +776,7 @@ class A7PFactory:
         zeroing: Zeroing = Zeroing(),
         zero_atmo: Atmosphere = Atmosphere(),
         zero_powder_temp: int = 15,
-        distances: [DistanceTable, tuple[float]] = DistanceTable.LONG_RANGE,
+        distances: DistanceTable | tuple[float, ...] = DistanceTable.LONG_RANGE,
         switches: Switches = Switches(),
     ) -> profedit_pb2.Payload:
         """

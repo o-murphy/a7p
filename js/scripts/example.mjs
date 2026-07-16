@@ -14,9 +14,7 @@ async function readFileAsBytes(path) {
 }
 
 async function main() {
-    const bytes = await readFileAsBytes("./scripts/example2.a7p").catch((err) =>
-        console.log(err),
-    );
+    const bytes = await readFileAsBytes("./scripts/example2.a7p");
 
     if (bytes) {
         try {

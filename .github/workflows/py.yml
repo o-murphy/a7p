@@ -67,3 +67,27 @@ jobs:
 
       - name: Run tests
         run: uv run pytest
+
+  analyze:
+    name: Mypy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./py
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run mypy
+        run: uv run mypy
