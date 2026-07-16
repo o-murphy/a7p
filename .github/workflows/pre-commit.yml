@@ -1,0 +1,60 @@
+name: Pre-commit
+
+# Runs the same .pre-commit-config.yaml hooks devs run locally (see
+# README.md's "Pre-commit hooks" section) against the whole repo, so a
+# contributor who skipped `pre-commit install` still gets caught in CI.
+# All hooks are `language: system` (they shell out to each package's own
+# toolchain -- uv/ruff/mypy/pytest, yarn/prettier/jest, dart, go -- rather
+# than a toolchain pre-commit itself manages), so every one of those has to
+# be installed here first or its hook just fails with "command not found".
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: pre-commit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pre-commit:
+    name: pre-commit run --all-files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990
+        with:
+          python-version: "3.10"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: "yarn"
+          cache-dependency-path: js/yarn.lock
+
+      - name: Install js/ dependencies
+        run: yarn install --frozen-lockfile
+        working-directory: js
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install dart/ dependencies
+        run: dart pub get
+        working-directory: dart
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ">=1.26.5"
+
+      - name: Install pre-commit
+        run: uv tool install pre-commit
+
+      - name: Run pre-commit
+        run: pre-commit run --all-files --show-diff-on-failure
