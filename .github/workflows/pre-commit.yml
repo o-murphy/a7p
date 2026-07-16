@@ -43,17 +43,13 @@ jobs:
           cache: "yarn"
           cache-dependency-path: js/yarn.lock
 
-      - name: Install js/ dependencies
-        run: yarn install --frozen-lockfile
-        working-directory: js
-
+      # No explicit "yarn install"/"dart pub get" steps here -- the
+      # yarn-install/dart-pub-get hooks (first in each package's section of
+      # .pre-commit-config.yaml) do that as part of the run below, same as
+      # a dev running `pre-commit run` locally would rely on.
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
-
-      - name: Install dart/ dependencies
-        run: dart pub get
-        working-directory: dart
 
       - uses: actions/setup-go@v7
         with:

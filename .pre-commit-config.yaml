@@ -43,6 +43,13 @@ repos:
         files: '^py/.*\.py$'
 
       # js/
+      - id: yarn-install
+        name: yarn install before hooks (js)
+        entry: bash -c 'cd js && yarn install --frozen-lockfile'
+        language: system
+        pass_filenames: false
+        files: '^js/.*\.(js|mjs|cjs|ts)$'
+
       - id: prettier-js
         name: prettier format (js)
         entry: bash -c 'cd js && yarn --silent format'
@@ -73,6 +80,13 @@ repos:
         files: '^js/.*\.(js|mjs|cjs|ts)$'
 
       # dart/
+      - id: dart-pub-get
+        name: dart pub get before hooks (dart)
+        entry: bash -c 'cd dart && dart pub get'
+        language: system
+        pass_filenames: false
+        files: '^dart/.*\.dart$'
+
       - id: dart-format
         name: dart format (dart)
         entry: bash -c 'cd dart && dart format lib test bin'
@@ -101,7 +115,17 @@ repos:
         pass_filenames: false
         files: '^dart/(.*\.dart|pubspec\.yaml)$'
 
-      # go/
+      # go/ -- go.mod/go.sum live at the repo root (not go/), see
+      # docs/DESIGN-schema-unification.md's step 8, hence the wider files:
+      # pattern here (matches gofmt/go-vet/go-test scoped to go/*.go, but
+      # also triggers on a root go.mod/go.sum change alone).
+      - id: go-mod-download
+        name: go mod download before hooks (go)
+        entry: bash -c 'cd go && go mod download'
+        language: system
+        pass_filenames: false
+        files: '^(go\.mod|go\.sum|go/.*\.go)$'
+
       - id: gofmt
         name: gofmt (go)
         entry: bash -c 'cd go && gofmt -w -l .'
