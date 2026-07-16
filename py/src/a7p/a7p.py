@@ -214,38 +214,16 @@ def validate(payload: profedit_pb2.Payload, fail_fast: bool = False) -> None:
     Raises:
         A7PValidationError: If there are any violations.
     """
-    violations = {"violations": []}
+    if not USE_SCHEMA_VALIDATOR:
+        return
 
-    is_errors = False
-
-    if USE_SCHEMA_VALIDATOR:
-        try:
-            validate_schema(payload, fail_fast)
-        except SchemaValidationError as error:
-            is_errors = True
-            # Kept as `yupy_violations` for API compatibility: A7PValidationError
-            # and its consumers key on this attribute regardless of which
-            # validator engine actually produced the violations.
-            violations["yupy_violations"] = [
-                exceptions.Violation(path, None, message)
-                for path, message in error.errors
-            ]
-            violations["violations"].append(
-                exceptions.Violation(
-                    "Schema validation error",
-                    "Validation failed during JSON Schema validation",
-                    "",
-                )
-            )
-
-    # Raise the final validation error if there are violations
-    if is_errors:
-        raise exceptions.A7PValidationError(
-            "Validation error",
-            payload,
-            violations=violations["violations"],  # Загальний список порушень
-            yupy_violations=violations.get("yupy_violations"),
-        )
+    try:
+        validate_schema(payload, fail_fast)
+    except SchemaValidationError as error:
+        violations = [
+            exceptions.Violation(path, None, message) for path, message in error.errors
+        ]
+        raise exceptions.A7PValidationError("Validation error", payload, violations)
 
 
 __all__ = (

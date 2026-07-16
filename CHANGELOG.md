@@ -29,6 +29,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.4] - 2026-07-16
+
+### py/
+
+#### Removed
+
+- `yupy` dependency and the hand-written `src/a7p/yupy_schema.py` validator it
+  backed — unused by the public `a7p.validate()` path since the migration to
+  `schema_validator.py` (`fastjsonschema`/`jsonschema` against
+  `schema/a7p.schema.json`), and kept only as a reference/regression suite
+  (`tests/test_yupy_schema.py`) until now
+- `exceptions.YupyViolation` and `exceptions.A7PYupyValidationError` — folded
+  into plain `Violation`/`A7PValidationError`; `A7PValidationError` no longer
+  splits errors into `.violations`/`.yupy_violations`/`.all_violations`, just
+  one `.violations` list
+
+#### Changed
+
+- CLI flag `--disable-yupy` renamed to `--disable-validator`
+
+### js/
+
+#### Changed
+
+- Regenerated `src/generated/a7p_schema_validator.cjs` via
+  `scripts/compile.py` — the only source change was
+  `schema/a7p.schema.json`'s `x-decision`/`x-discrepancy` annotation text,
+  updated (not dropped) to record in the past tense that `py`'s
+  `yupy_schema.py`/`test_yupy_schema.py` (referenced there as context for why
+  these bounds were picked) have since been deleted, see `py/` above. These
+  `x-*` keys are documentation only, ignored by `ajv` — no validation
+  behavior changed.
+
+### dart/
+
+#### Changed
+
+- Regenerated `lib/src/generated/a7p_schema.g.dart` via `scripts/compile.py`
+  — same annotation-only `schema/a7p.schema.json` change as `js/` above, no
+  validation behavior changed (`x-*` keys are ignored by `json_schema`).
+
+### go/
+
+#### Changed
+
+- Regenerated `a7p/generated/a7p_schema.g.json` via `scripts/compile.py` —
+  same annotation-only `schema/a7p.schema.json` change as `js/` above, no
+  validation behavior changed (`x-*` keys are ignored by
+  `santhosh-tekuri/jsonschema`).
+
 ## [1.2.3] - 2026-07-14
 
 `schema/a7p.schema.json`'s required string fields (`profile_name`,
@@ -318,7 +368,8 @@ package.
 
 - Initial release
 
-[Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.3...HEAD
+[Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.4...HEAD
+[1.2.4]: https://github.com/o-murphy/a7p/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/o-murphy/a7p/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/o-murphy/a7p/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/o-murphy/a7p/compare/v1.2.0...v1.2.1

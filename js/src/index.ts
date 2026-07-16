@@ -1,19 +1,27 @@
-import CryptoJS from 'crypto-js';
-import { toByteArray, fromByteArray } from 'base64-js';
-import { Payload, BcType, TwistDir } from './types.js';
-import { validate } from './validate.js'
-import { Payload as ProtoPayload, gTypeToJSON, twistDirToJSON, dTypeToJSON } from './profedit.js';
-import { A7pError, DecodeError, EncodeError, ValidationError, InvalidBcTypeError } from './errors.js';
-
+import CryptoJS from "crypto-js";
+import { toByteArray, fromByteArray } from "base64-js";
+import { Payload, BcType, TwistDir } from "./types.js";
+import { validate } from "./validate.js";
+import {
+    Payload as ProtoPayload,
+    gTypeToJSON,
+    twistDirToJSON,
+    dTypeToJSON,
+} from "./profedit.js";
+import {
+    A7pError,
+    DecodeError,
+    EncodeError,
+    ValidationError,
+    InvalidBcTypeError,
+} from "./errors.js";
 
 const MD5_LENGTH = 32;
-
 
 const md5 = (bytes: Uint8Array): string => {
     const wordArray = CryptoJS.lib.WordArray.create(bytes as any);
     return CryptoJS.MD5(wordArray).toString(CryptoJS.enc.Hex);
-}
-
+};
 
 const encode = (payload: Payload): ArrayBuffer => {
     try {
@@ -42,10 +50,13 @@ const encode = (payload: Payload): ArrayBuffer => {
             throw new EncodeError(`Error encoding payload: ${error.message}`);
         } else {
             console.error("Unknown error occurred:", error);
-            throw new A7pError("Unknown error occurred during encoding", "EncodeError");
+            throw new A7pError(
+                "Unknown error occurred during encoding",
+                "EncodeError",
+            );
         }
     }
-}
+};
 
 const decode = (buffer: ArrayBuffer): Payload => {
     try {
@@ -68,11 +79,12 @@ const decode = (buffer: ArrayBuffer): Payload => {
                 ...profile,
                 bcType: gTypeToJSON(profile.bcType) as BcType,
                 twistDir: twistDirToJSON(profile.twistDir) as TwistDir,
-                switches: profile.switches.map(sw => ({
+                switches: profile.switches.map((sw) => ({
                     ...sw,
-                    distanceFrom: dTypeToJSON(sw.distanceFrom) as 'INDEX' | 'VALUE',
+                    distanceFrom: dTypeToJSON(sw.distanceFrom) as
+                        "INDEX" | "VALUE",
                 })),
-            }
+            },
         };
 
         validate(payload);
@@ -82,18 +94,23 @@ const decode = (buffer: ArrayBuffer): Payload => {
             console.error("Decode error occurred:", error.message);
             throw error;
         } else if (error instanceof ValidationError) {
-            console.error("Validation error occurred during decoding:", error.message);
+            console.error(
+                "Validation error occurred during decoding:",
+                error.message,
+            );
             throw error;
         } else if (error instanceof Error) {
             console.error("Error occurred during decoding:", error.message);
             throw new DecodeError(`Error decoding payload: ${error.message}`);
         } else {
             console.error("Unknown error occurred:", error);
-            throw new A7pError("Unknown error occurred during decoding", "DecodeError");
+            throw new A7pError(
+                "Unknown error occurred during decoding",
+                "DecodeError",
+            );
         }
     }
-}
-
+};
 
 export {
     decode,
@@ -104,4 +121,4 @@ export {
     DecodeError,
     ValidationError,
     InvalidBcTypeError,
-}
+};

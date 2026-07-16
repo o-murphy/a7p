@@ -45,7 +45,7 @@ pip install a7p
 
 ```bash
 a7p -h
-usage: a7p 1.0.0b3 [-h] [-V] [-r] [-F] [--unsafe] [--jsonify] [--verbose] [-zd ZERO_DISTANCE] [-d {subsonic,low,medium,long,ultra}] [-zs ZERO_SYNC | -zo X_OFFSET Y_OFFSET] [-cps COPY_SWITCHES] [--disable-yupy] path
+usage: a7p 1.0.0b3 [-h] [-V] [-r] [-F] [--unsafe] [--jsonify] [--verbose] [-zd ZERO_DISTANCE] [-d {subsonic,low,medium,long,ultra}] [-zs ZERO_SYNC | -zo X_OFFSET Y_OFFSET] [-cps COPY_SWITCHES] [--disable-validator] path
 
 positional arguments:
   path                  Specify the path to the directory or a .a7p file to process.
@@ -78,7 +78,7 @@ Switches:
                         Copy switches from other a7p file.
 
 Advanced:
-  --disable-yupy        Disable yupy validation (unsafe).
+  --disable-validator   Disable JSON Schema validation (unsafe).
 ```
 
 #### Use as imported module

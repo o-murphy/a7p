@@ -1,0 +1,123 @@
+default_install_hook_types: [pre-commit]
+default_language_version:
+  python: python3
+
+repos:
+  - repo: local
+    hooks:
+      # py/
+      - id: uv-sync
+        name: uv sync before hooks (py)
+        entry: uv
+        args: ["--project", "py", "sync"]
+        language: system
+        pass_filenames: false
+        files: '^py/.*\.py$'
+
+      - id: uv-ruff-check
+        name: ruff lint & fix (py)
+        entry: bash -c 'cd py && uv run ruff check --fix'
+        language: system
+        pass_filenames: false
+        files: '^py/.*\.py$'
+
+      - id: uv-ruff-format
+        name: ruff format (py)
+        entry: bash -c 'cd py && uv run ruff format'
+        language: system
+        pass_filenames: false
+        files: '^py/.*\.py$'
+
+      - id: uv-mypy
+        name: mypy (py)
+        entry: bash -c 'cd py && uv run mypy'
+        language: system
+        pass_filenames: false
+        files: '^py/.*\.py$'
+
+      - id: uv-pytest
+        name: pytest (py)
+        entry: bash -c 'cd py && uv run pytest'
+        language: system
+        pass_filenames: false
+        files: '^py/.*\.py$'
+
+      # js/
+      - id: prettier-js
+        name: prettier format (js)
+        entry: bash -c 'cd js && yarn --silent format'
+        language: system
+        pass_filenames: false
+        files: '^js/.*\.(js|mjs|cjs|ts)$'
+        exclude: "^js/src/generated/"
+
+      - id: jest-js
+        name: jest (js)
+        entry: bash -c 'cd js && yarn --silent test'
+        language: system
+        pass_filenames: false
+        files: '^js/.*\.(js|mjs|cjs|ts)$'
+
+      # dart/
+      - id: dart-format
+        name: dart format (dart)
+        entry: bash -c 'cd dart && dart format lib test bin'
+        language: system
+        pass_filenames: false
+        files: '^dart/.*\.dart$'
+
+      - id: dart-analyze
+        name: dart analyze (dart)
+        entry: bash -c 'cd dart && dart analyze --fatal-infos'
+        language: system
+        pass_filenames: false
+        files: '^dart/.*\.dart$'
+
+      - id: dart-test
+        name: dart test (dart)
+        entry: bash -c 'cd dart && dart test'
+        language: system
+        pass_filenames: false
+        files: '^dart/.*\.dart$'
+
+      # go/
+      - id: gofmt
+        name: gofmt (go)
+        entry: bash -c 'cd go && gofmt -w -l .'
+        language: system
+        pass_filenames: false
+        files: '^go/.*\.go$'
+
+      - id: go-vet
+        name: go vet (go)
+        entry: bash -c 'cd go && go vet ./...'
+        language: system
+        pass_filenames: false
+        files: '^go/.*\.go$'
+
+      - id: go-test
+        name: go test (go)
+        entry: bash -c 'cd go && go test ./...'
+        language: system
+        pass_filenames: false
+        files: '^go/.*\.go$'
+
+      # root -- keeps py/js/dart/go's own CHANGELOG.md in sync with the
+      # root one whenever it changes (see scripts/ci/sync_changelogs.py).
+      # Stdlib-only script, but runs through py's uv env for the same
+      # reason as the other py/ hooks above: a consistent, known
+      # interpreter instead of whatever bare `python3` resolves to.
+      - id: sync-changelogs
+        name: sync CHANGELOGs (root -> py/js/dart/go)
+        entry: uv
+        args:
+          ["run", "--project", "py", "python3", "scripts/ci/sync_changelogs.py"]
+        language: system
+        pass_filenames: false
+        files: '^CHANGELOG\.md$'
+
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.11.29
+    hooks:
+      - id: uv-lock
+        args: ["--project", "py"]

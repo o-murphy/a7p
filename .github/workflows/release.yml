@@ -299,3 +299,17 @@ jobs:
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           files: a7p-go-binaries.tar.gz
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ">=1.26.5"
+
+      - name: Prompt proxy.golang.org to index this version
+        # go get/pkg.go.dev resolve module@version through the proxy, which
+        # only fetches+caches a given version from the VCS (this tag) on
+        # first request -- without this, the first real `go get` after a
+        # release pays that latency (and pkg.go.dev shows the version late).
+        # `go list -m` alone is enough to trigger it; it needs no checkout
+        # of this repo, just network access to the proxy.
+        run: GOPROXY=proxy.golang.org go list -m github.com/o-murphy/a7p@${{ env.RELEASE_TAG }}

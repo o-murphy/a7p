@@ -14,7 +14,7 @@ def test_invalid_fixture_raises(invalid_a7p_path):
         with pytest.raises(A7PValidationError) as exc_info:
             a7p.load(fp, validate_=True, fail_fast=False)
 
-    assert exc_info.value.all_violations
+    assert exc_info.value.violations
 
 
 def test_invalid_fixture_fail_fast_raises_on_first_violation(invalid_a7p_path):

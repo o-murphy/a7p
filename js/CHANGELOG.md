@@ -12,6 +12,19 @@ regenerate.
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
 ## [Unreleased]
 
+## [1.2.4] - 2026-07-16
+
+### Changed
+
+- Regenerated `src/generated/a7p_schema_validator.cjs` via
+  `scripts/compile.py` — the only source change was
+  `schema/a7p.schema.json`'s `x-decision`/`x-discrepancy` annotation text,
+  updated (not dropped) to record in the past tense that `py`'s
+  `yupy_schema.py`/`test_yupy_schema.py` (referenced there as context for why
+  these bounds were picked) have since been deleted, see `py/` above. These
+  `x-*` keys are documentation only, ignored by `ajv` — no validation
+  behavior changed.
+
 ## [1.2.3] - 2026-07-14
 
 ### Fixed
@@ -138,7 +151,8 @@ regenerate.
 
 - Initial release
 
-[Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.3...HEAD
+[Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.4...HEAD
+[1.2.4]: https://github.com/o-murphy/a7p/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/o-murphy/a7p/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/o-murphy/a7p/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/o-murphy/a7p/compare/v1.2.0...v1.2.1

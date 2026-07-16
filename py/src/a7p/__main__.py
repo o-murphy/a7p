@@ -82,8 +82,7 @@ single_file_group = parser.add_argument_group("Single file specific options")
 single_file_group.add_argument(
     "--jsonify",
     action="store_true",
-    help="Print as json"
-    "This option is only allowed for a single file.",
+    help="Print as json. This option is only allowed for a single file.",
 )
 single_file_group.add_argument(
     "--verbose",
@@ -146,10 +145,11 @@ switches_exclusive_group.add_argument(
 
 advanced_group = parser.add_argument_group("Advanced")
 advanced_group.add_argument(
-    "--disable-yupy",
+    "--disable-validator",
     action="store_false",
     default=True,
-    help="Disable yupy validation (unsafe).",
+    dest="use_schema_validator",
+    help="Disable JSON Schema validation (unsafe).",
 )
 
 
@@ -161,12 +161,12 @@ class Result:
     path: Path
     error = None
     validation_error: A7PValidationError | None = None
-    zero: tuple[float, float] = None
-    new_zero: tuple[float, float] = None
+    zero: tuple[float, float] | None = None
+    new_zero: tuple[float, float] | None = None
     zero_update: bool = False
-    distances: str = None
-    zero_distance: str = None
-    payload: profedit_pb2.Payload = None
+    distances: str | None = None
+    zero_distance: str | None = None
+    payload: profedit_pb2.Payload | None = None
     switches: bool = False
 
     def print(self, verbose=False):
@@ -200,7 +200,7 @@ class Result:
             color_print("\tSwitches copied", levelname="LIGHT_BLUE")
 
         if self.validation_error and verbose:
-            for violation in self.validation_error.all_violations:
+            for violation in self.validation_error.violations:
                 color_print(violation.format(), levelname="WARNING")
 
     def save_changes(self, force=False):
@@ -326,7 +326,7 @@ def process_file(
     except (IOError, exceptions.A7PDataError) as err:
         result.error = err
         return result
-    
+
     if jsonify:
         print(a7p.to_json(payload))
         return
@@ -369,17 +369,17 @@ def print_results_and_save(results, verbose=False, force=False):
 
 
 def process_files(
-    path: Path = None,
+    path: Path,
     recursive: bool = False,
     unsafe: bool = False,
-    distances: str = None,
-    zero_distance: int = None,
-    jsonify: Path = None,
+    distances: str | None = None,
+    zero_distance: int | None = None,
+    jsonify: Path | None = None,
     verbose: bool = False,
     force: bool = False,
-    zero_offset: tuple[float, float] = None,
-    zero_sync: Path = None,
-    copy_switches: Path = None,
+    zero_offset: tuple[float, float] | None = None,
+    zero_sync: Path | None = None,
+    copy_switches: Path | None = None,
 ):
     if not Path.exists(path):
         parser.warning(f"The '{path}' is not a valid path")
@@ -400,6 +400,7 @@ def process_files(
     if copy_switches:
         copy_switches = get_switches_to_copy(copy_switches, validate)
 
+    results: list[Result]
     if not path.is_dir():
         results = [
             process_file(
@@ -426,7 +427,7 @@ def process_files(
                 "The '--jsonify' option is supported only when processing a single file."
             )
 
-        results: tuple[Result] | list[Result] = []
+        results = []
 
         if recursive:
             paths = path.rglob("*")
@@ -455,8 +456,8 @@ def main():
         args = parser.parse_args()
         # print(args)
         args_dict = args.__dict__
-        disable_yupy = args_dict.pop("disable_yupy", False)
-        setUseSchemaValidator(disable_yupy)
+        use_schema_validator = args_dict.pop("use_schema_validator", True)
+        setUseSchemaValidator(use_schema_validator)
 
         process_files(**args.__dict__)
         if args.jsonify:

@@ -203,6 +203,37 @@ checks need to see.
 **Run this whenever `a7p.schema.json` changes** and commit the regenerated
 `a7p_schema.g.json` alongside it, same as `--python`/`--dart`/`--ts`.
 
+## Pre-commit hooks
+
+`.pre-commit-config.yaml` at the repo root wires up formatting/linting for
+all four packages as local hooks, each scoped by a `files:` pattern so it
+only runs when you actually touch that package:
+
+| Package | Hooks |
+|---|---|
+| `py/` | `uv sync`, `ruff check --fix`, `ruff format`, `mypy`, `pytest` |
+| `js/` | `prettier --write` (via `yarn format`), `jest` (via `yarn test`) |
+| `dart/` | `dart format`, `dart analyze --fatal-infos`, `dart test` |
+| `go/` | `gofmt -w`, `go vet`, `go test ./...` |
+| root | `scripts/ci/sync_changelogs.py` whenever `CHANGELOG.md` changes, keeping `py`/`js`/`dart`/`go/CHANGELOG.md` in sync |
+
+Plus a remote hook (`astral-sh/uv-pre-commit`) that keeps `py/uv.lock` in
+sync with `py/pyproject.toml`.
+
+Install once:
+
+```bash
+uv tool install pre-commit   # or: pipx install pre-commit
+pre-commit install
+```
+
+Each hook shells out to that package's own toolchain (`uv`, `yarn`/`node`,
+`dart`, `go`) rather than vendoring one via `language: system` — install
+whichever of those you need locally for the package(s) you're touching; a
+commit that only touches `py/` never invokes the `js`/`dart`/`go` hooks (and
+vice versa). Run everything by hand without committing via
+`pre-commit run --all-files`.
+
 ## License
 
 The repo root (`schema/`, `scripts/`, `docs/`, `proto/`, and everything

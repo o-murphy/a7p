@@ -62,8 +62,8 @@ def _default_switch(**overrides) -> dict:
 
 
 def _minimal_profile_dict() -> dict:
-    """A profile dict whose values sit within every bound yupy_schema
-    currently enforces (mirrors the profedit.clj reference ranges)."""
+    """A profile dict whose values sit within every bound the schema
+    validator currently enforces (mirrors the profedit.clj reference ranges)."""
     return {
         "profile": {
             "profile_name": "x",
@@ -104,7 +104,7 @@ def build_payload():
     """Factory fixture: build_payload(profile={"zoom": ...}) -> Payload.
 
     `profile` overrides are shallow-merged into a minimal, schema-valid
-    profile dict. Use for targeted yupy_schema bound tests.
+    profile dict. Use for targeted schema bound tests.
     """
 
     def _build(profile: dict = None):
