@@ -212,9 +212,9 @@ only runs when you actually touch that package:
 | Package | Hooks |
 |---|---|
 | `py/` | `uv sync`, `ruff check --fix`, `ruff format`, `mypy`, `pytest` |
-| `js/` | `prettier --write`, `tsc --noEmit` typecheck, `jest`, `yarn build` |
-| `dart/` | `dart format`, `dart analyze --fatal-infos`, `dart test`, `dart pub publish --dry-run` |
-| `go/` | `gofmt -w`, `go vet`, `go test ./...`, schema/proto drift guard (regenerates `go/`'s checked-in generated files and diffs) |
+| `js/` | `yarn install`, `prettier --write`, `tsc --noEmit` typecheck, `jest`, `yarn build` |
+| `dart/` | `dart pub get`, `dart format`, `dart analyze --fatal-infos`, `dart test`, `dart pub publish --dry-run` |
+| `go/` | `go mod download`, `gofmt -w`, `go vet`, `go test ./...`, schema/proto drift guard (regenerates `go/`'s checked-in generated files and diffs) |
 | root | `scripts/ci/sync_changelogs.py` whenever `CHANGELOG.md` changes, keeping `py`/`js`/`dart`/`go/CHANGELOG.md` in sync |
 
 Plus a remote hook (`astral-sh/uv-pre-commit`) that keeps `py/uv.lock` in
