@@ -1,6 +1,6 @@
-import validateSchema from './generated/a7p_schema_validator.cjs';
-import { CoefRow, Payload, Profile, SwitchProps } from './types.js';
-import { ValidationError } from './errors.js';
+import validateSchema from "./generated/a7p_schema_validator.cjs";
+import { CoefRow, Payload, Profile, SwitchProps } from "./types.js";
+import { ValidationError } from "./errors.js";
 
 // Converts the Payload (camelCase, matching the ts-proto/protobuf field
 // names) into the plain snake_case JSON shape schema/a7p.schema.json is
@@ -57,13 +57,13 @@ function payloadToSchemaJson(payload: Payload): unknown {
 // read the same as the old yup-based errors did.
 function fieldPath(instancePath: string): string {
     let path = instancePath;
-    if (path.startsWith('/profile')) {
-        path = path.slice('/profile'.length);
+    if (path.startsWith("/profile")) {
+        path = path.slice("/profile".length);
     }
-    if (path.startsWith('/')) {
+    if (path.startsWith("/")) {
         path = path.slice(1);
     }
-    return path.length === 0 ? 'payload' : path;
+    return path.length === 0 ? "payload" : path;
 }
 
 // Not expressible in plain JSON Schema (see coef_rows.x-unique-except-zero
@@ -85,7 +85,7 @@ function uniqueMvError(rows: CoefRow[]): string | null {
 
 export const validate = (data: Payload, abortEarly: boolean = false): void => {
     if (!data.profile) {
-        throw new ValidationError(['payload: missing profile']);
+        throw new ValidationError(["payload: missing profile"]);
     }
 
     const messages: string[] = [];

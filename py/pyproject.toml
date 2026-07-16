@@ -31,7 +31,6 @@ dependencies = [
     "cel-python==0.5.0",
     "tqdm==4.68.4",
     "typing_extensions==4.16.0",
-    "yupy>=0.2.0",
     "fastjsonschema>=2.21.2",
     "jsonschema>=4.25.2",
     # We need at least this version, which started publishing wheels for Python 3.14.
@@ -91,6 +90,9 @@ exclude = [
     "__init__.py",
     "src/**/*pb2.py",
     "src/**/_compiled_schema.py",
+    # a7p-lib is a submodule gitlink (separate repo, own tooling) -- never
+    # format/lint its contents from here, even if it ever gets checked out.
+    "a7p-lib",
 ]
 
 [dependency-groups]

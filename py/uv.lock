@@ -21,7 +21,6 @@ dependencies = [
     { name = "protobuf" },
     { name = "tqdm" },
     { name = "typing-extensions" },
-    { name = "yupy" },
 ]
 
 [package.optional-dependencies]
@@ -50,7 +49,6 @@ requires-dist = [
     { name = "protobuf", specifier = ">=7.35.1" },
     { name = "tqdm", specifier = "==4.68.4" },
     { name = "typing-extensions", specifier = "==4.16.0" },
-    { name = "yupy", specifier = ">=0.2.0" },
 ]
 provides-extras = ["orjson"]
 
@@ -939,16 +937,4 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/92/ff/5a28bdfd8c3ebec42564ac7d0e54ca3db65044a9314a97f9564fa7a1e926/tzdata-2026.3.tar.gz", hash = "sha256:4a1518b8993086a7982523e071643f3c0e5f213e75b21318e78bcabfff9d1415", size = 198674, upload-time = "2026-07-10T08:50:37.887Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e5/6d/b53b99a9f2766d095985947a5782f1702cabb129a34f7a802d7197af832f/tzdata-2026.3-py2.py3-none-any.whl", hash = "sha256:dc096730c87af6cab1b171c9d532be840741ff5d459015e7f6947bd7d7e54931", size = 348168, upload-time = "2026-07-10T08:50:36.46Z" },
-]
-
-[[package]]
-name = "yupy"
-version = "0.2.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/90/10/3746114a0904cee22ba7f0482b1074e8d6bde34177da15425bde35949b86/yupy-0.2.0.tar.gz", hash = "sha256:2cb50a3b95c21c8457cd8f388ddd8b7fed85d6fa3033d874e947b14e5fc69eb4", size = 98132, upload-time = "2026-07-13T09:26:20.449Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/fc/4f/1c44e5d5c1009ffaff122ea3689a0ff6952bf98a430052b360003c343e93/yupy-0.2.0-py3-none-any.whl", hash = "sha256:ca9981415381ff3dbfeb02c216a7d274b00ac39ddbd4cac10c30d698d040bc17", size = 36675, upload-time = "2026-07-13T09:26:19.17Z" },
 ]

@@ -16,6 +16,24 @@ to preserve (unlike `js`/`dart`).
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
 ## [Unreleased]
 
+## [1.2.4] - 2026-07-16
+
+### Removed
+
+- `yupy` dependency and the hand-written `src/a7p/yupy_schema.py` validator it
+  backed — unused by the public `a7p.validate()` path since the migration to
+  `schema_validator.py` (`fastjsonschema`/`jsonschema` against
+  `schema/a7p.schema.json`), and kept only as a reference/regression suite
+  (`tests/test_yupy_schema.py`) until now
+- `exceptions.YupyViolation` and `exceptions.A7PYupyValidationError` — folded
+  into plain `Violation`/`A7PValidationError`; `A7PValidationError` no longer
+  splits errors into `.violations`/`.yupy_violations`/`.all_violations`, just
+  one `.violations` list
+
+### Changed
+
+- CLI flag `--disable-yupy` renamed to `--disable-validator`
+
 ## [1.2.3] - 2026-07-14
 
 ### Fixed
@@ -45,7 +63,8 @@ to preserve (unlike `js`/`dart`).
 - `proto/profedit.proto` now lives once at the repo root instead of a
   local copy under `proto/`
 
-[Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.3...HEAD
+[Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.4...HEAD
+[1.2.4]: https://github.com/o-murphy/a7p/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/o-murphy/a7p/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/o-murphy/a7p/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/o-murphy/a7p/compare/v1.2.0...v1.2.1

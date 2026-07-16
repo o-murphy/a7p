@@ -20,6 +20,8 @@
     "build:schema": "node scripts/build_schema_validator.mjs",
     "build:ts": "tsc",
     "build": "yarn build:ts && mkdir -p dist/generated && cp src/generated/a7p_schema_validator.cjs src/generated/a7p_schema_validator.d.cts dist/generated/",
+    "format": "prettier --write \"**/*.{js,mjs,cjs,ts}\"",
+    "format:check": "prettier --check \"**/*.{js,mjs,cjs,ts}\"",
     "test": "jest"
   },
   "author": "o-murphy",
@@ -65,6 +67,7 @@
     "@types/jest": "^30.0.0",
     "babel-jest": "^30.4.1",
     "jest": "^30.4.1",
+    "prettier": "^3.9.5",
     "ts-proto": "^2.11.8",
     "typescript": "^6.0.3"
   }

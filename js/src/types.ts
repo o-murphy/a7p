@@ -1,17 +1,17 @@
 export enum TwistDir {
-    LEFT = 'LEFT',
-    RIGHT = 'RIGHT'
+    LEFT = "LEFT",
+    RIGHT = "RIGHT",
 }
 
 export enum BcType {
-    G1 = 'G1',
-    G7 = 'G7',
-    CUSTOM = "CUSTOM"
+    G1 = "G1",
+    G7 = "G7",
+    CUSTOM = "CUSTOM",
 }
 
 export interface SwitchProps {
     cIdx: number;
-    distanceFrom: 'INDEX' | 'VALUE';
+    distanceFrom: "INDEX" | "VALUE";
     distance: number;
     reticleIdx: number;
     zoom: number;
@@ -55,5 +55,5 @@ export interface Profile {
 }
 
 export interface Payload {
-    profile: Profile
-} 
+    profile: Profile;
+}

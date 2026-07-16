@@ -1,0 +1,7 @@
+node_modules/
+dist/
+
+# Generated -- see headers in the files themselves; reformatting here would
+# just fight with the next `scripts/compile.py --ts` / `build:proto` run.
+src/generated/
+src/profedit.ts

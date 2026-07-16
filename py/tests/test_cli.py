@@ -22,7 +22,7 @@ def test_process_file_invalid(broken_path):
     result = process_file(broken_path, validate=True, verbose=True)
     assert result.error == "Validation error"
     assert result.validation_error is not None
-    assert result.validation_error.all_violations
+    assert result.validation_error.violations
 
 
 def test_process_file_ignores_non_a7p_suffix(tmp_path):

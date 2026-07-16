@@ -82,8 +82,7 @@ single_file_group = parser.add_argument_group("Single file specific options")
 single_file_group.add_argument(
     "--jsonify",
     action="store_true",
-    help="Print as json"
-    "This option is only allowed for a single file.",
+    help="Print as jsonThis option is only allowed for a single file.",
 )
 single_file_group.add_argument(
     "--verbose",
@@ -146,10 +145,11 @@ switches_exclusive_group.add_argument(
 
 advanced_group = parser.add_argument_group("Advanced")
 advanced_group.add_argument(
-    "--disable-yupy",
+    "--disable-validator",
     action="store_false",
     default=True,
-    help="Disable yupy validation (unsafe).",
+    dest="use_schema_validator",
+    help="Disable JSON Schema validation (unsafe).",
 )
 
 
@@ -200,7 +200,7 @@ class Result:
             color_print("\tSwitches copied", levelname="LIGHT_BLUE")
 
         if self.validation_error and verbose:
-            for violation in self.validation_error.all_violations:
+            for violation in self.validation_error.violations:
                 color_print(violation.format(), levelname="WARNING")
 
     def save_changes(self, force=False):
@@ -326,7 +326,7 @@ def process_file(
     except (IOError, exceptions.A7PDataError) as err:
         result.error = err
         return result
-    
+
     if jsonify:
         print(a7p.to_json(payload))
         return
@@ -455,8 +455,8 @@ def main():
         args = parser.parse_args()
         # print(args)
         args_dict = args.__dict__
-        disable_yupy = args_dict.pop("disable_yupy", False)
-        setUseSchemaValidator(disable_yupy)
+        use_schema_validator = args_dict.pop("use_schema_validator", True)
+        setUseSchemaValidator(use_schema_validator)
 
         process_files(**args.__dict__)
         if args.jsonify:

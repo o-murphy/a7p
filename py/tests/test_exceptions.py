@@ -1,11 +1,6 @@
 from pathlib import Path
 
-from a7p.exceptions import (
-    A7PValidationError,
-    A7PYupyValidationError,
-    Violation,
-    YupyViolation,
-)
+from a7p.exceptions import A7PValidationError, Violation
 
 
 def test_violation_format_with_scalar_value():
@@ -26,27 +21,12 @@ def test_violation_format_hides_non_scalar_value():
     assert "<object>" in v.format()
 
 
-def test_all_violations_combines_general_and_yupy():
-    yupy_violations = [YupyViolation(path="~/a", value=1, reason="r1")]
-    err = A7PValidationError(
-        "Validation error",
-        payload=None,
-        violations=[Violation(path="~", value=None, reason="top-level")],
-        yupy_violations=yupy_violations,
-    )
-    assert err.all_violations == [
-        Violation(path="~", value=None, reason="top-level"),
-        yupy_violations[0],
-    ]
-
-
-def test_all_violations_defaults_to_empty_lists():
+def test_violations_defaults_to_empty_list():
     err = A7PValidationError("Validation error", payload=None)
-    assert err.all_violations == []
+    assert err.violations == []
 
 
-def test_a7p_yupy_validation_error_sets_yupy_violations():
-    violations = [YupyViolation(path="~/x", value=1, reason="bad")]
-    err = A7PYupyValidationError("Yupy error", payload=None, violations=violations)
-    assert err.yupy_violations == violations
-    assert err.all_violations == violations
+def test_violations_carries_given_list():
+    violations = [Violation(path="~/x", value=1, reason="bad")]
+    err = A7PValidationError("Validation error", payload=None, violations=violations)
+    assert err.violations == violations

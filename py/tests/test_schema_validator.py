@@ -1,9 +1,8 @@
 """Regression tests for schema_validator.py bounds, exercised through the
-public a7p.validate() -- unlike test_yupy_schema.py (which tests the old,
-no-longer-wired-in yupy_schema.py directly), these confirm the schema-based
-validator that actually backs a7p.validate() today preserves the same
-decisions, in particular the two that were open design questions until
-confirmed against profile.clj / real data:
+public a7p.validate() -- these confirm the schema-based validator that
+actually backs a7p.validate() preserves the intended decisions, in
+particular the two that were open design questions until confirmed against
+profile.clj / real data:
 
 - c_idx: 0-200 or the 255 "unused" sentinel; 201-254 is an undefined gap and
   must be rejected (a7p-js/a7p-dart are currently looser here -- see
@@ -33,9 +32,7 @@ def is_valid(payload) -> bool:
     "zoom, expected", [(0, True), (4, True), (6, True), (7, False)]
 )
 def test_switch_zoom_bounds(build_payload, default_switch, zoom, expected):
-    payload = build_payload(
-        {"switches": [default_switch(zoom=zoom) for _ in range(4)]}
-    )
+    payload = build_payload({"switches": [default_switch(zoom=zoom) for _ in range(4)]})
     assert is_valid(payload) is expected
 
 
@@ -103,7 +100,9 @@ def test_coef_row_bc_cd_bound_custom(build_payload, bc_cd, expected):
 
 @pytest.mark.parametrize("mv, expected", [(100000, True), (100001, False)])
 def test_coef_row_mv_bound_custom(build_payload, mv, expected):
-    payload = build_payload({"bc_type": "CUSTOM", "coef_rows": [{"bc_cd": 0, "mv": mv}]})
+    payload = build_payload(
+        {"bc_type": "CUSTOM", "coef_rows": [{"bc_cd": 0, "mv": mv}]}
+    )
     assert is_valid(payload) is expected
 
 

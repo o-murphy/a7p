@@ -1,0 +1,74 @@
+default_install_hook_types: [pre-commit]
+default_language_version:
+  python: python3
+
+repos:
+  - repo: local
+    hooks:
+      # py/
+      - id: uv-sync
+        name: uv sync before hooks (py)
+        entry: uv
+        args: ["--project", "py", "sync"]
+        language: system
+        pass_filenames: false
+        files: '^py/.*\.py$'
+
+      - id: uv-ruff-check
+        name: ruff lint & fix (py)
+        entry: bash -c 'cd py && uv run ruff check --fix'
+        language: system
+        pass_filenames: false
+        files: '^py/.*\.py$'
+
+      - id: uv-ruff-format
+        name: ruff format (py)
+        entry: bash -c 'cd py && uv run ruff format'
+        language: system
+        pass_filenames: false
+        files: '^py/.*\.py$'
+
+      # js/
+      - id: prettier-js
+        name: prettier format (js)
+        entry: bash -c 'cd js && yarn --silent format'
+        language: system
+        pass_filenames: false
+        files: '^js/.*\.(js|mjs|cjs|ts)$'
+        exclude: "^js/src/generated/"
+
+      # dart/
+      - id: dart-format
+        name: dart format (dart)
+        entry: bash -c 'cd dart && dart format lib test bin'
+        language: system
+        pass_filenames: false
+        files: '^dart/.*\.dart$'
+
+      - id: dart-analyze
+        name: dart analyze (dart)
+        entry: bash -c 'cd dart && dart analyze --fatal-infos'
+        language: system
+        pass_filenames: false
+        files: '^dart/.*\.dart$'
+
+      # go/
+      - id: gofmt
+        name: gofmt (go)
+        entry: bash -c 'cd go && gofmt -w -l .'
+        language: system
+        pass_filenames: false
+        files: '^go/.*\.go$'
+
+      - id: go-vet
+        name: go vet (go)
+        entry: bash -c 'cd go && go vet ./...'
+        language: system
+        pass_filenames: false
+        files: '^go/.*\.go$'
+
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.11.28
+    hooks:
+      - id: uv-lock
+        args: ["--project", "py"]

@@ -307,9 +307,18 @@ jsonschema-fallback, публічний API незмінний, скомпіль
    - **Дрейф `_compiled_schema.py`**: `python scripts/compile.py --python` і
      `git diff --exit-code py/src/a7p/_compiled_schema.py` — щоб згенерований файл не міг
      розійтися зі схемою непоміченим (зараз це суто ручна дисципліна, див. `README.md`).
-5. **Прибрати `yupy`/`yupy_schema.py` з `py`.** Зараз лишені навмисно паралельно
-   (їх тестує `test_yupy_schema.py`) як референс/страховка. Видаляти тільки після
-   впевненості, що новий валідатор відпрацював у продакшені якийсь час.
+5. ~~**Прибрати `yupy`/`yupy_schema.py` з `py`.**~~ **Зроблено.** `yupy` видалено з
+   `pyproject.toml`, `src/a7p/yupy_schema.py` і його референс-тести
+   (`tests/test_yupy_schema.py`, `tests/yupy_check.py`) видалені. Публічний
+   `exceptions.py` спрощено відповідно: `YupyViolation`/`A7PYupyValidationError`
+   прибрані, `A7PValidationError.yupy_violations`/`.all_violations` злиті в один
+   `violations` (`a7p.validate()` більше не веде окремий "yupy"-список — увесь шлях
+   і так іде через `schema_validator.py`). CLI-прапорець `--disable-yupy`
+   перейменовано на `--disable-validator` (README і `--help` синхронізовані).
+   Прибрані згадки `yupy_schema.py`/`test_yupy_schema.py` з `x-decision`/
+   `x-discrepancy`-анотацій у `schema/a7p.schema.json` (вони описували стан, який
+   більше не існує) — усі чотири згенеровані артефакти (`py`, `js`, `dart`, `go`)
+   перекомпільовані через `scripts/compile.py`, щоб не розійтися зі схемою.
 6. **Quicktype / генерація типів** — опційний крок (п.3 у "Рішеннях" вище), не
    пріоритетний, оскільки публічні типи кожного пакета вирішено не чіпати. Переглянути
    окремо, якщо колись знадобиться єдине джерело для самих типів, а не лише валідації.

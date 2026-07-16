@@ -51,9 +51,11 @@ def _get_slow_validator():
 
         import jsonschema
 
-        with resources.files("a7p").joinpath("a7p.schema.json").open(
-            "r", encoding="utf-8"
-        ) as f:
+        with (
+            resources.files("a7p")
+            .joinpath("a7p.schema.json")
+            .open("r", encoding="utf-8") as f
+        ):
             schema = json.load(f)
         _slow_validator = jsonschema.Draft202012Validator(schema)
     return _slow_validator
