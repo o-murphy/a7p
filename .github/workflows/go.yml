@@ -21,61 +21,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ── Lint ─────────────────────────────────────────────────────────────────────
-  lint:
-    name: Vet & gofmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version: ">=1.26.5"
-
-      - name: go vet
-        run: go vet ./go/...
-
-      - name: gofmt
-        run: |
-          unformatted="$(gofmt -l ./go)"
-          if [ -n "$unformatted" ]; then
-            echo "$unformatted"
-            echo "-- run 'gofmt -w' on the files above --"
-            exit 1
-          fi
-
-  # ── Schema/proto drift guard ─────────────────────────────────────────────────
-  # go/a7p/generated/a7p_schema.g.json and go/a7p/profedit/profedit.pb.go are
-  # generated, checked-in files (see docs/DESIGN-schema-unification.md) --
-  # this catches an edit to schema/a7p.schema.json or proto/profedit.proto
-  # that forgot to regenerate them.
-  drift-guard:
-    name: Schema/proto drift guard
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version: ">=1.26.5"
-
-      - name: Install protoc
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-
-      - name: Install protoc-gen-go
-        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-
-      - name: Regenerate and diff
-        run: |
-          export PATH="$PATH:$(go env GOPATH)/bin"
-          python3 scripts/compile.py --go
-          bash scripts/generate_proto.sh --go
-          git diff --exit-code go/a7p/generated/a7p_schema.g.json go/a7p/profedit/profedit.pb.go
+  # Lint (go vet + gofmt) moved to the go-vet/gofmt hooks in
+  # .pre-commit-config.yaml, run by .github/workflows/pre-commit.yml.
+  # Schema/proto drift guard moved to the go-schema-proto-drift-guard hook
+  # in the same file.
 
   # ── Build & Test ──────────────────────────────────────────────────────────────
   test:
     name: Build & Test (${{ matrix.os }})
-    needs: [lint]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

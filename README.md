@@ -212,13 +212,21 @@ only runs when you actually touch that package:
 | Package | Hooks |
 |---|---|
 | `py/` | `uv sync`, `ruff check --fix`, `ruff format`, `mypy`, `pytest` |
-| `js/` | `prettier --write` (via `yarn format`), `jest` (via `yarn test`) |
-| `dart/` | `dart format`, `dart analyze --fatal-infos`, `dart test` |
-| `go/` | `gofmt -w`, `go vet`, `go test ./...` |
+| `js/` | `prettier --write`, `tsc --noEmit` typecheck, `jest`, `yarn build` |
+| `dart/` | `dart format`, `dart analyze --fatal-infos`, `dart test`, `dart pub publish --dry-run` |
+| `go/` | `gofmt -w`, `go vet`, `go test ./...`, schema/proto drift guard (regenerates `go/`'s checked-in generated files and diffs) |
 | root | `scripts/ci/sync_changelogs.py` whenever `CHANGELOG.md` changes, keeping `py`/`js`/`dart`/`go/CHANGELOG.md` in sync |
 
 Plus a remote hook (`astral-sh/uv-pre-commit`) that keeps `py/uv.lock` in
 sync with `py/pyproject.toml`.
+
+`.github/workflows/pre-commit.yml` runs this same hook set in CI
+(`pre-commit run --all-files`) and is a required leg of `release.yml`'s
+release gate. `py/` and `js/` no longer have their own CI workflow files —
+every job they had either moved into a hook above or was already redundant
+with one. `dart.yml`/`go.yml` still exist for what pre-commit doesn't cover
+(multi-OS test matrix, cross-compiled binaries, artifact/package
+publishing).
 
 Install once:
 

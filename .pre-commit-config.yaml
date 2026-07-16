@@ -49,11 +49,25 @@ repos:
         language: system
         pass_filenames: false
         files: '^js/.*\.(js|mjs|cjs|ts)$'
-        exclude: "^js/src/generated/"
+        exclude: '^js/src/generated/'
+
+      - id: tsc-js
+        name: tsc typecheck (js)
+        entry: bash -c 'cd js && npx tsc --noEmit -p .'
+        language: system
+        pass_filenames: false
+        files: '^js/.*\.(js|mjs|cjs|ts)$'
 
       - id: jest-js
         name: jest (js)
         entry: bash -c 'cd js && yarn --silent test'
+        language: system
+        pass_filenames: false
+        files: '^js/.*\.(js|mjs|cjs|ts)$'
+
+      - id: build-js
+        name: yarn build (js)
+        entry: bash -c 'cd js && yarn --silent build'
         language: system
         pass_filenames: false
         files: '^js/.*\.(js|mjs|cjs|ts)$'
@@ -80,6 +94,13 @@ repos:
         pass_filenames: false
         files: '^dart/.*\.dart$'
 
+      - id: dart-publish-dry-run
+        name: dart pub publish --dry-run (dart)
+        entry: bash -c 'cd dart && dart pub publish --dry-run'
+        language: system
+        pass_filenames: false
+        files: '^dart/(.*\.dart|pubspec\.yaml)$'
+
       # go/
       - id: gofmt
         name: gofmt (go)
@@ -101,6 +122,18 @@ repos:
         language: system
         pass_filenames: false
         files: '^go/.*\.go$'
+
+      - id: go-schema-proto-drift-guard
+        name: schema/proto drift guard (go)
+        # Needs protoc + protoc-gen-go on $PATH (same as go.yml's old
+        # drift-guard job) -- regenerates go/'s checked-in generated files
+        # from schema/a7p.schema.json + proto/profedit.proto and fails if
+        # that produces a diff (i.e. someone edited the schema/proto but
+        # forgot to regenerate).
+        entry: bash -c 'export PATH="$PATH:$(go env GOPATH)/bin" && uv run --project py python3 scripts/compile.py --go && bash scripts/generate_proto.sh --go && git diff --exit-code go/a7p/generated/a7p_schema.g.json go/a7p/profedit/profedit.pb.go'
+        language: system
+        pass_filenames: false
+        files: '^(schema/a7p\.schema\.json|proto/profedit\.proto|go/a7p/generated/a7p_schema\.g\.json|go/a7p/profedit/profedit\.pb\.go)$'
 
       # root -- keeps py/js/dart/go's own CHANGELOG.md in sync with the
       # root one whenever it changes (see scripts/ci/sync_changelogs.py).
