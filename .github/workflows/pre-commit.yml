@@ -4,14 +4,20 @@ name: Pre-commit
 # README.md's "Pre-commit hooks" section) against the whole repo, so a
 # contributor who skipped `pre-commit install` still gets caught in CI.
 # All hooks are `language: system` (they shell out to each package's own
-# toolchain -- uv/ruff/mypy/pytest, yarn/prettier/jest, dart, go -- rather
-# than a toolchain pre-commit itself manages), so every one of those has to
-# be installed here first or its hook just fails with "command not found".
+# toolchain -- uv/ruff/mypy/pytest, yarn/prettier/tsc/jest, dart, go, plus
+# protoc/protoc-gen-go for the schema/proto drift guard -- rather than a
+# toolchain pre-commit itself manages), so every one of those has to be
+# installed here first or its hook just fails with "command not found".
+# Required leg of release.yml's release gate (see test-pre-commit there):
+# several per-package CI steps were folded into hooks here instead of
+# staying duplicated in py.yml/js.yml/dart.yml/go.yml (py.yml and js.yml
+# were deleted outright once nothing non-redundant was left in them).
 
 on:
   push:
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 concurrency:
   group: pre-commit-${{ github.workflow }}-${{ github.ref }}
@@ -37,24 +43,28 @@ jobs:
           cache: "yarn"
           cache-dependency-path: js/yarn.lock
 
-      - name: Install js/ dependencies
-        run: yarn install --frozen-lockfile
-        working-directory: js
-
+      # No explicit "yarn install"/"dart pub get" steps here -- the
+      # yarn-install/dart-pub-get hooks (first in each package's section of
+      # .pre-commit-config.yaml) do that as part of the run below, same as
+      # a dev running `pre-commit run` locally would rely on.
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
-
-      - name: Install dart/ dependencies
-        run: dart pub get
-        working-directory: dart
 
       - uses: actions/setup-go@v7
         with:
           go-version: ">=1.26.5"
 
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Install protoc-gen-go
+        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+
       - name: Install pre-commit
         run: uv tool install pre-commit
 
       - name: Run pre-commit
-        run: pre-commit run --all-files --show-diff-on-failure
+        run: |
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          pre-commit run --all-files --show-diff-on-failure

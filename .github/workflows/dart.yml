@@ -21,31 +21,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ── Analyze ──────────────────────────────────────────────────────────────────
-  analyze:
-    name: Analyze
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./dart
-
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - uses: dart-lang/setup-dart@v1
-        with:
-          sdk: stable
-
-      - name: Install dependencies
-        run: dart pub get
-
-      - name: Analyze
-        run: dart analyze --fatal-infos
-
-      - name: Verify formatting
-        run: dart format --output=none --set-exit-if-changed lib test bin
+  # Analyze (dart analyze + format check) moved to the dart-analyze/
+  # dart-format hooks in .pre-commit-config.yaml, run by
+  # .github/workflows/pre-commit.yml.
 
   # ── Test ─────────────────────────────────────────────────────────────────────
   test:
@@ -73,25 +51,5 @@ jobs:
       - name: Run tests
         run: dart test
 
-  # ── pub.dev publish dry-run ───────────────────────────────────────────────────
-  publish-dry-run:
-    name: pub.dev dry-run
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./dart
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - uses: dart-lang/setup-dart@v1
-        with:
-          sdk: stable
-
-      - name: Install dependencies
-        run: dart pub get
-
-      - name: Publish dry-run
-        run: dart pub publish --dry-run
+  # pub.dev publish dry-run moved to the dart-publish-dry-run hook in
+  # .pre-commit-config.yaml, run by .github/workflows/pre-commit.yml.

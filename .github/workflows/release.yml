@@ -34,23 +34,32 @@ concurrency:
 
 jobs:
   # ── run each package's own CI as reusable workflows ─────────────────────
-  test-python:
-    uses: ./.github/workflows/py.yml
-
-  test-js:
-    uses: ./.github/workflows/js.yml
-
+  # py.yml and js.yml were deleted outright -- every job either was moved
+  # into pre-commit hooks (see test-pre-commit below) or was already
+  # redundant with one, leaving nothing left worth a separate reusable
+  # workflow. dart/go keep theirs: multi-OS test matrix, pub.dev/binary
+  # publishing, cross-compiled artifact upload -- none of which
+  # pre-commit.yml covers.
   test-dart:
     uses: ./.github/workflows/dart.yml
 
   test-go:
     uses: ./.github/workflows/go.yml
 
+  # Runs .pre-commit-config.yaml's hooks (see .github/workflows/pre-commit.yml)
+  # -- required here because several per-package CI steps (py's ruff/mypy/
+  # pytest, js's tsc/build/test, dart's publish --dry-run, go's vet/gofmt/
+  # schema-proto drift guard) were folded into pre-commit hooks instead of
+  # staying duplicated in per-package workflows; without this leg a release
+  # could ship without ever running those checks.
+  test-pre-commit:
+    uses: ./.github/workflows/pre-commit.yml
+
   # Single guard job downstream jobs depend on, instead of each repeating
   # the full test-* job list -- adding a language later only means adding
   # it here, not hunting down every job's `needs:`.
   tests-passed:
-    needs: [test-python, test-js, test-dart, test-go]
+    needs: [test-dart, test-go, test-pre-commit]
     runs-on: ubuntu-latest
     steps:
       - run: echo "All test legs passed."
