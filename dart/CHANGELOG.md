@@ -12,8 +12,6 @@ regenerate.
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
 ## [Unreleased]
 
-## [1.2.4] - 2026-07-16
-
 ### Changed
 
 - Regenerated `lib/src/generated/a7p_schema.g.dart` via `scripts/compile.py`
@@ -80,8 +78,7 @@ First stable release, no changes from [0.1.0-beta.1](#010-beta1---2026-07-04).
 Initial extraction from `archerbc2_flutter/packages/a7p` into a standalone
 package.
 
-[Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.4...HEAD
-[1.2.4]: https://github.com/o-murphy/a7p/compare/v1.2.3...v1.2.4
+[Unreleased]: https://github.com/o-murphy/a7p/compare/v1.2.3...HEAD
 [1.2.3]: https://github.com/o-murphy/a7p/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/o-murphy/a7p/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/o-murphy/a7p/compare/v1.2.0...v1.2.1
