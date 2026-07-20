@@ -174,7 +174,7 @@ repos:
         files: '^CHANGELOG\.md$'
 
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.11.29
+    rev: 0.11.30
     hooks:
       - id: uv-lock
         args: ["--project", "py"]
