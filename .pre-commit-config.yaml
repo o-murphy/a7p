@@ -6,6 +6,14 @@ repos:
   - repo: local
     hooks:
       # py/
+      - id: uv-lock
+        name: uv lock check
+        entry: uv
+        args: ["lock", "--check"]
+        language: system
+        pass_filenames: false
+        files: '^(pyproject\.toml|uv\.lock)$'
+
       - id: uv-sync
         name: uv sync before hooks (py)
         entry: uv
@@ -56,7 +64,7 @@ repos:
         language: system
         pass_filenames: false
         files: '^js/.*\.(js|mjs|cjs|ts)$'
-        exclude: '^js/src/generated/'
+        exclude: "^js/src/generated/"
 
       - id: tsc-js
         name: tsc typecheck (js)
@@ -172,9 +180,3 @@ repos:
         language: system
         pass_filenames: false
         files: '^CHANGELOG\.md$'
-
-  - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.11.29
-    hooks:
-      - id: uv-lock
-        args: ["--project", "py"]
