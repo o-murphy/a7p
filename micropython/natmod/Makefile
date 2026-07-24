@@ -59,7 +59,7 @@ MOD_BASE = _a7p
 MOD      = $(MOD_BASE)_$(ARCH)
 BUILD    = build/$(ARCH)
 
-SRC = a7p_mp.c profedit.pb.c pb_common.c pb_decode.c pb_encode.c
+SRC = a7p_mp.c a7p_validate.c profedit.pb.c pb_common.c pb_decode.c pb_encode.c
 
 CFLAGS_EXTRA += -I$(SRC_DIR) -I$(NANOPB_DIR)
 
@@ -93,8 +93,9 @@ include $(MPY_DIR)/py/dynruntime.mk
 endif
 
 # dynruntime.mk compiles with no -MMD, so .o files only depend on their .c
-# file. Force a rebuild when the generated offset guards change.
-$(SRC_O): $(SRC_DIR)/a7p_layout.h
+# file. Force a rebuild when the generated offset guards / validation bounds
+# change.
+$(SRC_O): $(SRC_DIR)/a7p_layout.h $(SRC_DIR)/a7p_validate.h $(SRC_DIR)/a7p_validate_err.h
 
 MPY_CROSS ?= $(MPY_DIR)/mpy-cross/build/mpy-cross
 

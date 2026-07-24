@@ -14,6 +14,7 @@
 #include "pb_decode.h"
 #include "pb_encode.h"
 #include "a7p_layout.h"
+#include "a7p_validate_err.h"
 
 static mp_obj_t a7p_decode(mp_obj_t buf_obj, mp_obj_t data_obj) {
     mp_buffer_info_t buf_info;
@@ -60,6 +61,17 @@ static mp_obj_t a7p_encode(mp_obj_t buf_obj) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(a7p_encode_obj, a7p_encode);
 
+static mp_obj_t a7p_validate_fn(mp_obj_t buf_obj) {
+    mp_buffer_info_t buf_info;
+    mp_get_buffer_raise(buf_obj, &buf_info, MP_BUFFER_READ);
+    if (buf_info.len < A7P_PAYLOAD_SIZE) {
+        mp_raise_ValueError(MP_ERROR_TEXT("a7p: buffer too small for Payload"));
+    }
+    int code = a7p_validate((const profedit_Payload *)buf_info.buf);
+    return mp_obj_new_int(code);
+}
+static MP_DEFINE_CONST_FUN_OBJ_1(a7p_validate_obj, a7p_validate_fn);
+
 /* Entry point, called when the module is imported. */
 mp_obj_t mpy_init(mp_obj_fun_bc_t *self, size_t n_args, size_t n_kw, mp_obj_t *args) {
     MP_DYNRUNTIME_INIT_ENTRY
@@ -67,6 +79,7 @@ mp_obj_t mpy_init(mp_obj_fun_bc_t *self, size_t n_args, size_t n_kw, mp_obj_t *a
     mp_store_global(MP_QSTR_PAYLOAD_SIZE, mp_obj_new_int_from_uint(A7P_PAYLOAD_SIZE));
     mp_store_global(MP_QSTR_decode, MP_OBJ_FROM_PTR(&a7p_decode_obj));
     mp_store_global(MP_QSTR_encode, MP_OBJ_FROM_PTR(&a7p_encode_obj));
+    mp_store_global(MP_QSTR_validate, MP_OBJ_FROM_PTR(&a7p_validate_obj));
 
     MP_DYNRUNTIME_INIT_EXIT
 }
