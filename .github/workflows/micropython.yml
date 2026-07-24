@@ -105,9 +105,13 @@ jobs:
       - name: Install x86 cross toolchain
         if: matrix.toolchain == 'x86cross'
         run: |
+          # dynruntime.mk's x86 case uses the native gcc with -m32, not a
+          # separate i686-linux-gnu- cross compiler -- gcc-multilib is what
+          # actually provides the 32-bit headers/libs -m32 needs (verified:
+          # gcc-i686-linux-gnu alone fails on missing bits/wordsize.h since
+          # that's not the compiler dynruntime.mk invokes for this ARCH).
           sudo apt-get update
-          sudo apt-get install -y gcc-i686-linux-gnu
-          i686-linux-gnu-gcc --version
+          sudo apt-get install -y gcc-multilib g++-multilib
 
       - name: Install xtensa (esp8266) toolchain
         if: matrix.toolchain == 'xtensa-lx106'
@@ -124,8 +128,15 @@ jobs:
           git clone --depth 1 --branch $IDF_VER https://github.com/espressif/esp-idf.git
           git -C esp-idf submodule update --init --recursive --filter=tree:0
           ./esp-idf/install.sh
+          # esp-idf's own venv only exists for the rest of *this* step --
+          # each workflow step is a fresh shell, so install here too (not
+          # just once globally) or later steps that `source export.sh`
+          # won't have them either.
+          source esp-idf/export.sh
+          pip install pyelftools ar
 
       - name: Install Python deps for mpy_ld.py
+        if: matrix.toolchain != 'esp-idf'
         run: pip install pyelftools ar
 
       - name: Build mpy-cross
@@ -144,6 +155,7 @@ jobs:
         env:
           MICROPYPATH: micropython/natmod/build/x64
         run: |
+          make -C mpy/ports/unix submodules
           make -C mpy/ports/unix -j"$(nproc)"
           mpy/ports/unix/build-standard/micropython micropython/tests/test_a7p.py
           mpy/ports/unix/build-standard/micropython micropython/tests/test_validate.py
@@ -229,11 +241,18 @@ jobs:
 
       - name: Fetch port submodules
         if: matrix.port != 'unix'
-        run: make -C mpy/ports/${{ matrix.port }} BOARD=${{ matrix.board }} submodules
+        run: |
+          # Each workflow step is a fresh shell -- esp-idf's export.sh (put
+          # idf.py on PATH) from the "Install esp-idf" step doesn't carry
+          # over, and esp32's own `submodules` target shells out to idf.py.
+          if [ "${{ matrix.port }}" = "esp32" ]; then source esp-idf/export.sh; fi
+          make -C mpy/ports/${{ matrix.port }} BOARD=${{ matrix.board }} submodules
 
       - name: Build usermod (unix)
         if: matrix.port == 'unix'
-        run: make -C mpy/ports/unix USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" -j"$(nproc)"
+        run: |
+          make -C mpy/ports/unix submodules
+          make -C mpy/ports/unix USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" -j"$(nproc)"
 
       - name: Build usermod (${{ matrix.port }}, Make + micropython.mk)
         if: matrix.port != 'unix' && matrix.cmake != true

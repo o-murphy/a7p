@@ -83,7 +83,9 @@ CFLAGS_EXTRA += -DPB_BUFFER_ONLY=1 -DPB_WITHOUT_64BIT=1 -fno-short-enums
 
 # Link libgcc/libm for compiler helper routines (e.g. soft integer division on
 # targets without hardware divide). nanopb itself needs no libc beyond
-# memcpy/memset/memmove, which mpy_ld.py resolves internally without this.
+# memcpy/memset/memmove -- recent mpy_ld.py (unreleased as of MicroPython
+# v1.28.0) resolves those internally regardless of what's linked; see the
+# libc.a block below for versions that don't.
 LINK_RUNTIME = 1
 
 ifeq ($(wildcard $(MPY_DIR)/py/dynruntime.mk),)
@@ -92,6 +94,21 @@ $(error MPY_DIR="$(MPY_DIR)" not found -- set MPY_DIR=/path/to/micropython, see 
 endif
 else
 include $(MPY_DIR)/py/dynruntime.mk
+endif
+
+# On MicroPython versions whose mpy_ld.py doesn't special-case memcpy/memset/
+# memmove internally (this was caught building against a pinned v1.28.0 in
+# CI -- x64/rv32imc/rv64imc worked, armv6m/armv7m/armv7emsp/armv7emdp/xtensa/
+# xtensawin failed with "undefined symbol: memset/memcpy"), those have to be
+# resolved by linking an actual libc. dynruntime.mk's own LINK_RUNTIME only
+# does that for picolibc/musl targets (rv32imc/rv64imc here already get
+# libc.a for free); plain newlib ARM/Xtensa targets only get libm.a. Link
+# newlib's libc.a explicitly for those so this doesn't depend on exactly
+# which MicroPython version MPY_DIR points at. Native x64/x86 (glibc) never
+# needed this -- small/bounded memcpy/memset there get inlined by gcc without
+# an external symbol.
+ifneq ($(filter armv6m armv7m armv7emsp armv7emdp xtensa xtensawin,$(ARCH)),)
+MPY_LD_FLAGS += -l$(realpath $(shell $(CROSS)gcc $(CFLAGS) --print-file-name=libc.a))
 endif
 
 # dynruntime.mk compiles with no -MMD, so .o files only depend on their .c

@@ -56,9 +56,12 @@ static mp_obj_t a7p_encode(mp_obj_t buf_obj) {
     if (ok) {
         result = mp_obj_new_bytes(scratch, stream.bytes_written);
     }
-    /* Unlike a7p_mp.c's dynruntime.h m_free(ptr) (single-arg macro over
-     * m_free_dyn), the real py/misc.h m_free() takes the allocation size. */
-    m_free(scratch, enc_size);
+    /* m_free()'s signature (whether it takes a size) is gated by the port's
+     * own MICROPY_MALLOC_USES_ALLOCATED_SIZE config, not something this
+     * module controls -- m_del() is the portable macro that adapts to
+     * either form (unlike a7p_mp.c's dynruntime.h, where m_free(ptr) is
+     * always single-arg regardless, since it's a wrapper over m_free_dyn). */
+    m_del(uint8_t, scratch, enc_size);
     if (!ok) {
         mp_raise_ValueError(MP_ERROR_TEXT("a7p: failed to encode Payload"));
     }

@@ -1,3 +1,4 @@
 natmod/build/
 natmod/.mpy_ld_cache-*
+natmod/.mpy_ld_cache/
 natmod/nanopb/
