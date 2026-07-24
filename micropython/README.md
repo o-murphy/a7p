@@ -214,10 +214,13 @@ cd ports/unix
 make USER_C_MODULES=/path/to/a7p/micropython/usermod
 
 # CMake-based ports (rp2, esp32): point USER_C_MODULES at the aggregator
-# .cmake file directly instead.
+# .cmake file directly instead. rp2's/esp32's own top-level Makefile is a
+# thin wrapper around cmake (forwards USER_C_MODULES to it as
+# -DUSER_C_MODULES=...) -- `make BOARD=... USER_C_MODULES=...` is the real
+# command upstream's own CI uses, not a raw `cmake -B build -D...` invocation.
 cd ports/rp2
-cmake -B build -DUSER_C_MODULES=/path/to/a7p/micropython/usermod/micropython.cmake
-cmake --build build
+make BOARD=RPI_PICO_W submodules   # first time only, fetches pico-sdk etc.
+make BOARD=RPI_PICO_W USER_C_MODULES=/path/to/a7p/micropython/usermod/micropython.cmake
 ```
 
 Then copy `micropython/src/a7p.py` onto the device's filesystem after

@@ -1,0 +1,274 @@
+name: MicroPython (natmod / usermod)
+
+# Builds micropython/ against a real MicroPython checkout, two ways:
+#   - natmod: every ARCH natmod/Makefile supports (a standalone .mpy)
+#   - usermod: a representative board per port that supports USER_C_MODULES
+#     (compiled directly into firmware via micropython/usermod/)
+#
+# Toolchain/setup commands below are taken from MicroPython's own
+# tools/ci.sh (the source its official .github/workflows/*.yml call into),
+# not guessed, so this matches how upstream actually builds these targets.
+#
+# Scope: usermod only covers the mainstream/hobbyist ports (unix, rp2,
+# esp32, stm32, samd, nrf, mimxrt, esp8266) -- not every port ci.sh knows
+# how to build. zephyr and embed are excluded because they don't support
+# USER_C_MODULES at all (see micropython/README.md's usermod section for
+# why); cc3200 (deprecated hardware), bare-arm/minimal (demo configs, not
+# real boards), pic16bit, alif, renesas-ra, psoc-edge, windows, webassembly
+# and qemu are excluded to keep this workflow's cost proportionate to this
+# project's realistic deployment targets -- they use the exact same
+# micropython.mk/micropython.cmake, so adding a job for one of them later
+# is copy-paste from an existing job, not new work.
+
+on:
+  push:
+    paths:
+      - "micropython/**"
+      - "proto/**"
+      - "schema/**"
+      - "go/assets/**"
+      - ".github/workflows/micropython.yml"
+  pull_request:
+    paths:
+      - "micropython/**"
+      - "proto/**"
+      - "schema/**"
+      - "go/assets/**"
+      - ".github/workflows/micropython.yml"
+  workflow_dispatch:
+  workflow_call:
+
+concurrency:
+  group: micropython-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Pinned MicroPython release, not master, so this doesn't flake on
+  # upstream churn -- bump deliberately, re-running the whole matrix.
+  MPY_REF: v1.28.0
+
+jobs:
+  # ── natmod ────────────────────────────────────────────────────────────────
+  natmod:
+    name: natmod (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            toolchain: none
+          - arch: x86
+            toolchain: x86cross
+          - arch: armv6m
+            toolchain: arm
+          - arch: armv7m
+            toolchain: arm
+          - arch: armv7emsp
+            toolchain: arm
+          - arch: armv7emdp
+            toolchain: arm
+          - arch: rv32imc
+            toolchain: riscv
+          - arch: rv64imc
+            toolchain: riscv
+          - arch: xtensa
+            toolchain: xtensa-lx106
+          - arch: xtensawin
+            toolchain: esp-idf
+
+    steps:
+      - name: Checkout a7p
+        uses: actions/checkout@v7
+
+      - name: Checkout MicroPython ${{ env.MPY_REF }}
+        uses: actions/checkout@v7
+        with:
+          repository: micropython/micropython
+          ref: ${{ env.MPY_REF }}
+          path: mpy
+
+      - name: Install ARM toolchain
+        if: matrix.toolchain == 'arm'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi
+          arm-none-eabi-gcc --version
+
+      - name: Install RISC-V toolchain
+        if: matrix.toolchain == 'riscv'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-riscv64-unknown-elf picolibc-riscv64-unknown-elf
+          riscv64-unknown-elf-gcc --version
+
+      - name: Install x86 cross toolchain
+        if: matrix.toolchain == 'x86cross'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-i686-linux-gnu
+          i686-linux-gnu-gcc --version
+
+      - name: Install xtensa (esp8266) toolchain
+        if: matrix.toolchain == 'xtensa-lx106'
+        run: |
+          wget -q https://micropython.org/resources/xtensa-lx106-elf-standalone.tar.gz
+          tar xzf xtensa-lx106-elf-standalone.tar.gz
+          echo "$PWD/xtensa-lx106-elf/bin" >> "$GITHUB_PATH"
+
+      - name: Install esp-idf (xtensawin toolchain)
+        if: matrix.toolchain == 'esp-idf'
+        env:
+          IDF_VER: v5.4
+        run: |
+          git clone --depth 1 --branch $IDF_VER https://github.com/espressif/esp-idf.git
+          git -C esp-idf submodule update --init --recursive --filter=tree:0
+          ./esp-idf/install.sh
+
+      - name: Install Python deps for mpy_ld.py
+        run: pip install pyelftools ar
+
+      - name: Build mpy-cross
+        run: make -C mpy/mpy-cross -j"$(nproc)"
+
+      - name: Fetch nanopb
+        run: make -C micropython/natmod fetch-nanopb
+
+      - name: Build natmod (${{ matrix.arch }})
+        run: |
+          if [ "${{ matrix.toolchain }}" = "esp-idf" ]; then source esp-idf/export.sh; fi
+          make -C micropython/natmod MPY_DIR="$GITHUB_WORKSPACE/mpy" ARCH=${{ matrix.arch }} dist
+
+      - name: Build unix port + run tests (x64 only)
+        if: matrix.arch == 'x64'
+        env:
+          MICROPYPATH: micropython/natmod/build/x64
+        run: |
+          make -C mpy/ports/unix -j"$(nproc)"
+          mpy/ports/unix/build-standard/micropython micropython/tests/test_a7p.py
+          mpy/ports/unix/build-standard/micropython micropython/tests/test_validate.py
+
+      - name: Upload natmod .mpy files (${{ matrix.arch }})
+        uses: actions/upload-artifact@v7
+        with:
+          name: a7p-natmod-${{ matrix.arch }}
+          path: micropython/natmod/build/${{ matrix.arch }}/*.mpy
+          if-no-files-found: error
+
+  # ── usermod ───────────────────────────────────────────────────────────────
+  usermod:
+    name: usermod (${{ matrix.port }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - port: unix
+          - port: rp2
+            board: RPI_PICO_W
+            cmake: true
+          - port: esp32
+            board: ESP32_GENERIC
+            cmake: true
+          - port: stm32
+            board: NUCLEO_F091RC
+          - port: samd
+            board: ADAFRUIT_ITSYBITSY_M4_EXPRESS
+          - port: nrf
+            board: MICROBIT
+          - port: mimxrt
+            board: TEENSY40
+          - port: esp8266
+            board: ESP8266_GENERIC
+
+    steps:
+      - name: Checkout a7p
+        uses: actions/checkout@v7
+
+      - name: Checkout MicroPython ${{ env.MPY_REF }}
+        uses: actions/checkout@v7
+        with:
+          repository: micropython/micropython
+          ref: ${{ env.MPY_REF }}
+          path: mpy
+
+      - name: Install ARM toolchain
+        if: matrix.port != 'unix' && matrix.port != 'esp32' && matrix.port != 'esp8266'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi
+
+      - name: Install picotool (rp2)
+        if: matrix.port == 'rp2'
+        run: |
+          git clone --depth 1 https://github.com/raspberrypi/pico-sdk.git pico-sdk-picotool
+          (cd pico-sdk-picotool && git submodule update --init lib/mbedtls)
+          git clone --depth 1 https://github.com/raspberrypi/picotool.git
+          (cd picotool && mkdir build && cd build && cmake -DPICO_SDK_PATH=../../pico-sdk-picotool .. && make -j"$(nproc)" && sudo make install)
+
+      - name: Install esp-idf (esp32)
+        if: matrix.port == 'esp32'
+        env:
+          IDF_VER: v5.4
+        run: |
+          git clone --depth 1 --branch $IDF_VER https://github.com/espressif/esp-idf.git
+          git -C esp-idf submodule update --init --recursive --filter=tree:0
+          ./esp-idf/install.sh
+
+      - name: Install xtensa (esp8266) toolchain
+        if: matrix.port == 'esp8266'
+        run: |
+          wget -q https://micropython.org/resources/xtensa-lx106-elf-standalone.tar.gz
+          tar xzf xtensa-lx106-elf-standalone.tar.gz
+          echo "$PWD/xtensa-lx106-elf/bin" >> "$GITHUB_PATH"
+
+      - name: Build mpy-cross
+        run: |
+          if [ "${{ matrix.port }}" = "esp32" ]; then source esp-idf/export.sh; fi
+          make -C mpy/mpy-cross -j"$(nproc)"
+
+      - name: Fetch port submodules
+        if: matrix.port != 'unix'
+        run: make -C mpy/ports/${{ matrix.port }} BOARD=${{ matrix.board }} submodules
+
+      - name: Build usermod (unix)
+        if: matrix.port == 'unix'
+        run: make -C mpy/ports/unix USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" -j"$(nproc)"
+
+      - name: Build usermod (${{ matrix.port }}, Make + micropython.mk)
+        if: matrix.port != 'unix' && matrix.cmake != true
+        run: |
+          make -C mpy/ports/${{ matrix.port }} BOARD=${{ matrix.board }} \
+            USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" -j"$(nproc)"
+
+      - name: Build usermod (${{ matrix.port }}, CMake + micropython.cmake)
+        if: matrix.cmake == true
+        run: |
+          if [ "${{ matrix.port }}" = "esp32" ]; then source esp-idf/export.sh; fi
+          make -C mpy/ports/${{ matrix.port }} BOARD=${{ matrix.board }} \
+            USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod/micropython.cmake" -j"$(nproc)"
+
+      - name: Run tests (unix only)
+        if: matrix.port == 'unix'
+        env:
+          # a7p.py isn't frozen (see README) -- import it as a plain .py
+          # straight from src/ via MICROPYPATH; _a7p itself is built into
+          # this firmware, no path needed for that half.
+          MICROPYPATH: micropython/src
+        run: |
+          mpy/ports/unix/build-standard/micropython -c "import _a7p; print(_a7p.PAYLOAD_SIZE)"
+          mpy/ports/unix/build-standard/micropython micropython/tests/test_a7p.py
+          mpy/ports/unix/build-standard/micropython micropython/tests/test_validate.py
+
+      - name: Upload firmware (${{ matrix.port }})
+        if: matrix.port != 'unix'
+        uses: actions/upload-artifact@v7
+        with:
+          name: a7p-usermod-${{ matrix.port }}-${{ matrix.board }}
+          # Firmware naming/extension differs per port (rp2: .uf2, esp32/esp8266:
+          # .bin, stm32/samd/nrf/mimxrt: .dfu/.hex/.bin depending on board) --
+          # this is a best-effort catch-all, not a curated release artifact.
+          path: |
+            mpy/ports/${{ matrix.port }}/build-${{ matrix.board }}/firmware.*
+            mpy/ports/${{ matrix.port }}/build/firmware.*
+          if-no-files-found: warn

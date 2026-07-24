@@ -1,14 +1,14 @@
 """Manual regression test for Profile.validate() (a7p_validate.c), run under
 a real MicroPython interpreter with the built natmod on MICROPYPATH, from
-inside go/assets/ (or with that directory copied alongside this script):
+the repo root (same convention as test_a7p.py):
 
     cd micropython/natmod && make MPY_DIR=/path/to/micropython ARCH=x64 dist
-    cd ../../go/assets
-    MICROPYPATH=../../micropython/natmod/build/x64 micropython ../../micropython/tests/test_validate.py
+    cd ../..
+    MICROPYPATH=micropython/natmod/build/x64 micropython micropython/tests/test_validate.py
 """
 import a7p
 
-with open("example.a7p", "rb") as f:
+with open("go/assets/example.a7p", "rb") as f:
     p = a7p.load(f)
 
 # known discrepancy: real sample data has distances[0] == 0, which the
