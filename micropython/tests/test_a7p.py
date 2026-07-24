@@ -16,7 +16,8 @@ import a7p
 
 ASSET = "go/assets/example.a7p"
 
-p = a7p.load(ASSET)
+with open(ASSET, "rb") as f:
+    p = a7p.load(f)
 assert p.has_profile
 assert p.get_str("profile_name") == "338LM"
 assert p.get_str("cartridge_name") == "UKROP 300GR HPBT"
@@ -38,11 +39,11 @@ prof.distances[0] = 999
 p.set_str("profile_name", "ROUNDTRIP")
 assert p.profile.zero_x == 12345  # same buffer, read back immediately
 
-data = a7p.dumps(p)
 with open("/tmp/a7p_roundtrip_test.a7p", "wb") as f:
-    f.write(data)
+    a7p.dump(p, f)
 
-p2 = a7p.load("/tmp/a7p_roundtrip_test.a7p")
+with open("/tmp/a7p_roundtrip_test.a7p", "rb") as f:
+    p2 = a7p.load(f)
 assert p2.profile.zero_x == 12345
 assert p2.profile.distances[0] == 999
 assert p2.get_str("profile_name") == "ROUNDTRIP"

@@ -92,17 +92,40 @@ make MPY_DIR=/path/to/micropython ARCH=x64 dist
 harmless to re-run, but don't hand-edit anything under there.
 
 `ARCH` is one of `x86, x64, armv6m, armv7m, armv7emsp, armv7emdp, xtensa,
-xtensawin, rv32imc, rv64imc` (see `$(MPY_DIR)/py/dynruntime.mk` for what each
-maps to -- e.g. `armv6m` for RP2040, `rv32imc` for ESP32-C3). This produces:
+xtensawin, rv32imc, rv64imc`. This produces:
 
 ```
-natmod/build/<ARCH>/_a7p.mpy         the native module
-natmod/build/<ARCH>/a7p_layout.mpy   generated uctypes descriptor (mpy-cross compiled)
-natmod/build/<ARCH>/a7p.mpy          the Python wrapper (mpy-cross compiled)
+natmod/build/<ARCH>/_a7p.mpy   the native module
+natmod/build/<ARCH>/a7p.mpy    the Python wrapper (mpy-cross compiled)
 ```
 
-Copy all three to the device (e.g. `mpremote cp build/armv6m/*.mpy :`) --
-`import a7p` pulls in the other two.
+Copy both to the device (e.g. `mpremote cp build/armv6m/*.mpy :`) --
+`import a7p` pulls in `_a7p` itself.
+
+### Which `ARCH` for which port
+
+`ARCH` picks a CPU architecture, not a port -- whether a given port's stock
+firmware can actually `import` a natmod .mpy for that architecture depends on
+whether that port enables native code emission (`MICROPY_EMIT_*`) by default,
+which is a separate, per-port thing from this Makefile. Checked directly
+against the default `mpconfigport.h`/`mpconfigboard.h`/`mpconfigmcu.h` in a
+MicroPython checkout (not assumed):
+
+| `ARCH` | Ports enabling it by default | Notes |
+| --- | --- | --- |
+| `x64` / `x86` | `unix` | `windows` explicitly sets `MICROPY_EMIT_X64 (0)` and `MICROPY_EMIT_THUMB (0)` -- natmod does **not** import there even though it's an x86 target. |
+| `armv6m` | `rp2` (original RP2040, Cortex-M0+) | |
+| `armv7m` / `armv7emsp` / `armv7emdp` | `stm32`, `mimxrt`, `alif`, `renesas-ra`, `psoc-edge` | Exact Cortex-M variant (M3/M4F/M7) depends on the board's MCU. |
+| (same, ARM) | `nrf`, `samd` | Conditional on a board/MCU feature flag (`EXTRA_FEAT` on nrf, `SAMD21_EXTRA_FEATURES` on samd21; samd51 always on) -- may be off in a given board's stock firmware even though the port supports it. |
+| `xtensa` | `esp8266` | Set at board level (`mpconfigboard.h`), not port level. |
+| `xtensawin` | `esp32` (ESP32, ESP32-S3) | |
+| `rv32imc` | `esp32` (ESP32-C3/C6/H2), `rp2` (RP2350 in RISC-V mode), `zephyr` | |
+| `rv64imc` | none by default | No stock port enables a 64-bit RISC-V native emitter currently. |
+
+The most reliably "just works" targets: **`unix`** (`x64`, what's actually
+been tested here) and **`rp2`**/**`esp32`** official firmware (`armv6m`,
+`xtensawin`, `rv32imc`). Anywhere else, check that specific board's config
+before assuming natmod will import.
 
 **Not supported**: WebAssembly. This isn't a bug to fix, it's a mismatch of
 mechanism -- `natmod`/`mpy_ld.py` links native machine code for a fixed set
@@ -138,7 +161,9 @@ rather than assumed:
 ```python
 import a7p
 
-profile = a7p.load("MyProfile.a7p")       # or a7p.loads(data)
+with open("MyProfile.a7p", "rb") as fp:
+    profile = a7p.load(fp)        # or a7p.loads(data) from raw bytes
+
 print(profile.get_str("profile_name"))
 print(profile.profile.zero_x, profile.profile.sc_height)
 
@@ -148,8 +173,13 @@ profile.profile.distances[0] = 5000
 profile.profile.switches[0].zoom = 2
 profile.set_str("profile_name", "My Profile")
 
-a7p.dump(profile, "MyProfile_edited.a7p")  # or data = a7p.dumps(profile)
+with open("MyProfile_edited.a7p", "wb") as fp:
+    a7p.dump(profile, fp)         # or data = a7p.dumps(profile)
 ```
+
+`load`/`dump` take an already-open binary file object, not a path -- same
+convention as `json.load`/`json.dump` (and `py/src/a7p/a7p.py`'s own
+`load`/`dump`).
 
 `profile.profile` is the `uctypes` struct over `profedit_Profile` --
 `switches`/`distances`/`coef_rows` are `uctypes` arrays (of `SwPos`/`int32`/

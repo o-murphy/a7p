@@ -17,10 +17,10 @@
 # ARCH is one of: x86, x64, armv6m, armv7m, armv7emsp, armv7emdp, xtensa,
 # xtensawin, rv32imc, rv64imc (see $(MPY_DIR)/py/dynruntime.mk).
 #
-# `make dist` (the default) additionally mpy-cross-compiles the pure-Python
-# a7p_layout.py/a7p.py wrapper for the target arch and drops everything under
-# build/$(ARCH)/: _a7p.mpy, a7p_layout.mpy, a7p.mpy -- copy all three to the
-# device (`import a7p` pulls in the other two).
+# `dist` (the default target) additionally mpy-cross-compiles the pure-Python
+# a7p.py wrapper for the target arch and drops both under build/$(ARCH)/:
+# _a7p.mpy (native) + a7p.mpy (wrapper) -- copy both to the device
+# (`import a7p` pulls in `_a7p`).
 
 ARCH    ?= x64
 MPY_DIR ?= micropython
@@ -101,8 +101,6 @@ MPY_CROSS ?= $(MPY_DIR)/mpy-cross/build/mpy-cross
 .PHONY: dist
 dist: all
 	mv $(MOD).mpy $(BUILD)/_a7p.mpy
-	$(MPY_CROSS) -march=$(ARCH) $(SRC_DIR)/a7p_layout.py -o $(BUILD)/a7p_layout.mpy
 	$(MPY_CROSS) -march=$(ARCH) $(SRC_DIR)/a7p.py -o $(BUILD)/a7p.mpy
 	@echo "--> $(BUILD)/_a7p.mpy"
-	@echo "--> $(BUILD)/a7p_layout.mpy"
 	@echo "--> $(BUILD)/a7p.mpy"
