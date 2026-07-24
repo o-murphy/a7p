@@ -30,10 +30,12 @@ SRC_DIR = ../src
 # nanopb: fetched, not vendored -- see fetch-nanopb below. Pinned to the
 # commit ../src/profedit.pb.h/.pb.c were generated against (nanopb-1.0.0-dev,
 # PB_PROTO_HEADER_VERSION 40); bump it only alongside re-running
-# scripts/generate_proto.sh and tools/gen_layout.py.
+# scripts/generate_proto.sh and tools/gen_layout.py. Read from ../NANOPB_COMMIT
+# (a single source of truth also read by ../usermod/a7p/micropython.mk and
+# ../usermod/a7p/micropython.cmake) rather than duplicated here.
 NANOPB_DIR    ?= nanopb
 NANOPB_REPO   ?= https://github.com/nanopb/nanopb.git
-NANOPB_COMMIT ?= d21fa5084287ab67da2f166f4def045bedcb535e
+NANOPB_COMMIT ?= $(shell cat ../NANOPB_COMMIT)
 
 .PHONY: fetch-nanopb
 fetch-nanopb:

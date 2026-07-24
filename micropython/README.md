@@ -1,12 +1,23 @@
 # micropython/
 
-A MicroPython [dynamic native module](https://docs.micropython.org/en/latest/develop/natmod.html)
-(natmod) exposing `.a7p` decode/encode, with **zero-copy** field access via
-`uctypes` -- following the approach in
+A MicroPython native module exposing `.a7p` decode/encode, with
+**zero-copy** field access via `uctypes` -- following the approach in
 [ballistics-lab/micropython-bclibc](https://github.com/ballistics-lab/micropython-bclibc):
 a native module fills a plain `bytearray`, and a `uctypes.struct` overlaid on
 that same memory gives Python direct read/write access to fields, with no
-intermediate object graph.
+intermediate object graph. Two ways to build/deploy it, sharing everything
+except the C wiring:
+
+* [`natmod/`](natmod/) -- a standalone `.mpy` you copy onto an
+  already-flashed device, no firmware rebuild.
+* [`usermod/`](usermod/) -- compiled directly into the firmware image via
+  MicroPython's [User C
+  Modules](https://docs.micropython.org/en/latest/develop/cmodules.html),
+  works on any port regardless of natmod support, at the cost of a full
+  firmware rebuild.
+
+See "Building" below for natmod, and "usermod: compiling into the firmware
+directly" for usermod.
 
 Unlike that project, this one doesn't vendor a MicroPython checkout, Docker
 cross-compilation containers, prebuilt binaries, or even nanopb itself --
@@ -37,6 +48,18 @@ micropython/
                         "# BEGIN/END GENERATED" markers, the rest is hand-written
   natmod/Makefile  `fetch-nanopb` clones nanopb into natmod/nanopb/ (gitignored,
                    not committed); builds natmod/build/$(ARCH)/{_a7p,a7p}.mpy
+  usermod/
+    micropython.cmake      top-level aggregator -- point USER_C_MODULES here for
+                           CMake-based ports (rp2, esp32, ...)
+    a7p/
+      a7p_mod.c            same logic as src/a7p_mp.c, standard module-registration
+                           API (py/runtime.h, MP_REGISTER_MODULE) instead of dynruntime.h
+      micropython.mk        Make-based ports (unix, stm32, samd, nrf, ...) -- point
+                           USER_C_MODULES at usermod/ (the parent), not this file
+      micropython.cmake     included by the aggregator above
+  NANOPB_COMMIT  the pinned nanopb commit -- single source of truth read by
+                natmod/Makefile, usermod/a7p/micropython.mk, and
+                usermod/a7p/micropython.cmake
   tools/gen_layout.py    regenerates src/a7p_layout.h + the generated block in a7p.py
   tools/gen_validate.py  regenerates src/a7p_validate.h from schema/a7p.schema.json
   tests/test_a7p.py       manual regression test, run under a real interpreter
@@ -161,6 +184,98 @@ rather than assumed:
 | `armv7m` (`arm-none-eabi-gcc`) | Struct layout verified byte-identical to x64 (`offsetof`/`sizeof` probe); natmod links cleanly. Not run under an emulator. |
 | `rv32imc`, `rv64imc` (`riscv64-unknown-elf-gcc` + picolibc) | Same: layout verified identical, natmod links cleanly against picolibc with no relocation errors -- notably, [micropython-bclibc](https://github.com/ballistics-lab/micropython-bclibc)'s RISC-V notes describe a real `mpy_ld.py`/picolibc linking bug, but that's specifically about linking picolibc's math functions (`sin`/`cos`/`sqrt`/...); this module never links anything beyond `libgcc.a` (no floats anywhere in `profedit.proto`), so it doesn't hit that code path. |
 | `armv6m`, `armv7emsp`, `armv7emdp`, `xtensa`, `xtensawin`, `x86` | Not attempted (no toolchain available in the environment this was built in). Expected to work the same way as the other embedded targets above, since the module has no arch-specific code, but this is unverified -- treat it as such until someone builds and runs it on real hardware. |
+
+## usermod: compiling into the firmware directly
+
+`natmod` above produces a standalone `.mpy` you copy onto an *already-flashed*
+device -- no firmware rebuild needed, but it only imports on a build that has
+native-code loading enabled for its architecture (see the table above). The
+alternative is [User C
+Modules](https://docs.micropython.org/en/latest/develop/cmodules.html)
+(`usermod`): compile the same module straight into the firmware image, which
+works on any port regardless of natmod support, at the cost of a full
+firmware rebuild whenever the module changes.
+
+`micropython/usermod/` provides both a `micropython.mk` (Make-based ports)
+and `micropython.cmake` (CMake-based ports) -- MicroPython's own docs
+recommend shipping both so a module works on every port, since a given port
+only reads whichever one matches its own build system. Point
+`USER_C_MODULES` at it as one extra flag on the build command you'd already
+run for that port:
+
+```sh
+git clone https://github.com/micropython/micropython
+cd micropython && git submodule update --init --recursive
+
+# Make-based ports (unix, stm32, samd, nrf, mimxrt, esp8266, ...): point
+# USER_C_MODULES at the *directory* -- it globs */micropython.mk one level
+# down, so this must be the parent of usermod/a7p/, not that directory itself.
+cd ports/unix
+make USER_C_MODULES=/path/to/a7p/micropython/usermod
+
+# CMake-based ports (rp2, esp32): point USER_C_MODULES at the aggregator
+# .cmake file directly instead.
+cd ports/rp2
+cmake -B build -DUSER_C_MODULES=/path/to/a7p/micropython/usermod/micropython.cmake
+cmake --build build
+```
+
+Then copy `micropython/src/a7p.py` onto the device's filesystem after
+flashing (`mpremote cp micropython/src/a7p.py :`) -- it isn't frozen into
+the firmware image, to avoid a second required flag (`FROZEN_MANIFEST`) and
+per-port testing of freezing behavior; `import a7p` works the same either
+way once it's present.
+
+Checked empirically against ports supporting `USER_C_MODULES` (every
+Make-based port includes `py/py.mk`, which is where that support actually
+lives, regardless of whether the port's own `Makefile` mentions
+`USER_C_MODULES` by name -- checked directly, not assumed):
+
+* **Supported**: `unix`, `stm32`, `samd`, `nrf`, `mimxrt`, `esp8266`, `alif`,
+  `renesas-ra`, `psoc-edge`, `windows`, `webassembly`, `qemu`, `cc3200`,
+  `bare-arm`, `minimal`, `pic16bit` (Make-based, via `py/py.mk`), plus `rp2`
+  and `esp32` (CMake-based, `USER_C_MODULES` in their own `CMakeLists.txt`).
+* **Not supported**: `zephyr` (its own Kconfig/west module system, no
+  `Makefile` at all, and its `CMakeLists.txt` doesn't reference
+  `USER_C_MODULES`); `embed` (not a standalone port -- a library meant to be
+  embedded into someone else's build, no `Makefile`/`CMakeLists.txt` of its
+  own).
+
+### nanopb: fetched automatically, no extra step
+
+Neither `micropython.mk` nor `micropython.cmake` require a separate
+`fetch-nanopb` step (unlike `natmod/Makefile`) -- both fetch the same pinned
+commit (`micropython/NANOPB_COMMIT`, the single source of truth all three
+build paths read from) themselves, automatically, the first time they're
+processed:
+
+* `micropython.mk` does it with a `$(shell git clone ...)` guarded by a
+  does-it-exist check, evaluated at Makefile-parse time (before any compile
+  rule runs) -- this works identically regardless of which port's `Makefile`
+  includes it, since it's plain shell.
+* `micropython.cmake` uses `FetchContent_Declare` + `FetchContent_Populate`
+  (deliberately *not* `FetchContent_MakeAvailable`, which would also
+  `add_subdirectory()` nanopb's own `CMakeLists.txt` -- pulling in its code
+  generator, which needs a local `protoc`, and its own compiled library
+  target, neither of which this module needs since it compiles
+  `pb_common.c`/`pb_decode.c`/`pb_encode.c` itself as plain sources).
+
+Both write into the same shared `micropython/natmod/nanopb/` directory
+`natmod/Makefile`'s own `fetch-nanopb` uses, so building natmod once and
+usermod once doesn't fetch nanopb twice.
+
+Verified end-to-end: rebuilt the unix port with
+`USER_C_MODULES=micropython/usermod` (confirms the Make path, the `*/micropython.mk`
+directory convention, and the auto-fetch all work together; `import _a7p`
+succeeds and the same `tests/test_a7p.py`/`tests/test_validate.py` pass
+against it). The CMake path (`micropython.cmake`) was verified by pointing a
+minimal standalone CMake project at it: `FetchContent_Populate` correctly
+fetches nanopb with no `protoc` dependency, and every source file except the
+module's own C wrapper (which needs the real `py/obj.h` etc. that only an
+actual port's build tree provides) compiles cleanly through the generated
+`target_sources`/`target_include_directories`/`target_compile_definitions`
+wiring. Not built against real `rp2`/`esp32` SDKs (pico-sdk/esp-idf,
+substantial toolchains not available in the environment this was built in).
 
 ## Usage
 
