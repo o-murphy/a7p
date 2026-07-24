@@ -9,19 +9,20 @@ that same memory gives Python direct read/write access to fields, with no
 intermediate object graph.
 
 Unlike that project, this one doesn't vendor a MicroPython checkout, Docker
-cross-compilation containers, or prebuilt binaries -- you bring your own
-MicroPython source tree (`MPY_DIR`) and toolchain, and build from source.
-There's also no math library dependency to manage: `profedit.proto` has no
-`float`/`double` fields (everything is `int32` or an enum), so this module
-needs nothing beyond `memcpy`/`memset`/`memmove` (which `mpy_ld.py` resolves
-internally) and, on targets without hardware integer divide, `libgcc.a`'s
-soft-divide helpers -- no `libm`, no picolibc/newlib math sources to patch.
+cross-compilation containers, prebuilt binaries, or even nanopb itself --
+you bring your own MicroPython source tree (`MPY_DIR`), `natmod/Makefile`
+fetches the pinned nanopb commit on demand (`make fetch-nanopb`), and
+everything else builds from source. There's also no math library dependency
+to manage: `profedit.proto` has no `float`/`double` fields (everything is
+`int32` or an enum), so this module needs nothing beyond
+`memcpy`/`memset`/`memmove` (which `mpy_ld.py` resolves internally) and, on
+targets without hardware integer divide, `libgcc.a`'s soft-divide helpers --
+no `libm`, no picolibc/newlib math sources to patch.
 
 ## Layout
 
 ```
 micropython/
-  nanopb/          vendored nanopb C runtime (pb.h, pb_common/pb_decode/pb_encode)
   src/
     profedit.pb.h    nanopb-generated message structs (from proto/profedit.proto)
     profedit.pb.c    nanopb-generated field descriptors
@@ -30,7 +31,8 @@ micropython/
     a7p_layout.h     generated offset/size constants + _Static_assert guards
     a7p_layout.py    generated uctypes descriptor (must match a7p_layout.h)
     a7p.py           pure-Python wrapper: Profile, load/loads/dump/dumps
-  natmod/Makefile  builds natmod/build/$(ARCH)/{_a7p,a7p_layout,a7p}.mpy
+  natmod/Makefile  `fetch-nanopb` clones nanopb into natmod/nanopb/ (gitignored,
+                   not committed); builds natmod/build/$(ARCH)/{_a7p,a7p_layout,a7p}.mpy
   tools/gen_layout.py  regenerates src/a7p_layout.{h,py} from the real compiled struct
   tests/test_a7p.py    manual regression test, run under a real interpreter
 ```
@@ -49,9 +51,11 @@ script compiles a tiny probe program against the real headers with
 - `src/a7p_layout.py` -- the `uctypes` descriptor, imported by `a7p.py`
 
 Re-run it after regenerating `profedit.pb.h` (`scripts/generate_proto.sh`) or
-touching the `PB_*`/`-fno-short-enums` flags below:
+touching the `PB_*`/`-fno-short-enums` flags below (needs nanopb fetched
+first -- see Building):
 
 ```sh
+cd micropython/natmod && make fetch-nanopb && cd ../..
 python3 micropython/tools/gen_layout.py --cc gcc
 ```
 
@@ -80,8 +84,12 @@ git clone https://github.com/micropython/micropython
 pip install pyelftools ar
 
 cd micropython/natmod   # this directory, inside the a7p repo
+make fetch-nanopb                              # once; clones the pinned commit into ./nanopb
 make MPY_DIR=/path/to/micropython ARCH=x64 dist
 ```
+
+`fetch-nanopb` re-clones into `./nanopb` (gitignored) every time it's run --
+harmless to re-run, but don't hand-edit anything under there.
 
 `ARCH` is one of `x86, x64, armv6m, armv7m, armv7emsp, armv7emdp, xtensa,
 xtensawin, rv32imc, rv64imc` (see `$(MPY_DIR)/py/dynruntime.mk` for what each
@@ -103,6 +111,18 @@ Running this in MicroPython-in-the-browser would mean compiling everything
 (interpreter + this module) from source into one Emscripten build instead
 (the "user C module" path, not natmod) -- out of scope here.
 
+**Why a Makefile and not a `CMakeLists.txt`**: upstream MicroPython's natmod
+tooling (`py/dynruntime.mk`, `tools/mpy_ld.py`) is Make-only -- every example
+under `examples/natmod/` in the MicroPython source is a Makefile that
+`include`s `dynruntime.mk`, and there's no CMake equivalent shipped for it.
+(CMake shows up in the MicroPython ecosystem for *usermod* -- firmware
+embedded at build time -- on the `rp2`/`esp32` ports specifically, because
+their underlying SDKs (pico-sdk, esp-idf) are CMake-based; that's a
+different mechanism from natmod, see above.) Hand-rolling a `CMakeLists.txt`
+here would mean reimplementing `dynruntime.mk`'s logic (arch flags, QSTR
+preprocessing, invoking `mpy_ld.py`) ourselves, for no benefit and a real
+risk of drifting out of sync whenever upstream changes it.
+
 **Verification per target**, so it's clear what's actually been checked
 rather than assumed:
 
@@ -110,7 +130,7 @@ rather than assumed:
 | --- | --- |
 | `x64` | Full functional test under MicroPython's real unix port (`tests/test_a7p.py`): decodes `go/assets/example.a7p`, every field cross-checked against `py/src/a7p`'s `google.protobuf`-based decode of the same file, mutated through the `uctypes` view with no re-decode, re-encoded, reloaded byte-for-byte. |
 | `armv7m` (`arm-none-eabi-gcc`) | Struct layout verified byte-identical to x64 (`offsetof`/`sizeof` probe); natmod links cleanly. Not run under an emulator. |
-| `rv32imc`, `rv64imc` (`riscv64-unknown-elf-gcc` + picolibc) | Same: layout verified identical, natmod links cleanly against picolibc with no relocation errors. |
+| `rv32imc`, `rv64imc` (`riscv64-unknown-elf-gcc` + picolibc) | Same: layout verified identical, natmod links cleanly against picolibc with no relocation errors -- notably, [micropython-bclibc](https://github.com/ballistics-lab/micropython-bclibc)'s RISC-V notes describe a real `mpy_ld.py`/picolibc linking bug, but that's specifically about linking picolibc's math functions (`sin`/`cos`/`sqrt`/...); this module never links anything beyond `libgcc.a` (no floats anywhere in `profedit.proto`), so it doesn't hit that code path. |
 | `armv6m`, `armv7emsp`, `armv7emdp`, `xtensa`, `xtensawin`, `x86` | Not attempted (no toolchain available in the environment this was built in). Expected to work the same way as the other embedded targets above, since the module has no arch-specific code, but this is unverified -- treat it as such until someone builds and runs it on real hardware. |
 
 ## Usage

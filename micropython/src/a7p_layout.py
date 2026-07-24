@@ -24,14 +24,14 @@ COEFROW_DESC = {
 # CPython but MicroPython's bytearray supports memoryview slices; callers
 # that want to mutate in place should use Profile.set_str()).
 PROFILE_STRINGS = {
-    "device_uuid": (3931, 51),
-    "caliber": (3880, 51),
-    "cartridge_name": (51, 51),
-    "short_name_bot": (162, 9),
     "profile_name": (0, 51),
-    "short_name_top": (153, 9),
-    "user_note": (171, 1025),
+    "cartridge_name": (51, 51),
     "bullet_name": (102, 51),
+    "short_name_top": (153, 9),
+    "short_name_bot": (162, 9),
+    "user_note": (171, 1025),
+    "caliber": (3880, 51),
+    "device_uuid": (3931, 51),
 }
 
 # PROFILE_DESC covers every scalar/enum field plus the three repeated

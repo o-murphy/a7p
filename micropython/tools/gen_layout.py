@@ -8,19 +8,24 @@ zero-copy through uctypes we need the *exact* byte offset and size of
 every field as the host C compiler sees it.
 
 Rather than hand-computing (and hand-maintaining) those offsets, this
-script compiles a tiny probe program against the real vendored headers
-using offsetof()/sizeof(), runs it, and emits:
+script compiles a tiny probe program against the real headers using
+offsetof()/sizeof(), runs it, and emits:
 
   - src/a7p_layout.h  C offset/size constants + _Static_assert guards,
                       included by src/a7p_mp.c
   - src/a7p_layout.py Python uctypes descriptor, imported by src/a7p.py
 
+nanopb itself isn't vendored in this repo (see natmod/Makefile's
+fetch-nanopb target) -- run that first, or pass --nanopb-dir to point
+at any local nanopb checkout with the same pb.h this was generated
+against (PB_PROTO_HEADER_VERSION 40).
+
 Re-run this after regenerating profedit.pb.h from proto/profedit.proto
 (scripts/generate_proto.sh) or after changing the PB_* build flags in
-natmod/Makefile / usermod/micropython.mk, so both the C guard and the
-Python view stay in lockstep with whatever the compiler actually did.
+natmod/Makefile, so both the C guard and the Python view stay in
+lockstep with whatever the compiler actually did.
 
-Usage: python3 micropython/tools/gen_layout.py [--cc CC]
+Usage: python3 micropython/tools/gen_layout.py [--cc CC] [--nanopb-dir DIR]
 """
 import argparse
 import os
@@ -31,7 +36,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 MICROPYTHON_DIR = os.path.dirname(HERE)
 SRC_DIR = os.path.join(MICROPYTHON_DIR, "src")
-NANOPB_DIR = os.path.join(MICROPYTHON_DIR, "nanopb")
+DEFAULT_NANOPB_DIR = os.path.join(MICROPYTHON_DIR, "natmod", "nanopb")
 
 # Same defines/flags the natmod build compiles profedit.pb.c with -- must
 # match or the offsets below won't match the real build.
@@ -96,13 +101,19 @@ def build_probe_source():
     return PROBE_TEMPLATE.format(probes="\n".join(lines))
 
 
-def run_probe(cc):
+def run_probe(cc, nanopb_dir):
+    if not os.path.exists(os.path.join(nanopb_dir, "pb.h")):
+        sys.exit(
+            f"error: no pb.h under {nanopb_dir!r} -- nanopb isn't vendored in this repo, "
+            f"run `make -C {os.path.join(MICROPYTHON_DIR, 'natmod')} fetch-nanopb` first "
+            f"(or pass --nanopb-dir)"
+        )
     with tempfile.TemporaryDirectory() as tmp:
         probe_c = os.path.join(tmp, "probe.c")
         probe_bin = os.path.join(tmp, "probe")
         with open(probe_c, "w") as f:
             f.write(build_probe_source())
-        cmd = [cc, "-std=c99", *PB_DEFINES, "-I", NANOPB_DIR, "-I", SRC_DIR,
+        cmd = [cc, "-std=c99", *PB_DEFINES, "-I", nanopb_dir, "-I", SRC_DIR,
                probe_c, os.path.join(SRC_DIR, "profedit.pb.c"), "-o", probe_bin]
         subprocess.run(cmd, check=True)
         out = subprocess.run([probe_bin], check=True, capture_output=True, text=True).stdout
@@ -182,14 +193,17 @@ def gen_python(sizes, fields):
 
     string_fields = {"profile_name", "cartridge_name", "bullet_name", "short_name_top",
                       "short_name_bot", "user_note", "caliber", "device_uuid"}
-    array_fields = {"switches", "distances", "coef_rows"}
 
     out.append("# byte offset/size of the fixed char[] string fields -- sliced directly out")
     out.append("# of the backing bytearray (also zero-copy: bytearray slicing is a copy in")
     out.append("# CPython but MicroPython's bytearray supports memoryview slices; callers")
     out.append("# that want to mutate in place should use Profile.set_str()).")
     out.append("PROFILE_STRINGS = {")
-    for name in string_fields:
+    # iterate in struct field order (not set order, which varies by hash seed
+    # across runs -- this generator's output should be deterministic)
+    for name in fields["profedit_Profile"]:
+        if name not in string_fields:
+            continue
         off, size = fields["profedit_Profile"][name]
         out.append(f'    "{name}": ({off}, {size}),')
     out.append("}")
@@ -238,9 +252,12 @@ def gen_python(sizes, fields):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cc", default=os.environ.get("CC", "cc"))
+    ap.add_argument("--nanopb-dir", default=DEFAULT_NANOPB_DIR,
+                     help="path to a nanopb checkout with pb.h (default: natmod/nanopb, "
+                          "see natmod/Makefile's fetch-nanopb target)")
     args = ap.parse_args()
 
-    sizes, fields = run_probe(args.cc)
+    sizes, fields = run_probe(args.cc, args.nanopb_dir)
 
     header_path = os.path.join(SRC_DIR, "a7p_layout.h")
     py_path = os.path.join(SRC_DIR, "a7p_layout.py")

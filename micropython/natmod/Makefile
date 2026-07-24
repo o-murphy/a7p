@@ -2,12 +2,17 @@
 # encode/decode of the a7p profedit_Payload message, for zero-copy uctypes
 # access from ../src/a7p.py.
 #
+# nanopb itself isn't vendored in this repo -- `make fetch-nanopb` clones the
+# pinned commit into ./nanopb (gitignored) the first time, matching what
+# ../src/profedit.pb.h/.pb.c were generated against.
+#
 # Requires a local MicroPython checkout (for mpy-cross, mpy_ld.py and
 # py/dynruntime.mk) -- point MPY_DIR at it:
 #
 #   git clone https://github.com/micropython/micropython
 #   (cd micropython/mpy-cross && make)
-#   make MPY_DIR=/path/to/micropython ARCH=x64
+#   make fetch-nanopb
+#   make MPY_DIR=/path/to/micropython ARCH=x64 dist
 #
 # ARCH is one of: x86, x64, armv6m, armv7m, armv7emsp, armv7emdp, xtensa,
 # xtensawin, rv32imc, rv64imc (see $(MPY_DIR)/py/dynruntime.mk).
@@ -20,8 +25,30 @@
 ARCH    ?= x64
 MPY_DIR ?= micropython
 
-SRC_DIR    = ../src
-NANOPB_DIR = ../nanopb
+SRC_DIR = ../src
+
+# nanopb: fetched, not vendored -- see fetch-nanopb below. Pinned to the
+# commit ../src/profedit.pb.h/.pb.c were generated against (nanopb-1.0.0-dev,
+# PB_PROTO_HEADER_VERSION 40); bump it only alongside re-running
+# scripts/generate_proto.sh and tools/gen_layout.py.
+NANOPB_DIR    ?= nanopb
+NANOPB_REPO   ?= https://github.com/nanopb/nanopb.git
+NANOPB_COMMIT ?= d21fa5084287ab67da2f166f4def045bedcb535e
+
+.PHONY: fetch-nanopb
+fetch-nanopb:
+	rm -rf $(NANOPB_DIR)
+	git init -q $(NANOPB_DIR)
+	git -C $(NANOPB_DIR) remote add origin $(NANOPB_REPO)
+	git -C $(NANOPB_DIR) fetch -q --depth 1 origin $(NANOPB_COMMIT)
+	git -C $(NANOPB_DIR) checkout -q FETCH_HEAD
+	@echo "--> $(NANOPB_DIR) @ $(NANOPB_COMMIT)"
+
+ifeq ($(wildcard $(NANOPB_DIR)/pb.h),)
+ifeq ($(filter clean fetch-nanopb,$(MAKECMDGOALS)),)
+$(error nanopb not found at "$(NANOPB_DIR)" -- run: make fetch-nanopb)
+endif
+endif
 
 # vpath so dynruntime.mk computes objects as $(BUILD)/foo.o (arch-local under
 # build/$(ARCH)/), not $(BUILD)/../src/foo.o -- the latter would be shared
@@ -58,9 +85,8 @@ CFLAGS_EXTRA += -DPB_BUFFER_ONLY=1 -DPB_WITHOUT_64BIT=1 -fno-short-enums
 LINK_RUNTIME = 1
 
 ifeq ($(wildcard $(MPY_DIR)/py/dynruntime.mk),)
-ifeq ($(filter clean,$(MAKECMDGOALS)),clean)
-else
-$(error MPY_DIR="$(MPY_DIR)" not found -- set MPY_DIR=/path/to/micropython, see natmod/README.md)
+ifeq ($(filter clean fetch-nanopb,$(MAKECMDGOALS)),)
+$(error MPY_DIR="$(MPY_DIR)" not found -- set MPY_DIR=/path/to/micropython, see ../README.md)
 endif
 else
 include $(MPY_DIR)/py/dynruntime.mk
