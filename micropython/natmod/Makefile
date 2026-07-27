@@ -1,6 +1,7 @@
-# Builds the `_a7p` MicroPython dynamic native module (.mpy) -- nanopb
-# encode/decode of the a7p profedit_Payload message, for zero-copy uctypes
-# access from ../src/a7p.py.
+# Builds the `a7p` MicroPython dynamic native module (.mpy) -- nanopb
+# encode/decode of the a7p profedit_Payload message (native C), merged with
+# ../src/a7p.py (bytecode) into one file. Zero-copy uctypes access to the
+# nanopb-decoded buffer is a7p.py's own doing; see that file.
 #
 # nanopb itself isn't vendored in this repo -- `make fetch-nanopb` clones the
 # pinned commit into ./nanopb (gitignored) the first time, matching what
@@ -17,10 +18,15 @@
 # ARCH is one of: x86, x64, armv6m, armv7m, armv7emsp, armv7emdp, xtensa,
 # xtensawin, rv32imc, rv64imc (see $(MPY_DIR)/py/dynruntime.mk).
 #
-# `dist` (the default target) additionally mpy-cross-compiles the pure-Python
-# a7p.py wrapper for the target arch and drops both under build/$(ARCH)/:
-# _a7p.mpy (native) + a7p.mpy (wrapper) -- copy both to the device
-# (`import a7p` pulls in `_a7p`).
+# `dist` produces a single build/$(ARCH)/a7p.mpy -- SRC below lists a7p.py
+# alongside the .c sources, and dynruntime.mk's own SRC_MPY/--merge rule
+# mpy-cross-compiles it and merges it with the native part into one .mpy
+# (see docs/develop/natmod.rst "Defining a native module" and
+# examples/natmod/features2/ upstream). a7p.py's own top-level code runs in
+# the same globals namespace the native part populates -- no `import`
+# needed on that side, which is why the C code registers everything
+# underscore-prefixed (see a7p_mp.c) and a7p.py wraps it in a synthetic
+# `_a7p` namespace instead of referencing the bare names directly.
 
 ARCH    ?= x64
 MPY_DIR ?= micropython
@@ -54,14 +60,17 @@ endif
 
 # vpath so dynruntime.mk computes objects as $(BUILD)/foo.o (arch-local under
 # build/$(ARCH)/), not $(BUILD)/../src/foo.o -- the latter would be shared
-# across arches and break rebuilding for a second ARCH.
+# across arches and break rebuilding for a second ARCH. Covers .py too, now
+# that a7p.py is part of SRC (mpy-cross output is arch-specific bytecode,
+# same reasoning).
 vpath %.c $(SRC_DIR) $(NANOPB_DIR)
+vpath %.py $(SRC_DIR)
 
-MOD_BASE = _a7p
+MOD_BASE = a7p
 MOD      = $(MOD_BASE)_$(ARCH)
 BUILD    = build/$(ARCH)
 
-SRC = a7p_mp.c a7p_validate.c profedit.pb.c pb_common.c pb_decode.c pb_encode.c md5.c
+SRC = a7p_mp.c a7p_validate.c profedit.pb.c pb_common.c pb_decode.c pb_encode.c md5.c a7p.py
 
 CFLAGS_EXTRA += -I$(SRC_DIR) -I$(NANOPB_DIR)
 
@@ -116,11 +125,7 @@ endif
 # change.
 $(SRC_O): $(SRC_DIR)/a7p_layout.h $(SRC_DIR)/a7p_validate.h $(SRC_DIR)/a7p_validate_err.h
 
-MPY_CROSS ?= $(MPY_DIR)/mpy-cross/build/mpy-cross
-
 .PHONY: dist
 dist: all
-	mv $(MOD).mpy $(BUILD)/_a7p.mpy
-	$(MPY_CROSS) -march=$(ARCH) $(SRC_DIR)/a7p.py -o $(BUILD)/a7p.mpy
-	@echo "--> $(BUILD)/_a7p.mpy"
+	mv $(MOD).mpy $(BUILD)/a7p.mpy
 	@echo "--> $(BUILD)/a7p.mpy"

@@ -19,7 +19,9 @@ offsetof()/sizeof(), runs it, and emits:
 
 There's deliberately no separate a7p_layout.py module on the Python side --
 it would only ever be imported by a7p.py, and shipping it as its own file
-means a third .mpy to deploy (alongside _a7p.mpy and a7p.mpy) for no benefit.
+means a second .mpy to deploy (natmod/Makefile already merges the C and
+Python halves of a7p itself into one a7p.mpy -- see that file) for no
+benefit.
 
 nanopb itself isn't vendored in this repo (see natmod/Makefile's
 fetch-nanopb target) -- run that first, or pass --nanopb-dir to point

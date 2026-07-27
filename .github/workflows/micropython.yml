@@ -607,7 +607,7 @@ jobs:
         # as every other port. It used to run only test_a7p_core.py here,
         # since the pyscript variant's stock config has no hashlib.md5
         # (MICROPY_PY_SSL off) and a7p.load/dump used to need it -- fixed
-        # by vendoring this module's own md5 (_a7p.md5(), src/md5.c), so
+        # by vendoring this module's own md5 (_a7p._md5(), src/md5.c), so
         # that's no longer a firmware-config dependency at all (see
         # README.md's "No firmware hashlib.md5 dependency" section).
         #
@@ -617,7 +617,7 @@ jobs:
           if [ "${{ matrix.port }}" = "webassembly" ]; then
             node micropython/tests/run_wasm_tests.mjs mpy/ports/webassembly/build-${{ matrix.variant }}/micropython.mjs
           else
-            mpy/ports/unix/build-standard/micropython -c "import _a7p; print(_a7p.PAYLOAD_SIZE)"
+            mpy/ports/unix/build-standard/micropython -c "import _a7p; print(_a7p._decode)"
             mpy/ports/unix/build-standard/micropython -c "import a7p; print(a7p.PAYLOAD_SIZE)"
             mpy/ports/unix/build-standard/micropython micropython/tests/test_a7p.py
             mpy/ports/unix/build-standard/micropython micropython/tests/test_validate.py
@@ -631,11 +631,11 @@ jobs:
         # "AttributeError: 'module' object has no attribute 'md5'" -- this
         # port's stock build has no hashlib.md5. That's no longer a
         # problem: a7p.load/dump now use the module's own vendored md5
-        # (_a7p.md5(), src/md5.c) instead of hashlib, so the full suite
+        # (_a7p._md5(), src/md5.c) instead of hashlib, so the full suite
         # runs here same as everywhere else.
         shell: msys2 {0}
         run: |
-          mpy/ports/windows/build-standard/micropython.exe -c "import _a7p; print(_a7p.PAYLOAD_SIZE)"
+          mpy/ports/windows/build-standard/micropython.exe -c "import _a7p; print(_a7p._decode)"
           mpy/ports/windows/build-standard/micropython.exe -c "import a7p; print(a7p.PAYLOAD_SIZE)"
           mpy/ports/windows/build-standard/micropython.exe micropython/tests/test_a7p.py
           mpy/ports/windows/build-standard/micropython.exe micropython/tests/test_validate.py
@@ -796,7 +796,7 @@ jobs:
         # exactly like upstream's own ci_unix_qemu_arm_run_tests/
         # ci_unix_qemu_mips_run_tests invoke theirs.
         run: |
-          mpy/ports/unix/build-coverage/micropython -c "import _a7p; print(_a7p.PAYLOAD_SIZE)"
+          mpy/ports/unix/build-coverage/micropython -c "import _a7p; print(_a7p._decode)"
           mpy/ports/unix/build-coverage/micropython -c "import a7p; print(a7p.PAYLOAD_SIZE)"
           mpy/ports/unix/build-coverage/micropython micropython/tests/test_a7p.py
           mpy/ports/unix/build-coverage/micropython micropython/tests/test_validate.py

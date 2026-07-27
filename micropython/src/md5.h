@@ -5,7 +5,7 @@
  * <string.h>. Used so a7p.py's load()/dump() md5 checksum works regardless
  * of whether the target firmware's own MICROPY_PY_SSL/MICROPY_PY_HASHLIB_MD5
  * are enabled (see README.md's "Firmware dependency: hashlib.md5" section
- * for the problem this replaces). Exposed to Python as _a7p.md5() in
+ * for the problem this replaces). Exposed to Python as _a7p._md5() in
  * a7p_mp.c/a7p_mod.c, not as a hashlib-compatible object -- a7p.py only
  * ever needs a single one-shot digest of an in-memory buffer.
  */

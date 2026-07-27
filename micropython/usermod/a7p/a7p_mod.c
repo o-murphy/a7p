@@ -108,14 +108,18 @@ static mp_obj_t a7p_md5(mp_obj_t data_obj) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(a7p_md5_obj, a7p_md5);
 
+/* Underscore-prefixed: wrapped by a7p.py's `_a7p` namespace, not meant to be
+ * called directly -- see the matching comment in ../../src/a7p_mp.c.
+ * PAYLOAD_SIZE is deliberately not registered here either, for the same
+ * reason as there: a7p.py's own generated `PAYLOAD_SIZE` literal is the
+ * single source of truth. */
 static const mp_rom_map_elem_t a7p_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR__a7p) },
-    { MP_ROM_QSTR(MP_QSTR_PAYLOAD_SIZE), MP_ROM_INT(A7P_PAYLOAD_SIZE) },
-    { MP_ROM_QSTR(MP_QSTR_decode), MP_ROM_PTR(&a7p_decode_obj) },
-    { MP_ROM_QSTR(MP_QSTR_encode), MP_ROM_PTR(&a7p_encode_obj) },
-    { MP_ROM_QSTR(MP_QSTR_validate), MP_ROM_PTR(&a7p_validate_obj) },
-    { MP_ROM_QSTR(MP_QSTR_clamp), MP_ROM_PTR(&a7p_clamp_obj) },
-    { MP_ROM_QSTR(MP_QSTR_md5), MP_ROM_PTR(&a7p_md5_obj) },
+    { MP_ROM_QSTR(MP_QSTR__decode), MP_ROM_PTR(&a7p_decode_obj) },
+    { MP_ROM_QSTR(MP_QSTR__encode), MP_ROM_PTR(&a7p_encode_obj) },
+    { MP_ROM_QSTR(MP_QSTR__validate), MP_ROM_PTR(&a7p_validate_obj) },
+    { MP_ROM_QSTR(MP_QSTR__clamp), MP_ROM_PTR(&a7p_clamp_obj) },
+    { MP_ROM_QSTR(MP_QSTR__md5), MP_ROM_PTR(&a7p_md5_obj) },
 };
 static MP_DEFINE_CONST_DICT(a7p_module_globals, a7p_module_globals_table);
 
@@ -124,7 +128,11 @@ const mp_obj_module_t a7p_user_cmodule = {
     .globals = (mp_obj_dict_t *)&a7p_module_globals,
 };
 
-/* Registers as `_a7p` (leading underscore, like the natmod build) --
- * src/a7p.py's `import _a7p` works identically whether that name resolves
- * to the natmod .mpy or this compiled-in module. */
+/* Registers as `_a7p` -- src/a7p.py's `import _a7p` finds this compiled-in
+ * module here. The natmod build has no separate `_a7p` module to import at
+ * all (its C part is merged directly into the same a7p.mpy as the Python
+ * part, see natmod/Makefile); a7p.py's `try: import _a7p / except
+ * ImportError:` falls back to a same-namespace synthetic `_a7p` there
+ * instead, so the rest of a7p.py's `_a7p.*` call sites don't need to care
+ * which build produced them. */
 MP_REGISTER_MODULE(MP_QSTR__a7p, a7p_user_cmodule);

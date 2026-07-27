@@ -107,12 +107,18 @@ static MP_DEFINE_CONST_FUN_OBJ_1(a7p_md5_obj, a7p_md5);
 mp_obj_t mpy_init(mp_obj_fun_bc_t *self, size_t n_args, size_t n_kw, mp_obj_t *args) {
     MP_DYNRUNTIME_INIT_ENTRY
 
-    mp_store_global(MP_QSTR_PAYLOAD_SIZE, mp_obj_new_int_from_uint(A7P_PAYLOAD_SIZE));
-    mp_store_global(MP_QSTR_decode, MP_OBJ_FROM_PTR(&a7p_decode_obj));
-    mp_store_global(MP_QSTR_encode, MP_OBJ_FROM_PTR(&a7p_encode_obj));
-    mp_store_global(MP_QSTR_validate, MP_OBJ_FROM_PTR(&a7p_validate_obj));
-    mp_store_global(MP_QSTR_clamp, MP_OBJ_FROM_PTR(&a7p_clamp_obj));
-    mp_store_global(MP_QSTR_md5, MP_OBJ_FROM_PTR(&a7p_md5_obj));
+    /* Underscore-prefixed: these are wrapped by a7p.py's `_a7p` namespace
+     * (see that file), not meant to be called directly. PAYLOAD_SIZE is
+     * deliberately not registered here -- a7p.py's own generated
+     * `PAYLOAD_SIZE` literal (tools/gen_layout.py, from this same
+     * A7P_PAYLOAD_SIZE) is the single source of truth; registering it here
+     * too would just be a second, runtime copy of the same compile-time
+     * constant. */
+    mp_store_global(MP_QSTR__decode, MP_OBJ_FROM_PTR(&a7p_decode_obj));
+    mp_store_global(MP_QSTR__encode, MP_OBJ_FROM_PTR(&a7p_encode_obj));
+    mp_store_global(MP_QSTR__validate, MP_OBJ_FROM_PTR(&a7p_validate_obj));
+    mp_store_global(MP_QSTR__clamp, MP_OBJ_FROM_PTR(&a7p_clamp_obj));
+    mp_store_global(MP_QSTR__md5, MP_OBJ_FROM_PTR(&a7p_md5_obj));
 
     MP_DYNRUNTIME_INIT_EXIT
 }

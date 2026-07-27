@@ -59,7 +59,8 @@ micropython/
                         uctypes descriptor is generated in place between the
                         "# BEGIN/END GENERATED" markers, the rest is hand-written
   natmod/Makefile  `fetch-nanopb` clones nanopb into natmod/nanopb/ (gitignored,
-                   not committed); builds natmod/build/$(ARCH)/{_a7p,a7p}.mpy
+                   not committed); builds natmod/build/$(ARCH)/a7p.mpy (single
+                   file -- C and Python sources merged, see SRC in that Makefile)
   usermod/
     micropython.cmake      top-level aggregator -- point USER_C_MODULES here for
                            CMake-based ports (rp2, esp32, ...)
@@ -145,12 +146,11 @@ harmless to re-run, but don't hand-edit anything under there.
 xtensawin, rv32imc, rv64imc`. This produces:
 
 ```
-natmod/build/<ARCH>/_a7p.mpy   the native module
-natmod/build/<ARCH>/a7p.mpy    the Python wrapper (mpy-cross compiled)
+natmod/build/<ARCH>/a7p.mpy   native (C) and Python parts merged into one file
 ```
 
-Copy both to the device (e.g. `mpremote cp build/armv6m/*.mpy :`) --
-`import a7p` pulls in `_a7p` itself.
+Copy it to the device (e.g. `mpremote cp build/armv6m/a7p.mpy :`) -- `import a7p`
+is all that's needed, there's no separate module to also copy.
 
 ### Which `ARCH` for which port
 
@@ -195,7 +195,7 @@ list, when CI coverage changes):
 | unix                       | `mipsel`                                       |       ❌        |        ✔️        | 🔶                | same dedicated `usermod-cross` job (`arch_label: mipsel`) — little-endian, deliberately not upstream's big-endian `mips-linux-gnu`: this module hardcodes `uctypes.LITTLE_ENDIAN` (a7p.py) over memory nanopb populates in the host's native byte order, so big-endian genuinely mismatches (confirmed by a real CI run: build+QEMU run succeeded, `test_a7p.py`'s zero_x/zero_y/sc_height assertion failed). Proven working on mipsel by ballistics-lab/micropython-bclibc's own CI |
 | windows                    | `x86`                                         |       ❌        |        ✔️        | 🔶                | `usermod` job, `arch_label: x86`, `runs_on: windows-latest`, MSYS2 MINGW32 (`mingw-w64-i686-gcc`, no CROSS_COMPILE) — native build+run (WOW64), same recipe as upstream's `build-mingw` job                                                                                                                      |
 | windows                    | `x64`                                         |       ❌        |        ✔️        | 🔶                | `usermod` job, `arch_label: x64`, `runs_on: windows-latest`, MSYS2 MINGW64 (`mingw-w64-x86_64-gcc`, no CROSS_COMPILE) — native build+run, same upstream recipe                                                                                                                                                   |
-| webassembly                | `wasm`                                        |       ❌        |        ✔️        | 🔶                | `usermod` job, `port: webassembly`, `variant: pyscript`, `runs_on: ubuntu-latest`, tests via `run_wasm_tests.mjs` — full suite (module now uses its own vendored `_a7p.md5()`, not `hashlib.md5`)                                                                                                                |
+| webassembly                | `wasm`                                        |       ❌        |        ✔️        | 🔶                | `usermod` job, `port: webassembly`, `variant: pyscript`, `runs_on: ubuntu-latest`, tests via `run_wasm_tests.mjs` — full suite (module now uses its own vendored `_a7p._md5()`, not `hashlib.md5`)                                                                                                                |
 | rp2                        | `armv6m`, `armv7emsp`, `armv7emdp`, `rv32imc` |       ✔️        |        ✔️        | 🔷                | `natmod` job covers all 4 ARCHes; usermod deliberately not added — natmod already covers it                                                                                                                                                                                                                      |
 | esp32                      | `xtensawin` (+ `rv32imc` for C3/C6)           |       ✔️        |        ✔️        | 🔷                | `natmod` job, `arch: xtensawin`; usermod deliberately not added                                                                                                                                                                                                                                                  |
 | esp8266                    | `xtensa`                                      |       ✔️        |        ✔️        | 🔷                | `natmod` job, `arch: xtensa`; usermod explicitly excluded — stock firmware overflows `iram1_0_seg`                                                                                                                                                                                                               |
@@ -497,7 +497,7 @@ format's 32-byte hex prefix. Earlier versions of this module called
 This module now vendors its own md5 (`src/md5.c`/`md5.h`, the public-domain
 implementation by Solar Designer/Alexander Peslyak, the same one used by
 PHP core, ClamAV, FreeType, Dovecot, and others -- see the file header for
-provenance/license) and exposes it as `_a7p.md5()`, so `load`/`dump` no
+provenance/license) and exposes it as `_a7p._md5()`, so `load`/`dump` no
 longer depend on the target firmware's `hashlib`/`MICROPY_PY_SSL`
 configuration at all. `Profile.decode`/`.encode`/`.validate` never touched
 `hashlib` either way -- they work on the raw protobuf body.
