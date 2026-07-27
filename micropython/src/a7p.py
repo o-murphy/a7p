@@ -38,13 +38,21 @@ import uctypes
 try:
     import _a7p
 except ImportError:
-
+    # Merged natmod build (see natmod/Makefile) -- the native part's
+    # mpy_init() populated these as bare globals of *this* module (there's
+    # no separate module to import), which would otherwise leak them onto
+    # `a7p` itself (visible via dir(a7p)/help(a7p)) alongside the `_a7p`
+    # wrapper below. del removes them from this module's namespace once
+    # wrapped, so `a7p._decode` etc no longer resolve -- only `a7p._a7p._decode`
+    # does, same single access path as the usermod build.
     class _a7p:
         _decode = _decode
         _encode = _encode
         _validate = _validate
         _clamp = _clamp
         _md5 = _md5
+
+    del _decode, _encode, _validate, _clamp, _md5
 
 
 # BEGIN GENERATED (tools/gen_layout.py) -- do not edit by hand

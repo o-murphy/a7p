@@ -256,7 +256,11 @@ make BOARD=RPI_PICO_W submodules   # first time only, fetches pico-sdk etc.
 make BOARD=RPI_PICO_W USER_C_MODULES=/path/to/a7p/micropython/usermod/micropython.cmake
 
 # webassembly -- the one port natmod categorically can't reach (no WASM
-# ARCH in dynruntime.mk), so this is the actual usermod target CI builds:
+# ARCH in dynruntime.mk), so this is the actual usermod target CI builds.
+# VARIANT=pyscript, not the default `standard` variant: `standard` (-s
+# ASYNCIFY) is broken against modern emsdk releases -- see
+# https://github.com/micropython/micropython/issues/19380. pyscript
+# doesn't use ASYNCIFY and isn't affected.
 cd ports/webassembly
 make VARIANT=pyscript submodules   # first time only, fetches micropython-lib
 make VARIANT=pyscript USER_C_MODULES=/path/to/a7p/micropython/usermod

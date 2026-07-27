@@ -128,4 +128,5 @@ $(SRC_O): $(SRC_DIR)/a7p_layout.h $(SRC_DIR)/a7p_validate.h $(SRC_DIR)/a7p_valid
 .PHONY: dist
 dist: all
 	mv $(MOD).mpy $(BUILD)/a7p.mpy
+	rm -f $(BUILD)/$(MOD).native.mpy
 	@echo "--> $(BUILD)/a7p.mpy"
