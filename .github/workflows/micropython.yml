@@ -126,21 +126,34 @@ jobs:
       matrix:
         include:
           - arch: x64
-            toolchain: none
           - arch: x86
-            toolchain: x86cross
+            # dynruntime.mk's x86 case uses the native gcc with -m32, not a
+            # separate i686-linux-gnu- cross compiler -- gcc-multilib is what
+            # actually provides the 32-bit headers/libs -m32 needs (verified:
+            # gcc-i686-linux-gnu alone fails on missing bits/wordsize.h since
+            # that's not the compiler dynruntime.mk invokes for this ARCH).
+            apt: gcc-multilib g++-multilib
           - arch: armv6m
-            toolchain: arm
+            apt: gcc-arm-none-eabi libnewlib-arm-none-eabi
+            verify_bin: arm-none-eabi-gcc
           - arch: armv7m
-            toolchain: arm
+            apt: gcc-arm-none-eabi libnewlib-arm-none-eabi
+            verify_bin: arm-none-eabi-gcc
           - arch: armv7emsp
-            toolchain: arm
+            apt: gcc-arm-none-eabi libnewlib-arm-none-eabi
+            verify_bin: arm-none-eabi-gcc
           - arch: armv7emdp
-            toolchain: arm
+            apt: gcc-arm-none-eabi libnewlib-arm-none-eabi
+            verify_bin: arm-none-eabi-gcc
           - arch: rv32imc
-            toolchain: riscv
+            apt: gcc-riscv64-unknown-elf picolibc-riscv64-unknown-elf
+            verify_bin: riscv64-unknown-elf-gcc
           - arch: rv64imc
-            toolchain: riscv
+            apt: gcc-riscv64-unknown-elf picolibc-riscv64-unknown-elf
+            verify_bin: riscv64-unknown-elf-gcc
+          # xtensa/xtensawin need a toolchain tarball / esp-idf, not a plain
+          # apt package -- handled by their own steps below, not the generic
+          # "Install cross-compiler" step every other entry uses.
           - arch: xtensa
             toolchain: xtensa-lx106
           - arch: xtensawin
@@ -157,30 +170,14 @@ jobs:
           ref: ${{ env.MPY_REF }}
           path: mpy
 
-      - name: Install ARM toolchain
-        if: matrix.toolchain == 'arm'
+      - name: Install cross-compiler
+        if: matrix.apt != ''
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi
-          arm-none-eabi-gcc --version
-
-      - name: Install RISC-V toolchain
-        if: matrix.toolchain == 'riscv'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-riscv64-unknown-elf picolibc-riscv64-unknown-elf
-          riscv64-unknown-elf-gcc --version
-
-      - name: Install x86 cross toolchain
-        if: matrix.toolchain == 'x86cross'
-        run: |
-          # dynruntime.mk's x86 case uses the native gcc with -m32, not a
-          # separate i686-linux-gnu- cross compiler -- gcc-multilib is what
-          # actually provides the 32-bit headers/libs -m32 needs (verified:
-          # gcc-i686-linux-gnu alone fails on missing bits/wordsize.h since
-          # that's not the compiler dynruntime.mk invokes for this ARCH).
-          sudo apt-get update
-          sudo apt-get install -y gcc-multilib g++-multilib
+          sudo apt-get install -y ${{ matrix.apt }}
+          if [ -n "${{ matrix.verify_bin }}" ]; then
+            ${{ matrix.verify_bin }} --version
+          fi
 
       - name: Install xtensa (esp8266) toolchain
         if: matrix.toolchain == 'xtensa-lx106'
