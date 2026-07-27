@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Regenerates the per-language protobuf bindings from proto/profedit.proto
 # (the canonical copy, shared by py/js/dart/go -- see
-# docs/DESIGN-schema-unification.md, "Наступні кроки" step 0).
+# docs/DESIGN-schema-unification.md, "Next steps" step 0).
 #
 # Usage:
 #   scripts/generate_proto.sh            # all four languages
