@@ -292,8 +292,24 @@ jobs:
             # needed. natmod is still impossible here (no aarch64 ARCH in
             # dynruntime.mk at all), so this is exactly the natmod-can't-
             # reach-it case the usermod job exists for.
+            #
+            # MICROPY_STANDALONE=1/LDFLAGS_EXTRA=-static: not needed for
+            # this job to merely pass CI (a plain dynamic build runs fine
+            # on the same runner that built it) -- this is a deliberate
+            # requirement for real deployability instead, same reasoning
+            # as micropython/micropython#17456 (LDFLAGS_EXTRA="-static"
+            # for minimal-Linux/Buildroot-style targets that can't be
+            # assumed to have a matching ld.so/libc at all): a fully
+            # static aarch64 binary is what's actually useful to hand to
+            # someone running this on e.g. a minimal embedded Linux
+            # board, not just whatever happens to satisfy this CI runner.
+            # MICROPY_STANDALONE=1 builds libffi from source so its
+            # static .a is guaranteed to exist for that link, rather than
+            # assuming the system's libffi-dev ships one.
             default_manifest: variants/standard/manifest.py
             runs_on: ubuntu-24.04-arm
+            standalone: "1"
+            ldflags_extra: "-static"
           - port: windows
             arch_label: x86
             # windows-latest is a real x64 Windows box (WOW64 runs the
@@ -357,7 +373,13 @@ jobs:
             source emsdk/emsdk_env.sh
             make -C mpy/ports/webassembly VARIANT=${{ matrix.variant }} submodules
           else
-            make -C mpy/ports/unix submodules
+            # MICROPY_STANDALONE=1 (aarch64 only right now, for the
+            # static-link deployability build) must reach this step too
+            # -- it's what makes the unix Makefile add lib/libffi to
+            # GIT_SUBMODULES at all; without it here, "submodules"
+            # wouldn't fetch libffi, and the later deplibs/build steps
+            # would fail looking for it.
+            make -C mpy/ports/unix MICROPY_STANDALONE="${{ matrix.standalone }}" submodules
           fi
 
       - name: Fetch port submodules (windows)
@@ -451,6 +473,17 @@ jobs:
         # never triggers.
         run: make -C mpy/mpy-cross -j"$(nproc)"
 
+      - name: Build libffi (deplibs)
+        if: matrix.standalone == '1'
+        # MICROPY_STANDALONE=1 only makes libffi a DEPLIBS entry, not an
+        # actual prerequisite of the default build (`deplibs:
+        # $(DEPLIBS)` is its own separate Makefile target) -- same fix as
+        # the usermod-cross job's identical step; see that job's comment
+        # for the full explanation (a real CI failure on that job caught
+        # this exact thing). No manual libtoolize/autoreconf needed --
+        # the Makefile's own ./autogen.sh-triggering rule handles it.
+        run: make -C mpy/ports/unix MICROPY_STANDALONE=1 deplibs
+
       - name: Build mpy-cross (windows)
         if: matrix.port == 'windows'
         # Same fix, same reason as above. CROSS_COMPILE must match what
@@ -519,7 +552,12 @@ jobs:
               USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" \
               FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
           else
+            # MICROPY_STANDALONE/LDFLAGS_EXTRA are empty strings for x64
+            # (covered by natmod, not this job) -- only aarch64 sets
+            # them, see that matrix entry's comment above.
             make -C mpy/ports/unix \
+              MICROPY_STANDALONE="${{ matrix.standalone }}" \
+              LDFLAGS_EXTRA="${{ matrix.ldflags_extra }}" \
               USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" \
               FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
           fi
@@ -638,10 +676,18 @@ jobs:
   #     arm-linux-gnueabihf- -- matches upstream's own choice for this job.
   #   - USER_C_MODULES/FROZEN_MANIFEST added on top of upstream's exact
   #     CROSS_COMPILE/VARIANT=coverage/MICROPY_STANDALONE=1 combination, to
-  #     get this project's own module built in; no LDFLAGS_EXTRA=-static
-  #     needed -- qemu-user-static's /usr/gnemul/qemu-<arch> symlink (set
-  #     up in "Install packages" below) lets the dynamically-linked result
-  #     run directly, same as upstream's own unix ports run their tests.
+  #     get this project's own module built in. LDFLAGS_EXTRA=-static is
+  #     also added on top -- upstream doesn't need it (their build only
+  #     has to run inside their own CI), but this is a deliberate
+  #     requirement here for real deployability, same reasoning as
+  #     micropython/micropython#17456: a fully static binary is what's
+  #     actually usable on a minimal embedded Linux target that can't be
+  #     assumed to have a matching ld.so/libc, not just whatever happens
+  #     to satisfy this CI runner. A static binary has no dynamic
+  #     libraries to resolve at all, so qemu-user-static's binfmt_misc
+  #     handler runs it directly with no /usr/gnemul sysroot symlink
+  #     needed (that trick is specifically for *dynamically* linked
+  #     cross binaries, which this deliberately isn't).
   #   - VARIANT=coverage (not standard) is upstream's own choice for these
   #     two jobs specifically -- kept rather than switched to standard, to
   #     stay on the tested combination; its own default manifest is what
@@ -658,12 +704,10 @@ jobs:
             cross_compile: arm-linux-gnueabi-
             cross_apt: gcc-arm-linux-gnueabi g++-arm-linux-gnueabi libltdl-dev
             gnemul_arch: arm
-            gnemul_target: /usr/arm-linux-gnueabi
           - arch_label: mipsel
             cross_compile: mipsel-linux-gnu-
             cross_apt: gcc-mipsel-linux-gnu g++-mipsel-linux-gnu libc6-mipsel-cross libltdl-dev
             gnemul_arch: mipsel
-            gnemul_target: /usr/mipsel-linux-gnu
     steps:
       - name: Checkout a7p
         uses: actions/checkout@v7
@@ -676,16 +720,22 @@ jobs:
           path: mpy
 
       - name: Install packages
-        # Exactly tools/ci.sh's ci_unix_qemu_arm_setup/ci_unix_qemu_mips_setup
-        # (package names and the /usr/gnemul symlink both), just
-        # parameterized per arch via the matrix above.
+        # Package names from tools/ci.sh's
+        # ci_unix_qemu_arm_setup/ci_unix_qemu_mips_setup, parameterized
+        # per arch via the matrix above. Unlike that function, no
+        # /usr/gnemul symlink here -- upstream's own build there is a
+        # plain dynamic link, which needs that symlink so qemu-user-static
+        # can find a matching sysroot/ld.so at run time. This build adds
+        # LDFLAGS_EXTRA=-static (see the job comment above for why: real
+        # deployability, not just satisfying this CI runner), so the
+        # result has no dynamic library dependencies to resolve in the
+        # first place -- qemu-user-static's binfmt_misc handler runs it
+        # directly either way.
         run: |
           sudo apt-get update
           sudo apt-get install -y ${{ matrix.cross_apt }}
           sudo apt-get install -y qemu-user-static
           qemu-${{ matrix.gnemul_arch }}-static --version
-          sudo mkdir -p /usr/gnemul
-          sudo ln -s ${{ matrix.gnemul_target }} /usr/gnemul/qemu-${{ matrix.gnemul_arch }}
 
       - name: Write combined FROZEN_MANIFEST
         run: |
@@ -700,21 +750,32 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build (mpy-cross, submodules, deplibs, main build)
-        # Exactly tools/ci.sh's ci_unix_build_helper sequence -- mpy-cross
-        # first (native host tool), then submodules/deplibs/build all with
-        # the same CROSS_COMPILE/VARIANT/MICROPY_STANDALONE options, in
-        # that order, `deplibs` (which actually builds lib/libffi from
-        # source, invoked via its own ./autogen.sh -- no manual
-        # libtoolize/autoreconf needed) as its own step before the main
-        # build, same as upstream -- confirmed directly by a real CI
-        # failure that this project's own module build must do the same,
-        # since MICROPY_STANDALONE=1 alone only adds libffi to DEPLIBS, it
-        # doesn't make `deplibs` a prerequisite of the default target.
+        # Base sequence exactly matches tools/ci.sh's ci_unix_build_helper
+        # -- mpy-cross first (native host tool), then
+        # submodules/deplibs/build all with the same
+        # CROSS_COMPILE/VARIANT/MICROPY_STANDALONE options, in that order,
+        # `deplibs` (which actually builds lib/libffi from source, invoked
+        # via its own ./autogen.sh -- no manual libtoolize/autoreconf
+        # needed) as its own step before the main build -- confirmed
+        # directly by a real CI failure that this project's own module
+        # build must do the same, since MICROPY_STANDALONE=1 alone only
+        # adds libffi to DEPLIBS, it doesn't make `deplibs` a prerequisite
+        # of the default target.
+        #
+        # LDFLAGS_EXTRA=-static added on top of upstream's own options --
+        # upstream doesn't use it here since ci_unix_qemu_arm/mips only
+        # need the result to run inside their own CI, not to be handed to
+        # anyone. Same reasoning as micropython/micropython#17456: a
+        # fully static binary is what's actually deployable to a minimal
+        # embedded Linux target that can't be assumed to have a matching
+        # ld.so/libc, which is the realistic use case for this port/arch
+        # combination (unlike aarch64/x64, static there is for the same
+        # deployability reason but not load-bearing for *this* job).
         run: |
           make -C mpy/mpy-cross -j"$(nproc)"
           make -C mpy/ports/unix CROSS_COMPILE="${{ matrix.cross_compile }}" VARIANT=coverage MICROPY_STANDALONE=1 submodules
-          make -C mpy/ports/unix CROSS_COMPILE="${{ matrix.cross_compile }}" VARIANT=coverage MICROPY_STANDALONE=1 deplibs
-          make -C mpy/ports/unix CROSS_COMPILE="${{ matrix.cross_compile }}" VARIANT=coverage MICROPY_STANDALONE=1 \
+          make -C mpy/ports/unix CROSS_COMPILE="${{ matrix.cross_compile }}" VARIANT=coverage MICROPY_STANDALONE=1 LDFLAGS_EXTRA="-static" deplibs
+          make -C mpy/ports/unix CROSS_COMPILE="${{ matrix.cross_compile }}" VARIANT=coverage MICROPY_STANDALONE=1 LDFLAGS_EXTRA="-static" \
             USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" \
             FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
 
