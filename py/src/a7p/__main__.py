@@ -11,7 +11,7 @@ from a7p import exceptions, profedit_pb2
 from a7p.a7p import setUseSchemaValidator
 from a7p.exceptions import A7PValidationError
 from a7p.factory import DistanceTable
-from a7p.logger import logger, color_print, color_fmt
+from a7p.logger import color_fmt, color_print, logger
 
 try:
     __version__ = metadata.version("a7p")
@@ -181,19 +181,15 @@ class Result:
 
         if self.zero:
             x, y = self.zero
-            print("\tZero:\tX: {},\tY: {}".format(-x, y))
+            print(f"\tZero:\tX: {-x},\tY: {y}")
         if self.zero_update:
             x, y = self.new_zero
-            color_print(
-                "\tNew zero:\tX: {},\tY: {}".format(-x, y), levelname="LIGHT_BLUE"
-            )
+            color_print(f"\tNew zero:\tX: {-x},\tY: {y}", levelname="LIGHT_BLUE")
         if self.distances:
-            color_print(
-                "\tNew range: {}".format(self.distances), levelname="LIGHT_BLUE"
-            )
+            color_print(f"\tNew range: {self.distances}", levelname="LIGHT_BLUE")
         if self.zero_distance:
             color_print(
-                "\tNew zero distance: {}".format(self.zero_distance),
+                f"\tNew zero distance: {self.zero_distance}",
                 levelname="LIGHT_BLUE",
             )
         if self.switches:
@@ -229,7 +225,7 @@ class Result:
                         )
                 except exceptions.A7PDataError:
                     logger.warning("The data is invalid. Changes have not been saved.")
-            except IOError as e:
+            except OSError as e:
                 logger.warning(f"An error occurred while saving: {e}")
 
 
@@ -281,7 +277,7 @@ def get_zero_to_sync(path, validate):
         with open(path, "rb") as f:
             payload = a7p.load(f, validate_=validate, fail_fast=True)
         return payload.profile.zero_x, payload.profile.zero_y
-    except (IOError, exceptions.A7PDataError) as e:
+    except (OSError, exceptions.A7PDataError) as e:
         parser.error(e)
 
 
@@ -290,7 +286,7 @@ def get_switches_to_copy(path, validate):
         with open(path, "rb") as f:
             payload = a7p.load(f, validate_=validate, fail_fast=True)
         return payload.profile.switches
-    except (IOError, exceptions.A7PDataError) as e:
+    except (OSError, exceptions.A7PDataError) as e:
         parser.error(e)
 
 
@@ -323,7 +319,7 @@ def process_file(
             result.error = "Validation error"
             result.validation_error = err
             payload = err.payload
-    except (IOError, exceptions.A7PDataError) as err:
+    except (OSError, exceptions.A7PDataError) as err:
         result.error = err
         return result
 
@@ -465,7 +461,7 @@ def main():
     except NotImplementedError as e:
         logger.error(e)
         sys.exit(0)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 -- top-level CLI entry point must not crash with a raw traceback
         logger.exception(e)
         logger.critical(e)
         sys.exit(1)

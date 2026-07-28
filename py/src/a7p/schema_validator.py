@@ -23,13 +23,13 @@ be paid by every `import a7p` even though the large majority of payloads
 are valid and never touch that path.
 """
 
+from fastjsonschema import JsonSchemaException as _FastJsonSchemaException
 from google.protobuf.json_format import MessageToDict
 
 from a7p import profedit_pb2
 from a7p._compiled_schema import validate as _validate_fast
-from fastjsonschema import JsonSchemaException as _FastJsonSchemaException
 
-__all__ = ("validate", "SchemaValidationError")
+__all__ = ("SchemaValidationError", "validate")
 
 
 class SchemaValidationError(Exception):

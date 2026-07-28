@@ -10,8 +10,8 @@ Functions:
     color_print: Prints a message to the console with color, based on the log level.
 """
 
-import sys
 import logging
+import sys
 
 # ANSI escape codes for colors
 RESET = "\033[0m"
@@ -103,9 +103,9 @@ def color_print(*args, levelname: str = "", sep=" ", end="\n"):
 
 
 __all__ = (
-    "logger",
     "COLORS",
     "RESET",
     "color_fmt",
     "color_print",
+    "logger",
 )
