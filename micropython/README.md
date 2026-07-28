@@ -187,7 +187,7 @@ list, when CI coverage changes):
 
 - 🔷 covered by `natmod`, 🔶 covered by `usermod`, ➖ not in CI
 
-| port                       | arch                                          | natmod support | usermod support | current CI build | implementation (as wired in `.github/workflows/micropython.yml`)                                                                                                                                                                                                                                                 |
+| port                       | arch                                          | natmod support | usermod support | current CI build | implementation (as wired in `.github/workflows/mp-natmod.yml` / `.github/workflows/mp-usermod.yml`)                                                                                                                                                                                                                                                 |
 | -------------------------- | --------------------------------------------- | :------------: | :-------------: | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | unix                       | `x64`, `x86`                                  |       ✔️        |        ✔️        | 🔷                | the `natmod (x64)` / `natmod (x86)` jobs in the Actions UI — the name is generic per-ARCH and doesn't say "unix", but this is the same job that also builds the unix port and runs `test_a7p.py`/`test_validate.py` on x64                                                                                       |
 | unix                       | `aarch64`                                     |       ❌        |        ✔️        | 🔶                | `usermod` job, `port: unix`, `arch_label: aarch64`, `runs_on: ubuntu-24.04-arm` — native build, no cross-compiler                                                                                                                                                                                                |
@@ -214,6 +214,58 @@ list, when CI coverage changes):
 | embed                      | ➖                                             |       ➖        |        ➖        | ➖                | not a standalone port (no own Makefile/CMakeLists) — out of CI permanently                                                                                                                                                                                                                                       |
 
 <!-- END mp.md -->
+
+### Install a released build via `mip`
+
+Pushing a `v*` tag runs `.github/workflows/release.yml`, which builds every
+natmod `ARCH` above (by calling `mp-natmod.yml` as a reusable workflow, same
+mechanism as [ballistics-lab/micropython-bclibc's own
+`release.yml`](https://github.com/ballistics-lab/micropython-bclibc/blob/main/.github/workflows/release.yml))
+and publishes a GitHub Release with one `a7p_<arch>.native.mpy` asset per
+architecture, plus a `package.json` (see
+`scripts/ci/build_micropython_release_assets.py`). Each device picks the
+matching variant on its own, via the optional per-entry native-code
+compatibility tag schema proposed upstream
+([micropython/micropython#19532](https://github.com/micropython/micropython/pull/19532),
+[micropython/micropython-lib#1144](https://github.com/micropython/micropython-lib/pull/1144);
+see the discussion at
+[micropython/micropython#19479](https://github.com/micropython/micropython/issues/19479)).
+
+**Until that lands upstream**, the `mip` already on your device (frozen into
+stock firmware, or a stock `mpremote`) doesn't understand the tagged `urls`
+entries in this `package.json` yet and will raise `ValueError: too many
+values to unpack`. Bootstrap a patched `mip` first --
+[`micropython/tools/nmip.py`](tools/nmip.py) is a drop-in copy of the
+micropython-lib#1144 branch, installed under a different name (`nmip`) so it
+doesn't collide with (and doesn't touch) the frozen `mip` module already on
+the device:
+
+```python
+>>> import mip
+>>> mip.install("github:o-murphy/a7p/micropython/tools/nmip.py")
+Downloading github:o-murphy/a7p/micropython/tools/nmip.py to /home/murphy/.micropython/lib
+Copying: /home/murphy/.micropython/lib/nmip.py
+Done
+>>> import nmip as mip
+>>> mip.install("https://github.com/o-murphy/a7p/releases/download/v1.2.1")
+Installing https://github.com/o-murphy/a7p/releases/download/v1.2.1/package.json to /home/murphy/.micropython/lib
+Copying: /home/murphy/.micropython/lib/a7p.mpy
+Done
+```
+
+**Once the upstream PRs are merged and shipped in a MicroPython release**,
+plain `mip` (on-device) and `mpremote` (from the host) will handle this
+directly -- no bootstrap needed:
+
+```bash
+mpremote mip install https://github.com/o-murphy/a7p/releases/download/vX.Y.Z/package.json
+```
+
+```python
+# or on-device:
+import mip
+mip.install("https://github.com/o-murphy/a7p/releases/download/vX.Y.Z/package.json")
+```
 
 ## usermod: compiling into the firmware directly
 
@@ -313,7 +365,7 @@ Each port's own default manifest path (checked directly against that port's
 | `nrf` | `modules/manifest.py` |
 | `rp2`, `esp32`, `stm32`, `samd`, `mimxrt` | `boards/manifest.py` |
 
-CI (`.github/workflows/micropython.yml`) does exactly this for every
+CI (`.github/workflows/mp-usermod.yml`) does exactly this for every
 `usermod` matrix entry -- it's not just a documented recipe, it's built and
 (for `unix`) run on every push.
 
@@ -368,7 +420,7 @@ Both write into the same shared `micropython/natmod/nanopb/` directory
 `natmod/Makefile`'s own `fetch-nanopb` uses, so building natmod once and
 usermod once doesn't fetch nanopb twice.
 
-Verified end-to-end in CI (`.github/workflows/micropython.yml`, `usermod`
+Verified end-to-end in CI (`.github/workflows/mp-usermod.yml`, `usermod`
 job), three targets, all genuinely natmod-can't-reach cases:
 
 * `webassembly` (`VARIANT=pyscript`) builds with `USER_C_MODULES` + a

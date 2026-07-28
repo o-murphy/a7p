@@ -46,13 +46,13 @@ except ImportError:
     # wrapped, so `a7p._decode` etc no longer resolve -- only `a7p._a7p._decode`
     # does, same single access path as the usermod build.
     class _a7p:
-        _decode = _decode
-        _encode = _encode
-        _validate = _validate
-        _clamp = _clamp
-        _md5 = _md5
+        _decode = _decode  # noqa: F821 -- native mpy_init() global, see docstring
+        _encode = _encode  # noqa: F821
+        _validate = _validate  # noqa: F821
+        _clamp = _clamp  # noqa: F821
+        _md5 = _md5  # noqa: F821
 
-    del _decode, _encode, _validate, _clamp, _md5
+    del _decode, _encode, _validate, _clamp, _md5  # noqa: F821
 
 
 # BEGIN GENERATED (tools/gen_layout.py) -- do not edit by hand
@@ -190,7 +190,9 @@ class Profile:
 
     def __init__(self):
         self._buf = bytearray(PAYLOAD_SIZE)
-        self._s = uctypes.struct(uctypes.addressof(self._buf), PAYLOAD_DESC, uctypes.LITTLE_ENDIAN)
+        self._s = uctypes.struct(
+            uctypes.addressof(self._buf), PAYLOAD_DESC, uctypes.LITTLE_ENDIAN
+        )
 
     @property
     def has_profile(self):
@@ -208,7 +210,7 @@ class Profile:
         """Reads a fixed char[] field (e.g. "profile_name", "user_note")."""
         off, size = PROFILE_STRINGS[name]
         base = PAYLOAD_PROFILE_OFFSET + off
-        raw = bytes(self._buf[base:base + size])
+        raw = bytes(self._buf[base : base + size])
         end = raw.find(b"\x00")
         if end < 0:
             end = len(raw)
@@ -221,8 +223,8 @@ class Profile:
         encoded = value.encode()
         if len(encoded) > size - 1:
             raise ValueError("a7p: %s exceeds %d bytes" % (name, size - 1))
-        self._buf[base:base + size] = bytes(size)
-        self._buf[base:base + len(encoded)] = encoded
+        self._buf[base : base + size] = bytes(size)
+        self._buf[base : base + len(encoded)] = encoded
 
     def decode(self, data):
         """Decodes a raw protobuf-encoded Payload body into this Profile."""

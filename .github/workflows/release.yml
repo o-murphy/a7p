@@ -322,3 +322,51 @@ jobs:
         # `go list -m` alone is enough to trigger it; it needs no checkout
         # of this repo, just network access to the proxy.
         run: GOPROXY=proxy.golang.org go list -m github.com/o-murphy/a7p@${{ env.RELEASE_TAG }}
+
+  # ── build micropython/'s natmod matrix for release, mirroring
+  # ballistics-lab/micropython-bclibc's own release.yml exactly (see that
+  # project's own natmod.yml/release.yml) -- calls mp-natmod.yml as a
+  # reusable workflow instead of keeping a second copy of that matrix in
+  # sync by hand. mp-usermod.yml is deliberately NOT called here: it only
+  # builds full interpreter/firmware images for CI verification, none of
+  # which are release artifacts (see that file's own header comment) ──────
+  build-micropython:
+    uses: ./.github/workflows/mp-natmod.yml
+
+  # ── publish micropython/'s native .mpy files + a package.json (per-entry
+  # native code compatibility tags, see scripts/ci/build_micropython_release_
+  # assets.py) as GitHub Release assets, so `mip`/`mpremote mip install` can
+  # pick the right arch for a given device automatically ──────────────────
+  publish-micropython:
+    needs: [verify-release, build-micropython]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: a7p-natmod-*
+          path: artifacts
+
+      - name: Assemble release assets + package.json
+        run: |
+          python3 scripts/ci/build_micropython_release_assets.py \
+            --tag "${{ env.RELEASE_TAG }}" \
+            --out-dir release_assets \
+            artifacts/*/a7p.mpy
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: a7p-micropython-release-${{ env.RELEASE_TAG }}
+          path: release_assets/
+          if-no-files-found: error
+
+      - name: Attach to the release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: release_assets/*

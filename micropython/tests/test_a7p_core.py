@@ -10,6 +10,7 @@ Not a replacement for test_a7p.py/test_validate.py -- those additionally
 cover load()/dump() and the md5-prefixed file format, which this
 deliberately skips.
 """
+
 import a7p
 
 with open("go/assets/example.a7p", "rb") as f:
@@ -30,7 +31,13 @@ assert (prof.distances[0], prof.distances[1], prof.distances[2]) == (0, 10000, 2
 assert prof.coef_rows_count == 5
 assert (prof.coef_rows[0].bc_cd, prof.coef_rows[0].mv) == (3820, 9110)
 sw0 = prof.switches[0]
-assert (sw0.c_idx, sw0.reticle_idx, sw0.zoom, sw0.distance, sw0.distance_from) == (255, 3, 0, 10000, 0)
+assert (sw0.c_idx, sw0.reticle_idx, sw0.zoom, sw0.distance, sw0.distance_from) == (
+    255,
+    3,
+    0,
+    10000,
+    0,
+)
 
 # mutate through the zero-copy uctypes view, no re-decode
 prof.zero_x = 12345

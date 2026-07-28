@@ -23,4 +23,4 @@
 # freeze()'s path argument is resolved relative to *this* file's own
 # directory, so it works regardless of where the a7p repo sits on disk or
 # which port includes it.
-freeze("../src", "a7p.py")
+freeze("../src", "a7p.py")  # noqa: F821 -- manifest DSL global, injected by make_manifest.py

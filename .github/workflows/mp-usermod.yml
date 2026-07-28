@@ -1,26 +1,25 @@
-name: MicroPython (natmod / usermod)
+name: usermod
 
-# Builds micropython/ against a real MicroPython checkout, two ways:
-#   - natmod: every ARCH natmod/Makefile supports (a standalone .mpy)
-#   - usermod: a representative board per port that supports USER_C_MODULES
-#     (compiled directly into firmware via micropython/usermod/)
+# Builds micropython/ compiled directly into firmware via MicroPython's
+# User C Modules (USER_C_MODULES), on a representative board per port that
+# supports it -- see mp-natmod.yml for the standalone-.mpy build, which covers
+# every ARCH natmod/Makefile supports.
 #
 # Toolchain/setup commands below are taken from MicroPython's own
 # tools/ci.sh (the source its official .github/workflows/*.yml call into),
 # not guessed, so this matches how upstream actually builds these targets.
 #
-# Scope policy: build natmod wherever it's possible; build usermod only
-# where natmod ISN'T possible (no matching dynruntime.mk ARCH, or the port
-# disables native code emission outright). Checked directly, port by port,
-# against real MICROPY_EMIT_*/USER_C_MODULES config in the v1.28.0 tree --
-# not assumed:
+# Scope policy: this workflow only builds usermod where natmod ISN'T
+# possible (no matching dynruntime.mk ARCH, or the port disables native
+# code emission outright). Checked directly, port by port, against real
+# MICROPY_EMIT_*/USER_C_MODULES config in the v1.28.0 tree -- not assumed:
 #
 #   - unix, rp2, esp32, stm32 (non-tiny-flash boards), samd (M4/SAMD51),
 #     mimxrt, esp8266, nrf (EXTRA_FEAT boards): natmod already works by
 #     default on the boards this workflow would otherwise pick as
 #     "representative" -- usermod there would just be a slower, more
 #     expensive way to test the same thing natmod already covers, so it's
-#     not in this matrix at all anymore.
+#     not in this matrix at all.
 #   - webassembly: natmod is impossible (no WASM ARCH in dynruntime.mk --
 #     architecturally different mechanism), but USER_C_MODULES works fine
 #     (Make-based, via py/py.mk).
@@ -29,7 +28,7 @@ name: MicroPython (natmod / usermod)
 #     this needs no cross-toolchain or Docker: GitHub-hosted
 #     ubuntu-24.04-arm/ubuntu-22.04-arm runners are free on public repos and
 #     GA (since August 2025), so this job just builds *natively* on one, the
-#     same way the x64 natmod job's unix build already does on
+#     same way mp-natmod.yml's x64 job's unix build already does on
 #     ubuntu-latest. hashlib.md5 is present by default here (unlike
 #     webassembly's pyscript variant), so this runs the full test suite
 #     (test_a7p.py/test_validate.py, load/dump included), not just
@@ -88,6 +87,11 @@ name: MicroPython (natmod / usermod)
 # manifest + micropython/usermod/manifest.py) -- so `import a7p` works right
 # after flashing/loading with no separate file copy, on top of
 # USER_C_MODULES compiling the `_a7p` C half straight into the same image.
+#
+# This workflow is intentionally NOT part of release.yml (no workflow_call
+# trigger) -- unlike mp-natmod.yml, none of what it builds (full interpreter/
+# firmware images) is a distributable release artifact; it exists purely to
+# verify this module still builds/runs on the ports natmod can't reach.
 
 on:
   push:
@@ -96,19 +100,18 @@ on:
       - "proto/**"
       - "schema/**"
       - "go/assets/**"
-      - ".github/workflows/micropython.yml"
+      - ".github/workflows/mp-usermod.yml"
   pull_request:
     paths:
       - "micropython/**"
       - "proto/**"
       - "schema/**"
       - "go/assets/**"
-      - ".github/workflows/micropython.yml"
+      - ".github/workflows/mp-usermod.yml"
   workflow_dispatch:
-  workflow_call:
 
 concurrency:
-  group: micropython-${{ github.workflow }}-${{ github.ref }}
+  group: usermod-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -117,128 +120,6 @@ env:
   MPY_REF: v1.28.0
 
 jobs:
-  # ── natmod ────────────────────────────────────────────────────────────────
-  natmod:
-    name: natmod (${{ matrix.arch }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: x64
-          - arch: x86
-            # dynruntime.mk's x86 case uses the native gcc with -m32, not a
-            # separate i686-linux-gnu- cross compiler -- gcc-multilib is what
-            # actually provides the 32-bit headers/libs -m32 needs (verified:
-            # gcc-i686-linux-gnu alone fails on missing bits/wordsize.h since
-            # that's not the compiler dynruntime.mk invokes for this ARCH).
-            apt: gcc-multilib g++-multilib
-          - arch: armv6m
-            apt: gcc-arm-none-eabi libnewlib-arm-none-eabi
-            verify_bin: arm-none-eabi-gcc
-          - arch: armv7m
-            apt: gcc-arm-none-eabi libnewlib-arm-none-eabi
-            verify_bin: arm-none-eabi-gcc
-          - arch: armv7emsp
-            apt: gcc-arm-none-eabi libnewlib-arm-none-eabi
-            verify_bin: arm-none-eabi-gcc
-          - arch: armv7emdp
-            apt: gcc-arm-none-eabi libnewlib-arm-none-eabi
-            verify_bin: arm-none-eabi-gcc
-          - arch: rv32imc
-            apt: gcc-riscv64-unknown-elf picolibc-riscv64-unknown-elf
-            verify_bin: riscv64-unknown-elf-gcc
-          - arch: rv64imc
-            apt: gcc-riscv64-unknown-elf picolibc-riscv64-unknown-elf
-            verify_bin: riscv64-unknown-elf-gcc
-          # xtensa/xtensawin need a toolchain tarball / esp-idf, not a plain
-          # apt package -- handled by their own steps below, not the generic
-          # "Install cross-compiler" step every other entry uses.
-          - arch: xtensa
-            toolchain: xtensa-lx106
-          - arch: xtensawin
-            toolchain: esp-idf
-
-    steps:
-      - name: Checkout a7p
-        uses: actions/checkout@v7
-
-      - name: Checkout MicroPython ${{ env.MPY_REF }}
-        uses: actions/checkout@v7
-        with:
-          repository: micropython/micropython
-          ref: ${{ env.MPY_REF }}
-          path: mpy
-
-      - name: Install cross-compiler
-        if: matrix.apt != ''
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ${{ matrix.apt }}
-          if [ -n "${{ matrix.verify_bin }}" ]; then
-            ${{ matrix.verify_bin }} --version
-          fi
-
-      - name: Install xtensa (esp8266) toolchain
-        if: matrix.toolchain == 'xtensa-lx106'
-        run: |
-          wget -q https://micropython.org/resources/xtensa-lx106-elf-standalone.tar.gz
-          tar xzf xtensa-lx106-elf-standalone.tar.gz
-          echo "$PWD/xtensa-lx106-elf/bin" >> "$GITHUB_PATH"
-
-      - name: Install esp-idf (xtensawin toolchain)
-        if: matrix.toolchain == 'esp-idf'
-        env:
-          IDF_VER: v5.4
-        run: |
-          git clone --depth 1 --branch $IDF_VER https://github.com/espressif/esp-idf.git
-          git -C esp-idf submodule update --init --recursive --filter=tree:0
-          ./esp-idf/install.sh
-          # esp-idf's own venv only exists for the rest of *this* step --
-          # each workflow step is a fresh shell, so install here too (not
-          # just once globally) or later steps that `source export.sh`
-          # won't have them either.
-          source esp-idf/export.sh
-          pip install pyelftools ar
-
-      - name: Install Python deps for mpy_ld.py
-        if: matrix.toolchain != 'esp-idf'
-        run: pip install pyelftools ar
-
-      - name: Build mpy-cross
-        run: make -C mpy/mpy-cross -j"$(nproc)"
-
-      - name: Fetch nanopb
-        run: make -C micropython/natmod fetch-nanopb
-
-      - name: Build natmod (${{ matrix.arch }})
-        run: |
-          if [ "${{ matrix.toolchain }}" = "esp-idf" ]; then source esp-idf/export.sh; fi
-          make -C micropython/natmod MPY_DIR="$GITHUB_WORKSPACE/mpy" ARCH=${{ matrix.arch }} dist
-
-      - name: Build unix port + run tests (x64 only)
-        if: matrix.arch == 'x64'
-        # submodules/deplibs/build in that order -- matches tools/ci.sh's
-        # ci_unix_build_helper exactly (deplibs is a no-op here since
-        # MICROPY_STANDALONE isn't set for this plain build, but calling
-        # it anyway keeps this the same sequence as every port that does
-        # need it, rather than a narrower one this project wrote by hand).
-        env:
-          MICROPYPATH: micropython/natmod/build/x64
-        run: |
-          make -C mpy/ports/unix submodules
-          make -C mpy/ports/unix deplibs
-          make -C mpy/ports/unix -j"$(nproc)"
-          mpy/ports/unix/build-standard/micropython micropython/tests/test_a7p.py
-          mpy/ports/unix/build-standard/micropython micropython/tests/test_validate.py
-
-      - name: Upload natmod .mpy files (${{ matrix.arch }})
-        uses: actions/upload-artifact@v7
-        with:
-          name: a7p-natmod-${{ matrix.arch }}
-          path: micropython/natmod/build/${{ matrix.arch }}/*.mpy
-          if-no-files-found: error
-
   # ── usermod ───────────────────────────────────────────────────────────────
   usermod:
     name: usermod (${{ matrix.port }}-${{ matrix.arch_label }})
@@ -269,7 +150,7 @@ jobs:
       # unrelated to anything in usermod/a7p, persists with LTO=0 passed on
       # the command line).
       #
-      # natmod (see the natmod job above, arch: armv7emsp for nrf, xtensa for
+      # natmod (see mp-natmod.yml, arch: armv7emsp for nrf, xtensa for
       # esp8266) is the mechanism that actually fits both chips: a standalone
       # .mpy copied onto already-flashed stock firmware, no rebuild, no added
       # flash/IRAM pressure, and no dependency on this specific toolchain
@@ -432,7 +313,7 @@ jobs:
         # usermod/a7p/micropython.mk fetches nanopb itself too (a bare
         # $(shell ...) at Makefile-parse time, guarded by "does pb.h already
         # exist"), but doing it here first -- the exact same fetch-nanopb
-        # target the natmod job already uses successfully, via a plain
+        # target mp-natmod.yml already uses successfully, via a plain
         # relative path -- means that guard is already satisfied by the time
         # the port Makefile parses, so the fragile embedded fetch never
         # actually runs.
@@ -455,9 +336,9 @@ jobs:
 
       - name: Build mpy-cross
         if: matrix.port != 'windows'
-        # Building this explicitly first -- exactly like the natmod job
-        # does -- avoids py/mkenv.mk's auto-build rule for mpy-cross, which
-        # resets USER_C_MODULES= for that recursive `make` but *not*
+        # Building this explicitly first -- exactly like mp-natmod.yml's own
+        # job does -- avoids py/mkenv.mk's auto-build rule for mpy-cross,
+        # which resets USER_C_MODULES= for that recursive `make` but *not*
         # FROZEN_MANIFEST= (checked directly in py/mkrules.mk v1.28.0).
         # FROZEN_MANIFEST leaks through MAKEFLAGS into that sub-make, which
         # then compiles mpy-cross with
@@ -608,8 +489,8 @@ jobs:
         # that's no longer a firmware-config dependency at all (see
         # README.md's "No firmware hashlib.md5 dependency" section).
         #
-        # unix runs the same full suite (load/dump included), same as the
-        # natmod job's x64 unix build.
+        # unix runs the same full suite (load/dump included), same as
+        # mp-natmod.yml's x64 unix build.
         run: |
           if [ "${{ matrix.port }}" = "webassembly" ]; then
             node micropython/tests/run_wasm_tests.mjs mpy/ports/webassembly/build-${{ matrix.variant }}/micropython.mjs

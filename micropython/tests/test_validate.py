@@ -6,6 +6,7 @@ the repo root (same convention as test_a7p.py):
     cd ../..
     MICROPYPATH=micropython/natmod/build/x64 micropython micropython/tests/test_validate.py
 """
+
 import a7p
 
 with open("go/assets/example.a7p", "rb") as f:

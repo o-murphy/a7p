@@ -1,0 +1,176 @@
+name: natmod
+
+# Builds micropython/ as a standalone MicroPython native module (.mpy) --
+# every ARCH natmod/Makefile supports -- against a real MicroPython
+# checkout.
+#
+# Toolchain/setup commands below are taken from MicroPython's own
+# tools/ci.sh (the source its official .github/workflows/*.yml call into),
+# not guessed, so this matches how upstream actually builds these targets.
+#
+# Built wherever natmod is possible at all; see mp-usermod.yml for the few
+# places it categorically isn't (webassembly, unix on aarch64, windows,
+# unix on armhf/mipsel) and what covers them instead.
+#
+# This workflow is also called by release.yml (via workflow_call) to build
+# every arch's .mpy for publishing as GitHub Release assets -- see
+# scripts/ci/build_micropython_release_assets.py. mp-usermod.yml is
+# deliberately NOT part of that: it only builds full interpreter/firmware
+# images for CI verification, none of which are release artifacts.
+
+on:
+  push:
+    paths:
+      - "micropython/**"
+      - "proto/**"
+      - "schema/**"
+      - "go/assets/**"
+      - ".github/workflows/mp-natmod.yml"
+  pull_request:
+    paths:
+      - "micropython/**"
+      - "proto/**"
+      - "schema/**"
+      - "go/assets/**"
+      - ".github/workflows/mp-natmod.yml"
+  workflow_dispatch:
+  workflow_call:
+
+concurrency:
+  # Literal "natmod-" prefix, not ${{ github.workflow }} -- when this
+  # workflow runs as a reusable workflow_call (from release.yml),
+  # github.workflow resolves to the CALLER's name ("Release"), not this
+  # file's own, which would otherwise collide with release.yml's own
+  # concurrency group (same "Release-<ref>" string) and, combined with that
+  # workflow's cancel-in-progress: false, mean this workflow_call could
+  # never even start. Same fix bclibc's own natmod.yml uses for the same
+  # reason.
+  group: natmod-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Pinned MicroPython release, not master, so this doesn't flake on
+  # upstream churn -- bump deliberately, re-running the whole matrix.
+  MPY_REF: v1.28.0
+
+jobs:
+  natmod:
+    name: natmod (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+          - arch: x86
+            # dynruntime.mk's x86 case uses the native gcc with -m32, not a
+            # separate i686-linux-gnu- cross compiler -- gcc-multilib is what
+            # actually provides the 32-bit headers/libs -m32 needs (verified:
+            # gcc-i686-linux-gnu alone fails on missing bits/wordsize.h since
+            # that's not the compiler dynruntime.mk invokes for this ARCH).
+            apt: gcc-multilib g++-multilib
+          - arch: armv6m
+            apt: gcc-arm-none-eabi libnewlib-arm-none-eabi
+            verify_bin: arm-none-eabi-gcc
+          - arch: armv7m
+            apt: gcc-arm-none-eabi libnewlib-arm-none-eabi
+            verify_bin: arm-none-eabi-gcc
+          - arch: armv7emsp
+            apt: gcc-arm-none-eabi libnewlib-arm-none-eabi
+            verify_bin: arm-none-eabi-gcc
+          - arch: armv7emdp
+            apt: gcc-arm-none-eabi libnewlib-arm-none-eabi
+            verify_bin: arm-none-eabi-gcc
+          - arch: rv32imc
+            apt: gcc-riscv64-unknown-elf picolibc-riscv64-unknown-elf
+            verify_bin: riscv64-unknown-elf-gcc
+          - arch: rv64imc
+            apt: gcc-riscv64-unknown-elf picolibc-riscv64-unknown-elf
+            verify_bin: riscv64-unknown-elf-gcc
+          # xtensa/xtensawin need a toolchain tarball / esp-idf, not a plain
+          # apt package -- handled by their own steps below, not the generic
+          # "Install cross-compiler" step every other entry uses.
+          - arch: xtensa
+            toolchain: xtensa-lx106
+          - arch: xtensawin
+            toolchain: esp-idf
+
+    steps:
+      - name: Checkout a7p
+        uses: actions/checkout@v7
+
+      - name: Checkout MicroPython ${{ env.MPY_REF }}
+        uses: actions/checkout@v7
+        with:
+          repository: micropython/micropython
+          ref: ${{ env.MPY_REF }}
+          path: mpy
+
+      - name: Install cross-compiler
+        if: matrix.apt != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.apt }}
+          if [ -n "${{ matrix.verify_bin }}" ]; then
+            ${{ matrix.verify_bin }} --version
+          fi
+
+      - name: Install xtensa (esp8266) toolchain
+        if: matrix.toolchain == 'xtensa-lx106'
+        run: |
+          wget -q https://micropython.org/resources/xtensa-lx106-elf-standalone.tar.gz
+          tar xzf xtensa-lx106-elf-standalone.tar.gz
+          echo "$PWD/xtensa-lx106-elf/bin" >> "$GITHUB_PATH"
+
+      - name: Install esp-idf (xtensawin toolchain)
+        if: matrix.toolchain == 'esp-idf'
+        env:
+          IDF_VER: v5.4
+        run: |
+          git clone --depth 1 --branch $IDF_VER https://github.com/espressif/esp-idf.git
+          git -C esp-idf submodule update --init --recursive --filter=tree:0
+          ./esp-idf/install.sh
+          # esp-idf's own venv only exists for the rest of *this* step --
+          # each workflow step is a fresh shell, so install here too (not
+          # just once globally) or later steps that `source export.sh`
+          # won't have them either.
+          source esp-idf/export.sh
+          pip install pyelftools ar
+
+      - name: Install Python deps for mpy_ld.py
+        if: matrix.toolchain != 'esp-idf'
+        run: pip install pyelftools ar
+
+      - name: Build mpy-cross
+        run: make -C mpy/mpy-cross -j"$(nproc)"
+
+      - name: Fetch nanopb
+        run: make -C micropython/natmod fetch-nanopb
+
+      - name: Build natmod (${{ matrix.arch }})
+        run: |
+          if [ "${{ matrix.toolchain }}" = "esp-idf" ]; then source esp-idf/export.sh; fi
+          make -C micropython/natmod MPY_DIR="$GITHUB_WORKSPACE/mpy" ARCH=${{ matrix.arch }} dist
+
+      - name: Build unix port + run tests (x64 only)
+        if: matrix.arch == 'x64'
+        # submodules/deplibs/build in that order -- matches tools/ci.sh's
+        # ci_unix_build_helper exactly (deplibs is a no-op here since
+        # MICROPY_STANDALONE isn't set for this plain build, but calling
+        # it anyway keeps this the same sequence as every port that does
+        # need it, rather than a narrower one this project wrote by hand).
+        env:
+          MICROPYPATH: micropython/natmod/build/x64
+        run: |
+          make -C mpy/ports/unix submodules
+          make -C mpy/ports/unix deplibs
+          make -C mpy/ports/unix -j"$(nproc)"
+          mpy/ports/unix/build-standard/micropython micropython/tests/test_a7p.py
+          mpy/ports/unix/build-standard/micropython micropython/tests/test_validate.py
+
+      - name: Upload natmod .mpy files (${{ matrix.arch }})
+        uses: actions/upload-artifact@v7
+        with:
+          name: a7p-natmod-${{ matrix.arch }}
+          path: micropython/natmod/build/${{ matrix.arch }}/*.mpy
+          if-no-files-found: error
