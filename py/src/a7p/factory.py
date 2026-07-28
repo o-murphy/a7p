@@ -769,15 +769,15 @@ class A7PFactory:
 
     def __new__(  # type: ignore[misc]  # intentional: A7PFactory(...) is called as a Payload-returning function, never instantiated
         cls,
-        meta: Meta = Meta(),
-        barrel: Barrel = Barrel(),
-        cartridge: Cartridge = Cartridge(),
-        bullet: Bullet = Bullet(),
-        zeroing: Zeroing = Zeroing(),
-        zero_atmo: Atmosphere = Atmosphere(),
+        meta: Meta | None = None,
+        barrel: Barrel | None = None,
+        cartridge: Cartridge | None = None,
+        bullet: Bullet | None = None,
+        zeroing: Zeroing | None = None,
+        zero_atmo: Atmosphere | None = None,
         zero_powder_temp: int = 15,
         distances: DistanceTable | tuple[float, ...] = DistanceTable.LONG_RANGE,
-        switches: Switches = Switches(),
+        switches: Switches | None = None,
     ) -> profedit_pb2.Payload:
         """
         Creates and returns a Payload for ballistic calculations based on the input data.
@@ -794,6 +794,13 @@ class A7PFactory:
         Returns:
             A `profedit_pb2.Payload` instance representing the ballistic profile.
         """
+        meta = meta if meta is not None else Meta()
+        barrel = barrel if barrel is not None else Barrel()
+        cartridge = cartridge if cartridge is not None else Cartridge()
+        bullet = bullet if bullet is not None else Bullet()
+        zeroing = zeroing if zeroing is not None else Zeroing()
+        zero_atmo = zero_atmo if zero_atmo is not None else Atmosphere()
+        switches = switches if switches is not None else Switches()
 
         def fmt_bottom():
             if meta.short_name_bot:
@@ -816,7 +823,7 @@ class A7PFactory:
         elif isinstance(distances, tuple):
             _distances = distances
         else:
-            raise ValueError(
+            raise TypeError(
                 "Distances have to be an instance of DistanceTable or tuple[float]"
             )
         if len(_distances) < 1:

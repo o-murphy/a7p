@@ -53,23 +53,17 @@ class A7PError(RuntimeError):
     Inherits from RuntimeError.
     """
 
-    pass
-
 
 class A7PDataError(A7PError):
     """
     A subclass of A7PError that is raised for data-related errors.
     """
 
-    pass
-
 
 class A7PChecksumError(A7PDataError):
     """
     A subclass of A7PDataError for errors related to checksum validation.
     """
-
-    pass
 
 
 class A7PValidationError(A7PDataError):
@@ -102,9 +96,9 @@ class A7PValidationError(A7PDataError):
 
 
 __all__ = [
-    "Violation",
-    "A7PError",
-    "A7PDataError",
     "A7PChecksumError",
+    "A7PDataError",
+    "A7PError",
     "A7PValidationError",
+    "Violation",
 ]

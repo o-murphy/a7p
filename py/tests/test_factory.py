@@ -43,5 +43,5 @@ def test_factory_rejects_empty_distances():
 
 
 def test_factory_rejects_invalid_distances_type():
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         A7PFactory(distances="not-a-table")

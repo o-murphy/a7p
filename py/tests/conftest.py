@@ -107,7 +107,7 @@ def build_payload():
     profile dict. Use for targeted schema bound tests.
     """
 
-    def _build(profile: dict = None):
+    def _build(profile: dict | None = None):
         data = _minimal_profile_dict()
         if profile:
             data["profile"].update(profile)
