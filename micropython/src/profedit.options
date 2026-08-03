@@ -1,0 +1,11 @@
+profedit.Profile.profile_name    max_size:51
+profedit.Profile.cartridge_name  max_size:51
+profedit.Profile.bullet_name     max_size:51
+profedit.Profile.short_name_top  max_size:9
+profedit.Profile.short_name_bot  max_size:9
+profedit.Profile.caliber         max_size:51
+profedit.Profile.device_uuid     max_size:51
+profedit.Profile.user_note       max_size:1025
+profedit.Profile.switches        max_count:10
+profedit.Profile.distances       max_count:200
+profedit.Profile.coef_rows       max_count:200

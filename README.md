@@ -307,3 +307,19 @@ hand-built payloads instead):
 Regenerate/extend this set with `a7p` (via `uv run --project py`) or
 any JSON-Schema validator against `schema/a7p.schema.json` — there's no
 script for it yet since the set has been small and hand-picked so far.
+
+## micropython/ (experimental)
+
+A MicroPython [dynamic native module](https://docs.micropython.org/en/latest/develop/natmod.html)
+(natmod) exposing `.a7p` decode/encode for on-device use (RP2040, ESP32,
+STM32, or any other MicroPython target), with zero-copy field access via
+`uctypes` — see [`micropython/README.md`](micropython/README.md). Unlike
+`py`/`js`/`dart`/`go` it doesn't publish to a package registry (no PyPI/npm/
+pub.dev/pkg.go.dev target) and isn't synced through
+`scripts/ci/sync_changelogs.py` — see `CHANGELOG.md`'s intro for why. It
+*is* built and published by `release.yml` (the `build-micropython`/
+`publish-micropython` jobs attach one native `.mpy` per architecture plus a
+`package.json` to each GitHub Release); it's a standalone C natmod (nanopb,
+fetched on demand into the gitignored `micropython/natmod/nanopb/`, not
+committed) plus a small pure-Python wrapper, built with its own `Makefile`
+against an external MicroPython checkout.

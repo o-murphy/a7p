@@ -30,7 +30,7 @@ def process_one(path, offset):
 
 
 def should_ignore(path: Path, ignore_patterns: list[str]) -> bool:
-    """Перевіряє чи шлях відповідає будь-якому з паттернів ігнорування."""
+    """Checks if the path matches any of the ignore patterns."""
     if not ignore_patterns:
         return False
 
@@ -38,10 +38,10 @@ def should_ignore(path: Path, ignore_patterns: list[str]) -> bool:
     path_name = path.name
 
     for pattern in ignore_patterns:
-        # Перевіряємо як повний шлях, так і ім'я файлу
+        # We check both the full path and the file name
         if fnmatch.fnmatch(path_str, pattern) or fnmatch.fnmatch(path_name, pattern):
             return True
-        # Перевіряємо чи будь-яка частина шляху відповідає паттерну
+        # Check if any part of the path matches the pattern
         if any(fnmatch.fnmatch(part, pattern) for part in path.parts):
             return True
 
@@ -50,15 +50,15 @@ def should_ignore(path: Path, ignore_patterns: list[str]) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Обробка файлів .a7p з можливістю зміни sc_height"
+        description="Handling .a7p files with the ability to change sc_height"
     )
-    parser.add_argument("dir", type=Path, help="Директорія для обробки")
-    parser.add_argument("-o", "--offset", type=int, help="Зсув для sc_height")
+    parser.add_argument("dir", type=Path, help="Processing directory")
+    parser.add_argument("-o", "--offset", type=int, help="Offset for sc_height")
     parser.add_argument(
         "-i",
         "--ignore",
         action="append",
-        help="Паттерн для ігнорування (можна вказати кілька разів). Приклади: '*.backup', 'temp/*', 'test_*'",
+        help="Pattern to ignore (can be specified multiple times). Examples: '*.backup', 'temp/*', 'test_*'",
     )
 
     ns = parser.parse_args()
