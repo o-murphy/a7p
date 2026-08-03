@@ -13,6 +13,13 @@ for consistency with the other three). **Edit this file, then run
 `scripts/ci/sync_changelogs.py` and commit the regenerated
 `py/`/`js`/`dart/`/`go/CHANGELOG.md` alongside your change.**
 
+`micropython/` is documented here too (`### micropython/`, same as the four
+packages above) but isn't synced to a package-local `CHANGELOG.md` by
+`scripts/ci/sync_changelogs.py` — it doesn't publish to a package registry
+(PyPI/npm/pub.dev/pkg.go.dev), only as GitHub Release assets (see
+`.github/workflows/release.yml`'s `publish-micropython` job), so there's no
+registry-facing file that would need one.
+
 From this repo's own first release onward, one version tag drives a
 release across all four packages together (see
 `.github/workflows/release.yml`) — but not every package necessarily
@@ -28,6 +35,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### micropython/
+
+#### Added
+
+- New `micropython/` module (experimental): a MicroPython native module
+  exposing `.a7p` decode/encode/validate/clamp, with zero-copy field access
+  via `uctypes` — see `micropython/README.md`. Two build paths sharing the
+  same C/Python sources: `natmod/` (standalone `.mpy`, no firmware rebuild)
+  and `usermod/` (compiled into the firmware image, for ports/architectures
+  natmod can't reach — `webassembly`, `unix` on `aarch64`, `windows`, `unix`
+  on `armhf`/`mipsel`).
+- CI: `.github/workflows/mp-natmod.yml` and `.github/workflows/mp-usermod.yml`
+  build and test every supported port/architecture on each push.
+- Release: `.github/workflows/release.yml` now also builds every natmod
+  `ARCH` and publishes one `a7p_<arch>.native.mpy` asset per architecture
+  plus a `package.json` (per-entry native-code compatibility tags) to the
+  GitHub Release, so `mip`/`mpremote mip install` can pick the right
+  variant per device — see `scripts/ci/build_micropython_release_assets.py`
+  and `micropython/tools/nmip.py` (bootstrap for the tagged-`urls` format,
+  until the upstream `mip` support for it ships).
 
 ## [1.2.4] - 2026-07-16
 
