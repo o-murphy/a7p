@@ -47,7 +47,7 @@ jobs:
       # yarn-install/dart-pub-get hooks (first in each package's section of
       # .pre-commit-config.yaml) do that as part of the run below, same as
       # a dev running `pre-commit run` locally would rely on.
-      - uses: dart-lang/setup-dart@v1
+      - uses: dart-lang/setup-dart@v1.7.2
         with:
           sdk: stable
 
