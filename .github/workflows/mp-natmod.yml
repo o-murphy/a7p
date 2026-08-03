@@ -124,11 +124,22 @@ jobs:
 
       - name: Install esp-idf (xtensawin toolchain)
         if: matrix.toolchain == 'esp-idf'
+        # Deliberately NOT running `git submodule update --init --recursive`
+        # here (unlike upstream MicroPython's own ci_esp32_idf_setup/
+        # tools/ci.sh, which need it to build the actual esp32 port against
+        # esp-idf's own components -- bt/mbedtls/lwip/openthread/...): this
+        # job only uses esp-idf to obtain the xtensa-esp32s3-elf- toolchain
+        # that install.sh downloads separately from GitHub releases, so
+        # nothing here touches IDF_PATH or any esp-idf header/component.
+        # esp-idf's own tools/tools.json, which install.sh reads, is a plain
+        # tracked file, not inside a submodule -- the submodule step was
+        # ~3.5 of this step's ~6 minutes for zero benefit here (see
+        # ballistics-lab/micropython-bclibc's own natmod.yml, which dropped
+        # it for the same reason).
         env:
           IDF_VER: v5.4
         run: |
           git clone --depth 1 --branch $IDF_VER https://github.com/espressif/esp-idf.git
-          git -C esp-idf submodule update --init --recursive --filter=tree:0
           ./esp-idf/install.sh
           # esp-idf's own venv only exists for the rest of *this* step --
           # each workflow step is a fresh shell, so install here too (not
@@ -148,8 +159,23 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build natmod (${{ matrix.arch }})
+        # esp-idf's export.sh puts its own python venv ahead of system
+        # PATH, which resolves to a *different* python3/pip than the one
+        # the earlier "Install esp-idf" step's `pip install` targeted --
+        # mpy_ld.py then fails with "RuntimeError: Please run 'pip install
+        # ar' to link .a files" even though that install already ran (each
+        # workflow step is a fresh shell, but esp-idf's venv is a fixed,
+        # persistent path, so it's the *same* venv both times -- this
+        # doesn't reliably reproduce on every runner image, but
+        # ballistics-lab/micropython-bclibc's own natmod.yml hit it for
+        # real on this exact xtensawin/esp-idf leg; the earlier
+        # xtensa/tarball-toolchain leg never sources export.sh, so it
+        # doesn't hit this).
         run: |
-          if [ "${{ matrix.toolchain }}" = "esp-idf" ]; then source esp-idf/export.sh; fi
+          if [ "${{ matrix.toolchain }}" = "esp-idf" ]; then
+            source esp-idf/export.sh
+            pip install pyelftools ar
+          fi
           make -C micropython/natmod MPY_DIR="$GITHUB_WORKSPACE/mpy" ARCH=${{ matrix.arch }} dist
 
       - name: Build unix port + run tests (x64 only)
