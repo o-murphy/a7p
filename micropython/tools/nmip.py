@@ -138,9 +138,9 @@ def _install_json(package_json_url, index, target, version, mpy):
         if _check_exists(fs_target_path, short_hash):
             print("Exists:", fs_target_path)
         else:
-            file_url = "{}/file/{}/{}".format(index, short_hash[:2], short_hash)
+            file_url = f"{index}/file/{short_hash[:2]}/{short_hash}"
             if not _download_file(file_url, fs_target_path):
-                print("File not found: {} {}".format(target_path, short_hash))
+                print(f"File not found: {target_path} {short_hash}")
                 return False
     base_url = package_json_url.rpartition("/")[0]
     for entry in package_json.get("urls", ()):
@@ -152,7 +152,7 @@ def _install_json(package_json_url, index, target, version, mpy):
         if base_url and not is_full_url:
             url = f"{base_url}/{url}"  # Relative URLs
         if not _download_file(_rewrite_url(url, version), fs_target_path):
-            print("File not found: {} {}".format(target_path, url))
+            print(f"File not found: {target_path} {url}")
             return False
     for dep, dep_version in package_json.get("deps", ()):
         if not _install_package(dep, index, target, dep_version, mpy):
@@ -163,7 +163,7 @@ def _install_json(package_json_url, index, target, version, mpy):
 def _install_package(package, index, target, version, mpy):
     if any(package.startswith(p) for p in _ALLOWED_MIP_URL_PREFIXES):
         if package.endswith(".py") or package.endswith(".mpy"):
-            print("Downloading {} to {}".format(package, target))
+            print(f"Downloading {package} to {target}")
             return _download_file(
                 _rewrite_url(package, version), target + "/" + package.rsplit("/")[-1]
             )
@@ -172,13 +172,11 @@ def _install_package(package, index, target, version, mpy):
                 if not package.endswith("/"):
                     package += "/"
                 package += "package.json"
-            print("Installing {} to {}".format(package, target))
+            print(f"Installing {package} to {target}")
     else:
         if not version:
             version = "latest"
-        print(
-            "Installing {} ({}) from {} to {}".format(package, version, index, target)
-        )
+        print(f"Installing {package} ({version}) from {index} to {target}")
 
         mpy_version = (
             sys.implementation._mpy & 0xFF
@@ -186,9 +184,7 @@ def _install_package(package, index, target, version, mpy):
             else "py"
         )
 
-        package = "{}/package/{}/{}/{}.json".format(
-            index, mpy_version, package, version
-        )
+        package = f"{index}/package/{mpy_version}/{package}/{version}.json"
 
     return _install_json(package, index, target, version, mpy)
 

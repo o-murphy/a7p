@@ -97,16 +97,10 @@ on:
   push:
     paths:
       - "micropython/**"
-      - "proto/**"
-      - "schema/**"
-      - "go/assets/**"
       - ".github/workflows/mp-usermod.yml"
   pull_request:
     paths:
       - "micropython/**"
-      - "proto/**"
-      - "schema/**"
-      - "go/assets/**"
       - ".github/workflows/mp-usermod.yml"
   workflow_dispatch:
 

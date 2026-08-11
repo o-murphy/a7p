@@ -22,16 +22,10 @@ on:
   push:
     paths:
       - "micropython/**"
-      - "proto/**"
-      - "schema/**"
-      - "go/assets/**"
       - ".github/workflows/mp-natmod.yml"
   pull_request:
     paths:
       - "micropython/**"
-      - "proto/**"
-      - "schema/**"
-      - "go/assets/**"
       - ".github/workflows/mp-natmod.yml"
   workflow_dispatch:
   workflow_call:

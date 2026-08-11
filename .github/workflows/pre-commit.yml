@@ -47,7 +47,7 @@ jobs:
       # yarn-install/dart-pub-get hooks (first in each package's section of
       # .pre-commit-config.yaml) do that as part of the run below, same as
       # a dev running `pre-commit run` locally would rely on.
-      - uses: dart-lang/setup-dart@v1.7.2
+      - uses: dart-lang/setup-dart@v1.8.0
         with:
           sdk: stable
 
@@ -59,7 +59,11 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
       - name: Install protoc-gen-go
-        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+        # Pinned to go.mod's google.golang.org/protobuf version (not @latest) so
+        # the generated file's "// protoc-gen-go vX.Y.Z" version comment always
+        # matches what's committed -- otherwise the drift guard hook fails on
+        # every protoc-gen-go release even when nothing else changed.
+        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@$(go list -m -f '{{.Version}}' google.golang.org/protobuf)
 
       - name: Install pre-commit
         run: uv tool install pre-commit

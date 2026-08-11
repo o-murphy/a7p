@@ -95,7 +95,7 @@ def read_mpy_tag(path):
     with open(path, "rb") as f:
         header = f.read(4)
         if len(header) < 4 or header[0:1] != b"M":
-            raise ValueError("not a .mpy file (bad magic): {!r}".format(path))
+            raise ValueError(f"not a .mpy file (bad magic): {path!r}")
 
         version = header[1]
         feat = header[2]
@@ -108,9 +108,7 @@ def read_mpy_tag(path):
             arch_flags = _read_varint(f)
 
     if arch_idx >= len(_ARCH) or _ARCH[arch_idx] is None:
-        raise ValueError(
-            "{!r}: not a native module (arch index {})".format(path, arch_idx)
-        )
+        raise ValueError(f"{path!r}: not a native module (arch index {arch_idx})")
 
     return {
         "mpy": version | (subver << 8) | (arch_idx << 10) | (arch_flags << 16),
