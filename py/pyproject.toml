@@ -90,9 +90,6 @@ exclude = [
     "__init__.py",
     "src/**/*pb2.py",
     "src/**/_compiled_schema.py",
-    # a7p-lib is a submodule gitlink (separate repo, own tooling) -- never
-    # format/lint its contents from here, even if it ever gets checked out.
-    "a7p-lib",
 ]
 
 [tool.mypy]

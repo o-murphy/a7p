@@ -188,7 +188,7 @@ def sync_package(
         )
 
     before, rest = text.split(BEGIN_MARKER, 1)
-    old_block, after = rest.split(END_MARKER, 1)
+    _old_block, after = rest.split(END_MARKER, 1)
 
     block = render_package_block(pkg, versions, link_refs)
     new_text = f"{before}{BEGIN_MARKER}\n{block}\n{END_MARKER}{after}"

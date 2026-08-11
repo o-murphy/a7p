@@ -7,12 +7,12 @@ repos:
     hooks:
       # py/
       - id: uv-lock
-        name: uv lock check
+        name: uv lock upgrade
         entry: uv
-        args: ["lock", "--check"]
+        args: ["lock", "--project", "py", "--upgrade"]
         language: system
         pass_filenames: false
-        files: '^(pyproject\.toml|uv\.lock)$'
+        files: '^py/(pyproject\.toml|uv\.lock)$'
 
       - id: uv-sync
         name: uv sync before hooks (py)
@@ -24,28 +24,42 @@ repos:
 
       - id: uv-ruff-check
         name: ruff lint & fix (py)
-        entry: bash -c 'cd py && uv run ruff check --fix'
+        entry: uv
+        args:
+          [
+            "--project", "py", "run", "ruff", "check", "--fix",
+            "--config", "py/pyproject.toml",
+            "py/src", "py/tests", "py/pyproject.toml",
+          ]
         language: system
         pass_filenames: false
         files: '^py/.*\.py$'
 
       - id: uv-ruff-format
         name: ruff format (py)
-        entry: bash -c 'cd py && uv run ruff format'
+        entry: uv
+        args:
+          [
+            "--project", "py", "run", "ruff", "format",
+            "--config", "py/pyproject.toml",
+            "py/src", "py/tests", "py/pyproject.toml",
+          ]
         language: system
         pass_filenames: false
         files: '^py/.*\.py$'
 
       - id: uv-mypy
         name: mypy (py)
-        entry: bash -c 'cd py && uv run mypy'
+        entry: uv
+        args: ["--project", "py", "run", "mypy", "--config-file", "py/pyproject.toml"]
         language: system
         pass_filenames: false
         files: '^py/.*\.py$'
 
       - id: uv-pytest
         name: pytest (py)
-        entry: bash -c 'cd py && uv run pytest'
+        entry: uv
+        args: ["--project", "py", "run", "pytest", "-c", "py/pyproject.toml", "py/tests"]
         language: system
         pass_filenames: false
         files: '^py/.*\.py$'

@@ -85,7 +85,11 @@ def update_changelog(version: str) -> str | None:
         )
 
     prev_version = None
-    m = HEADING_RE.match(body[next_heading_idx]) if next_heading_idx < len(body) else None
+    m = (
+        HEADING_RE.match(body[next_heading_idx])
+        if next_heading_idx < len(body)
+        else None
+    )
     if m:
         prev_version = m.group("version")
 
@@ -129,7 +133,9 @@ def main() -> int:
         fail("usage: scripts/ci/prepare_release.py VERSION  (e.g. 1.2.3)")
     version = sys.argv[1].lstrip("v")
     if not VERSION_RE.match(version):
-        fail(f"'{version}' doesn't look like a version (expected e.g. 1.2.3 or 1.2.3-rc.1).")
+        fail(
+            f"'{version}' doesn't look like a version (expected e.g. 1.2.3 or 1.2.3-rc.1)."
+        )
 
     check_clean_tree()
     update_changelog(version)

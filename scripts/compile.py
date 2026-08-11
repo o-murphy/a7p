@@ -67,7 +67,7 @@ def compile_ts() -> None:
     import subprocess
 
     script = REPO_ROOT / "js" / "scripts" / "build_schema_validator.mjs"
-    result = subprocess.run(["node", str(script)], cwd=REPO_ROOT / "js")
+    result = subprocess.run(["node", str(script)], cwd=REPO_ROOT / "js", check=True)
     if result.returncode != 0:
         sys.exit(result.returncode)
 
@@ -101,7 +101,7 @@ def compile_dart() -> None:
     if '"""' in compact:
         sys.exit(
             'schema/a7p.schema.json now contains a literal `"""`, which '
-            "breaks the r\"\"\"...\"\"\" raw-string embedding in generated "
+            'breaks the r"""...""" raw-string embedding in generated '
             "a7p_schema.g.dart. Switch compile_dart() to a base64-encoded "
             "embedding instead."
         )
@@ -139,10 +139,20 @@ def compile_go() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--python", action="store_true", help="regenerate py/'s compiled validator")
-    group.add_argument("--ts", action="store_true", help="regenerate js/'s standalone ajv validator")
-    group.add_argument("--dart", action="store_true", help="regenerate dart/'s embedded schema constant")
-    group.add_argument("--go", action="store_true", help="regenerate go/'s embedded schema file")
+    group.add_argument(
+        "--python", action="store_true", help="regenerate py/'s compiled validator"
+    )
+    group.add_argument(
+        "--ts", action="store_true", help="regenerate js/'s standalone ajv validator"
+    )
+    group.add_argument(
+        "--dart",
+        action="store_true",
+        help="regenerate dart/'s embedded schema constant",
+    )
+    group.add_argument(
+        "--go", action="store_true", help="regenerate go/'s embedded schema file"
+    )
     args = parser.parse_args()
 
     if args.python:

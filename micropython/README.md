@@ -264,6 +264,7 @@ mpremote mip install https://github.com/o-murphy/a7p/releases/download/vX.Y.Z/pa
 ```python
 # or on-device:
 import mip
+
 mip.install("https://github.com/o-murphy/a7p/releases/download/vX.Y.Z/package.json")
 ```
 
@@ -501,7 +502,7 @@ you do:
 import a7p
 
 with open("MyProfile.a7p", "rb") as fp:
-    profile = a7p.load(fp)        # or a7p.loads(data) from raw bytes
+    profile = a7p.load(fp)  # or a7p.loads(data) from raw bytes
 
 print(profile.get_str("profile_name"))
 print(profile.profile.zero_x, profile.profile.sc_height)
@@ -513,7 +514,7 @@ profile.profile.switches[0].zoom = 2
 profile.set_str("profile_name", "My Profile")
 
 with open("MyProfile_edited.a7p", "wb") as fp:
-    a7p.dump(profile, fp)         # or data = a7p.dumps(profile)
+    a7p.dump(profile, fp)  # or data = a7p.dumps(profile)
 ```
 
 `load`/`dump` take an already-open binary file object, not a path -- same
@@ -571,8 +572,8 @@ above is whether a *value* is semantically valid -- e.g. `sc_height` within
 that constrains the wire format or the C struct, only the schema.
 
 ```python
-profile.profile.sc_height = 999999   # decodes/encodes fine, structurally valid
-profile.validate()                   # raises A7PValidationError: "sc_height: out of range"
+profile.profile.sc_height = 999999  # decodes/encodes fine, structurally valid
+profile.validate()  # raises A7PValidationError: "sc_height: out of range"
 ```
 
 `Profile.validate()` calls into `a7p_validate()` (`src/a7p_validate.c`),
@@ -609,8 +610,8 @@ nothing needed it):
 
 ```python
 profile.profile.sc_height = 999999
-profile.clamp()                      # -> 1
-profile.profile.sc_height            # -> 5000 (A7P_SC_HEIGHT_MAX)
+profile.clamp()  # -> 1
+profile.profile.sc_height  # -> 5000 (A7P_SC_HEIGHT_MAX)
 ```
 
 It's independent of `validate()` -- call either on its own, or `clamp()`
