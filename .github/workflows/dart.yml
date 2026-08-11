@@ -41,7 +41,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: dart-lang/setup-dart@v1.7.2
+      - uses: dart-lang/setup-dart@v1.8.0
         with:
           sdk: stable
 
