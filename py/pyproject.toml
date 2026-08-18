@@ -68,7 +68,7 @@ root = ".."
 fallback_version = "0.0.0.dev0"
 
 [project.optional-dependencies]
-orjson = ['orjson==3.11.9']
+orjson = ['orjson==3.12.0']
 
 [project.scripts]
 a7p = "a7p.__main__:main"
