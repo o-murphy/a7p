@@ -157,6 +157,28 @@ jobs:
             variant: pyscript
             default_manifest: variants/pyscript/manifest.py
             runs_on: ubuntu-latest
+          # x64/x86 duplicate what mp-natmod.yml already builds and, for
+          # x64, runs. They are here deliberately in spite of the
+          # natmod-first policy at the top of this file, because the two
+          # build modes fail in genuinely different ways: a usermod is
+          # compiled into the firmware and links against the port's own
+          # libc, a natmod links against dynruntime and carries its own. A
+          # green natmod on x64 says nothing about the usermod path on the
+          # same machine -- and these are the only rows here where a red
+          # result is unambiguously this project's code rather than a
+          # cross-toolchain, an emulator or an MSYS2 environment.
+          - port: unix
+            arch_label: x64
+            default_manifest: variants/standard/manifest.py
+            runs_on: ubuntu-latest
+          - port: unix
+            arch_label: x86
+            # Not a cross-compiler: MICROPY_FORCE_32BIT=1 adds -m32 to the
+            # host gcc, which needs gcc-multilib and an i386 libffi. Same
+            # recipe mp-natmod.yml's own 32-bit leg uses.
+            force_32bit: "1"
+            default_manifest: variants/standard/manifest.py
+            runs_on: ubuntu-latest
           - port: unix
             arch_label: aarch64
             # GitHub-hosted ubuntu-24.04-arm/ubuntu-22.04-arm runners are
@@ -394,8 +416,14 @@ jobs:
         # still installs those for armhf/mipsel, where static linking is
         # load-bearing rather than aspirational.
         run: |
-          sudo apt-get update -q
-          sudo apt-get install -y libffi-dev pkg-config
+          if [ "${{ matrix.force_32bit }}" = "1" ]; then
+            sudo dpkg --add-architecture i386
+            sudo apt-get update -q
+            sudo apt-get install -y gcc-multilib libffi-dev:i386 pkg-config
+          else
+            sudo apt-get update -q
+            sudo apt-get install -y libffi-dev pkg-config
+          fi
 
       - name: Build mpy-cross (windows)
         if: matrix.port == 'windows'
@@ -468,7 +496,11 @@ jobs:
             # A plain build: nothing here sets MICROPY_STANDALONE or
             # LDFLAGS_EXTRA any more. aarch64 was the only row that did;
             # see that matrix entry's comment for why it stopped.
-            make -C mpy/ports/unix \
+            FORCE32=""
+            if [ "${{ matrix.force_32bit }}" = "1" ]; then
+              FORCE32="MICROPY_FORCE_32BIT=1"
+            fi
+            make -C mpy/ports/unix $FORCE32 \
               USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" \
               FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
           fi
@@ -825,4 +857,113 @@ jobs:
         with:
           name: a7p-usermod-qemu-armv7m
           path: mpy/ports/qemu/build-MPS2_AN385/firmware.elf
+          if-no-files-found: error
+
+  # ── usermod: ESP32, build-only ──────────────────────────────────────────────
+  #
+  # Build-only, and not as a shortcut: there is no esp32 emulator to hand a
+  # firmware image to the way rp2040py takes an RP2040 .uf2 or qemu-system-arm
+  # takes a Cortex-M3 .elf. What this proves is that this module compiles and
+  # links into a real esp32 firmware under the ESP-IDF toolchain -- a
+  # different compiler, libc and config from everything else in this workflow.
+  # It does not prove anything runs.
+  #
+  # Deliberately in spite of the natmod-first policy at the top of this file,
+  # which says esp32 is natmod's (xtensawin) and usermod should stay off it.
+  # The two paths differ in exactly the way that matters here: a natmod only
+  # borrows the xtensa compiler out of esp-idf, while a usermod is compiled
+  # into the firmware and has to survive IDF's own components, its libc and
+  # the port's flash/IRAM budget. That last one is the real question -- the
+  # ARCH table already notes that a usermod on esp8266's stock firmware
+  # overflows iram1_0_seg, and esp32 being roomier is an assumption until a
+  # build says so.
+  #
+  # IDF v5.5.1 is what ports/esp32/README.md names as the recommended version
+  # for this MicroPython release (5.3, 5.4, 5.4.1 and 5.4.2 also supported).
+  # BOARD=ESP32_GENERIC is the mainstream target and the xtensawin one,
+  # matching what mp-natmod.yml already covers as an ARCH.
+  #
+  # Written CI-first rather than verified locally, which is worth stating
+  # plainly: dl.espressif.com and components-file.espressif.com are both
+  # refused by the development environment this was authored in, so neither
+  # the toolchain nor IDF's managed components (espressif/mdns
+  # unconditionally, espressif/lan867x for target esp32) could be fetched
+  # there at all. esp-idf's own install.sh is known to work on the runner --
+  # ballistics-lab/micropython-bclibc's natmod xtensawin leg has been doing
+  # exactly that, green. Whether the managed-component fetch and the full port
+  # build follow is what this job settles.
+  usermod-esp32:
+    name: usermod (esp32 / ESP32_GENERIC)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout a7p
+        uses: actions/checkout@v7
+
+      - name: Checkout MicroPython ${{ env.MPY_REF }}
+        uses: actions/checkout@v7
+        with:
+          repository: micropython/micropython
+          ref: ${{ env.MPY_REF }}
+          path: mpy
+
+      - name: Install esp-idf
+        # --recursive: a usermod builds against IDF's own components, unlike a
+        # natmod, which only wants the compiler install.sh downloads.
+        # `install.sh esp32` limits that download to the one target rather
+        # than every chip IDF supports.
+        env:
+          IDF_VER: v5.5.1
+        run: |
+          git clone --depth 1 --recursive --branch "$IDF_VER" \
+            https://github.com/espressif/esp-idf.git
+          ./esp-idf/install.sh esp32
+
+      - name: Fetch port submodules
+        # MicroPython is a git checkout here, not a release tarball, so
+        # lib/micropython-lib and the port's own submodules are empty
+        # placeholders until this runs -- the same omission that broke the
+        # qemu-armv7m job on its first attempt.
+        run: make -C mpy/ports/esp32 submodules
+
+      - name: Fetch nanopb
+        # Same fetch, same reason as every other job here: satisfies
+        # usermod/a7p/micropython.mk's own guard so its fragile embedded
+        # $(shell git ...) never runs.
+        run: make -C micropython/natmod fetch-nanopb
+
+      - name: Write combined FROZEN_MANIFEST
+        # esp32's default manifest is boards/manifest.py, unlike unix's
+        # variants/... one. $(PORT_DIR) is resolved by MicroPython's own
+        # make_manifest.py, hence the escaped \$.
+        run: |
+          cat > "$RUNNER_TEMP/a7p_manifest.py" <<EOF
+          include("\$(PORT_DIR)/boards/manifest.py")
+          include("$GITHUB_WORKSPACE/micropython/usermod/manifest.py")
+          EOF
+          cat "$RUNNER_TEMP/a7p_manifest.py"
+          echo "A7P_FROZEN_MANIFEST=$RUNNER_TEMP/a7p_manifest.py" >> "$GITHUB_ENV"
+
+      - name: Build mpy-cross
+        # Before export.sh is sourced: mpy-cross is a host tool and has no
+        # business being built inside IDF's own python/toolchain environment.
+        run: make -C mpy/mpy-cross -j"$(nproc)"
+
+      - name: Build ESP32 firmware
+        # USER_C_MODULES points at micropython.cmake itself, not at a
+        # directory: CMake's USER_C_MODULES takes a file, unlike the
+        # Make-based ports' directory-to-glob.
+        run: |
+          source esp-idf/export.sh
+          make -C mpy/ports/esp32 \
+            BOARD=ESP32_GENERIC \
+            USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod/micropython.cmake" \
+            FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST"
+
+      - name: Upload build (esp32)
+        uses: actions/upload-artifact@v7
+        with:
+          name: a7p-usermod-esp32
+          path: |
+            mpy/ports/esp32/build-ESP32_GENERIC/micropython.bin
+            mpy/ports/esp32/build-ESP32_GENERIC/firmware.bin
           if-no-files-found: error
