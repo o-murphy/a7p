@@ -45,16 +45,15 @@ name: usermod
 #     environments -- same unprefixed-gcc recipe upstream's own
 #     build-mingw CI job uses (see
 #     micropython/.github/workflows/ports_windows.yml), a straight
-#     recompile of an already-proven recipe. arm64 was attempted via
-#     MSYS2's CLANGARM64 environment (windows-11-arm) but dropped: unlike
-#     every other target in this workflow, upstream MicroPython doesn't
-#     test Windows ARM64 at all, so there was no proven recipe to check
-#     against, and each fix (missing set_fmode_binary, then STRIP, then
-#     SIZE, then WINDRES -- all binutils tools CLANGARM64's gcc-compat
-#     package doesn't provide under their usual aarch64-w64-mingw32-*
-#     names) needed a full CI round-trip of genuine trial-and-error. Left
-#     as a follow-up for whenever there's an actual proven reference to
-#     work from, rather than continuing to guess.
+#     recompile of an already-proven recipe. arm64 now builds and runs
+#     too, on windows-11-arm via MSYS2's CLANGARM64. It was dropped here
+#     once, for want of a proven reference: upstream MicroPython does not
+#     test Windows ARM64 at all, and each fix (set_fmode_binary, then
+#     STRIP, then SIZE, then WINDRES) cost a full CI round-trip of
+#     guesswork. The reference exists now --
+#     o-murphy/micropython-wasm3 runs the same combination green -- and it
+#     confirms the earlier fixes were right and that WINDRES needed no fix
+#     at all, only an empty CROSS_COMPILE. See that row's own comment.
 #   - unix on armhf/mipsel: also usermod-only (no matching dynruntime.mk
 #     ARCH). Both are their own dedicated job (usermod-cross), directly
 #     mirroring upstream MicroPython's own tools/ci.sh
@@ -196,6 +195,7 @@ jobs:
             msystem: MINGW32
             msys_install: mingw-w64-i686-gcc
             cross_compile: ""
+            cflags_extra: ""
           - port: windows
             arch_label: x64
             # Same as x86 above but MINGW64 (x86_64-w64-mingw32 gcc,
@@ -206,6 +206,40 @@ jobs:
             msystem: MINGW64
             msys_install: mingw-w64-x86_64-gcc
             cross_compile: ""
+            cflags_extra: ""
+          - port: windows
+            arch_label: arm64
+            # windows-11-arm, via MSYS2's CLANGARM64. Previously attempted
+            # and dropped for want of a proven reference (see the note at
+            # the top of this file); there is one now --
+            # o-murphy/micropython-wasm3 runs this exact combination green,
+            # and the overrides it needed are the ones already applied to
+            # every windows row here (LDFLAGS_ARCH, COMPILER_TARGET, STRIP,
+            # SIZE) plus the one below.
+            #
+            # WINDRES, where the earlier attempt stopped, turns out not to
+            # need a fix at all: py/mkenv.mk has WINDRES =
+            # $(CROSS_COMPILE)windres, and with CROSS_COMPILE empty inside
+            # an MSYS2 environment that resolves to plain `windres`, which
+            # gcc-compat does ship. Only the aarch64-w64-mingw32-prefixed
+            # name is missing.
+            #
+            # -Wno-error: ports/windows/Makefile compiles -Werror with a
+            # warning set chosen for gcc, and MicroPython's own sources do
+            # not survive it under clang -- py/binary.c promotes a _Float16
+            # to float, and shared/runtime/gchelper_generic.c declares
+            # deliberately uninitialized `register const long x19
+            # asm("x19")` and friends to capture callee-saved registers for
+            # GC root scanning. Neither is this repo's code and neither is a
+            # bug. Warnings still print; they just do not fail the build.
+            # The x86/x64 rows keep -Werror, so nothing of ours goes
+            # unchecked.
+            default_manifest: variants/manifest.py
+            runs_on: windows-11-arm
+            msystem: CLANGARM64
+            msys_install: mingw-w64-clang-aarch64-gcc-compat mingw-w64-clang-aarch64-clang
+            cross_compile: ""
+            cflags_extra: "-Wno-error"
     steps:
       - name: Checkout a7p
         uses: actions/checkout@v7
@@ -467,6 +501,7 @@ jobs:
         shell: msys2 {0}
         run: |
           make -C mpy/ports/windows CROSS_COMPILE="${{ matrix.cross_compile }}" STRIP="" SIZE="true" \
+            CFLAGS_EXTRA="${{ matrix.cflags_extra }}" \
             USER_C_MODULES="$(pwd)/micropython/usermod" \
             FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
 
