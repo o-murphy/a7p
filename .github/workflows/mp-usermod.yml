@@ -757,6 +757,15 @@ jobs:
             gcc-arm-none-eabi libnewlib-arm-none-eabi qemu-system-arm
           pip install pyserial
 
+      - name: Fetch port submodules
+        # Needed because this workflow checks MicroPython out from git, where
+        # lib/micropython-lib is an uninitialized submodule and the freeze
+        # step fails with "micropython-lib submodule is not initialized".
+        # Every other job here has the equivalent step; this one was written
+        # against a release tarball locally, which vendors that directory and
+        # hides the difference.
+        run: make -C mpy/ports/qemu submodules
+
       - name: Fetch nanopb
         run: make -C micropython/natmod fetch-nanopb
 
