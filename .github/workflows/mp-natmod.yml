@@ -194,3 +194,123 @@ jobs:
           name: a7p-natmod-${{ matrix.arch }}
           path: micropython/natmod/build/${{ matrix.arch }}/*.mpy
           if-no-files-found: error
+
+  # ── On real ARM silicon: armv7emsp / armv7emdp on a 32-bit ARM Linux host ─
+  # The matrix above builds all ten ARCHes and executes exactly one of them
+  # (x64, on the runner). This job executes two more, and does it on genuine
+  # ARM hardware: ubuntu-24.04-arm runs AArch32 on its own CPU, so a 32-bit
+  # armhf build of ports/unix is a real ARM host that can load a Cortex-M
+  # natmod .mpy -- no qemu, no board, no binfmt handler.
+  #
+  # Two things have to line up, and py/dynruntime.mk decides both per ARCH:
+  #
+  #   1. The .mpy arch check. py/persistentcode.h gives a Thumb-2 host with a
+  #      double-precision FPU MPY_FEATURE_ARCH = MP_NATIVE_ARCH_ARMV7EMDP, and
+  #      MPY_FEATURE_ARCH_TEST is a *range* -- ARMV6M <= x <= that -- not an
+  #      equality. Ubuntu's arm-linux-gnueabihf-gcc defaults to Thumb-2 with
+  #      __ARM_FP=12, so every ARM natmod ARCH clears this check. Read back
+  #      off the built binary rather than assumed: sys.implementation._mpy >>
+  #      10 is 8.
+  #
+  #   2. The float ABI, which that check does not cover. armv6m and armv7m
+  #      get no -mfloat-abi=hard, so their floats cross into the runtime in
+  #      core registers while an armhf host reads them from VFP registers per
+  #      AAPCS-VFP. Those .mpy files load and then return wrong values rather
+  #      than failing -- measured on ballistics-lab/micropython-bclibc's
+  #      module, where find_zero_angle came back 984.252 rad (its range in
+  #      feet) instead of 0.002502. Silently wrong, never a crash, so neither
+  #      ARCH is in this matrix.
+  #
+  # armv7emsp and armv7emdp are both -mfloat-abi=hard and do line up, each
+  # against a host built with its own MICROPY_FLOAT_IMPL -- that decides
+  # sizeof(mp_float_t) on both sides of the dynruntime call boundary. Both
+  # legs were run locally before this job existed: test_a7p.py and
+  # test_validate.py green on each.
+  #
+  # Scope: this runs Cortex-M code inside a Linux process. It proves the
+  # native module and its relocations are correct on real ARM silicon -- it
+  # is not a substitute for a board, and mp-usermod.yml's own qemu-armv7m job
+  # is what covers the bare-metal firmware environment.
+  natmod-arm-linux:
+    name: natmod (${{ matrix.arch }} / 32-bit ARM Linux)
+    needs: natmod
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: armv7emsp
+            # dynruntime.mk gives armv7emsp MICROPY_FLOAT_IMPL=float; the unix
+            # port defaults to double. mpconfigvariant_common.h guards that
+            # default with #ifndef, so a -D on the command line wins. Checked
+            # on the resulting binary rather than inferred from the flag:
+            # print(1/3) gives 0.33333334, not 0.3333333333333333.
+            host_float: "-DMICROPY_FLOAT_IMPL=MICROPY_FLOAT_IMPL_FLOAT"
+          - arch: armv7emdp
+            # Already double, which is the unix port's own default.
+            host_float: ""
+    steps:
+      - name: Checkout a7p
+        uses: actions/checkout@v7
+
+      - name: Checkout MicroPython ${{ env.MPY_REF }}
+        uses: actions/checkout@v7
+        with:
+          repository: micropython/micropython
+          ref: ${{ env.MPY_REF }}
+          path: mpy
+
+      - name: Install the armhf cross toolchain
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+
+      - name: Build mpy-cross
+        # Native arm64 host tool, built explicitly first for the same reason
+        # every other job in this project does it -- see mp-usermod.yml's own
+        # "Build mpy-cross" comment.
+        run: make -C mpy/mpy-cross -j"$(nproc)"
+
+      - name: Build a 32-bit ARM micropython host
+        # MICROPY_PY_FFI=0/MICROPY_PY_BTREE=0: both want target libraries the
+        # cross toolchain does not ship (armhf libffi headers in particular),
+        # and neither test touches either module. This host exists only to
+        # load a natmod .mpy. mp-usermod.yml's armhf row is where a
+        # full-featured static armhf build is actually exercised.
+        #
+        # LDFLAGS_EXTRA=-static is load-bearing, not a nicety. The runner is
+        # arm64: its CPU executes AArch32, but its filesystem has no armhf
+        # glibc and no /lib/ld-linux-armhf.so.3, so a dynamically linked
+        # armhf binary dies with "cannot execute: required file not found"
+        # (exit 127) -- confirmed by a real CI failure in the sibling repos
+        # before this job reached here. A static link has no interpreter to
+        # find. Same reason mp-usermod.yml's armhf row links static.
+        run: |
+          make -C mpy/ports/unix MICROPY_PY_FFI=0 MICROPY_PY_BTREE=0 submodules
+          make -C mpy/ports/unix VARIANT=standard \
+            BUILD="$GITHUB_WORKSPACE/mpy-host-${{ matrix.arch }}" \
+            CROSS_COMPILE=arm-linux-gnueabihf- \
+            MICROPY_PY_FFI=0 MICROPY_PY_BTREE=0 \
+            CFLAGS_EXTRA="${{ matrix.host_float }}" \
+            LDFLAGS_EXTRA="-static" -j"$(nproc)"
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: a7p-natmod-${{ matrix.arch }}
+          path: micropython/natmod/build/${{ matrix.arch }}/
+
+      - name: Run tests
+        # `file` and the two probes first, so the log carries the evidence
+        # rather than this job's comment having to be taken on faith: a
+        # 32-bit ARM binary, the arch it advertises to the .mpy loader, and
+        # the float width it was built with.
+        env:
+          MICROPYPATH: micropython/natmod/build/${{ matrix.arch }}
+        run: |
+          HOST="$GITHUB_WORKSPACE/mpy-host-${{ matrix.arch }}/micropython"
+          file "$HOST"
+          "$HOST" -c "import sys; print('MPY_FEATURE_ARCH', sys.implementation._mpy >> 10)"
+          "$HOST" -c "print('float width probe', 1/3)"
+          "$HOST" micropython/tests/test_a7p.py
+          "$HOST" micropython/tests/test_validate.py

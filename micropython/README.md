@@ -149,6 +149,32 @@ xtensawin, rv32imc, rv64imc`. This produces:
 natmod/build/<ARCH>/a7p.mpy   native (C) and Python parts merged into one file
 ```
 
+### Running an ARM natmod on an ARM Linux host
+
+CI executes `x64` on the runner and builds the other nine. Two of the ARM
+ARCHes can also be *executed*, on real ARM silicon and without a board: the
+`natmod (armv7emsp | armv7emdp / 32-bit ARM Linux)` jobs build a statically
+linked 32-bit armhf `ports/unix` interpreter on `ubuntu-24.04-arm` -- which
+runs AArch32 on its own CPU -- and load the `.mpy` into it.
+
+It is allowed because `py/persistentcode.h` gives a Thumb-2 host with a
+double-precision FPU `MPY_FEATURE_ARCH = MP_NATIVE_ARCH_ARMV7EMDP`, and the
+compatibility test is a *range* (`ARMV6M <= x <= that`), not an equality.
+
+Only those two, because that check says nothing about the **float ABI**.
+`py/dynruntime.mk` gives `armv6m` and `armv7m` no `-mfloat-abi=hard`, so their
+floats reach the runtime in core registers while an armhf host reads them from
+VFP registers. The `.mpy` loads and then returns wrong values instead of
+failing, so do not try it.
+
+The host must be linked `-static`: an arm64 runner executes AArch32 but ships
+no armhf glibc, so a dynamically linked binary cannot find
+`/lib/ld-linux-armhf.so.3` and dies with exit 127 before MicroPython starts.
+
+This proves the native module and its relocations are right on real ARM
+silicon. It is not a board, and it is not the bare-metal firmware environment
+that `mp-usermod.yml`'s `qemu-armv7m` job covers.
+
 Copy it to the device (e.g. `mpremote cp build/armv6m/a7p.mpy :`) -- `import a7p`
 is all that's needed, there's no separate module to also copy.
 
