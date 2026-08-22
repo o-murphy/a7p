@@ -923,7 +923,18 @@ jobs:
         # lib/micropython-lib and the port's own submodules are empty
         # placeholders until this runs -- the same omission that broke the
         # qemu-armv7m job on its first attempt.
-        run: make -C mpy/ports/esp32 submodules
+        #
+        # export.sh has to be sourced for this step too, not only for the
+        # build: ports/esp32's `submodules` target is not a git command, it
+        # is `idf.py -D UPDATE_SUBMODULES=1 reconfigure` (Makefile:115).
+        # Without the IDF environment it dies with "/bin/sh: 1: idf.py: not
+        # found" (exit 127) -- a real failure of this job's first run. The
+        # sibling repos do not have this step at all, because they take
+        # MicroPython from a release tarball where the submodules are already
+        # vendored.
+        run: |
+          source esp-idf/export.sh
+          make -C mpy/ports/esp32 submodules
 
       - name: Fetch nanopb
         # Same fetch, same reason as every other job here: satisfies
