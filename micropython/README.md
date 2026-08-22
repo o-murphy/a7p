@@ -191,10 +191,11 @@ list, when CI coverage changes):
 | -------------------------- | --------------------------------------------- | :------------: | :-------------: | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | unix                       | `x64`, `x86`                                  |       ✔️        |        ✔️        | 🔷                | the `natmod (x64)` / `natmod (x86)` jobs in the Actions UI — the name is generic per-ARCH and doesn't say "unix", but this is the same job that also builds the unix port and runs `test_a7p.py`/`test_validate.py` on x64                                                                                       |
 | unix                       | `aarch64`                                     |       ❌        |        ✔️        | 🔶                | `usermod` job, `port: unix`, `arch_label: aarch64`, `runs_on: ubuntu-24.04-arm` — native build, no cross-compiler                                                                                                                                                                                                |
-| unix                       | `armhf`                                       |       ❌        |        ✔️        | 🔶                | dedicated `usermod-cross` job (`arch_label: armhf`), `runs_on: ubuntu-latest` — mirrors upstream MicroPython's own `tools/ci.sh` `ci_unix_qemu_arm_*` exactly: `CROSS_COMPILE=arm-linux-gnueabi-`, `VARIANT=coverage`, `MICROPY_STANDALONE=1`, `make deplibs` as its own step, `qemu-user-static` + `/usr/gnemul/qemu-arm` symlink (no static linking, no container) |
+| unix                       | `armhf`                                       |       ❌        |        ✔️        | 🔶                | dedicated `usermod-cross` job (`arch_label: armhf`), `runs_on: ubuntu-24.04-arm` — cross-built with `CROSS_COMPILE=arm-linux-gnueabihf-`, `VARIANT=coverage`, `MICROPY_STANDALONE=1`, `make deplibs` as its own step, `LDFLAGS_EXTRA=-static`, then **run on the arm64 runner's own CPU — no qemu, no binfmt handler**. Build recipe still follows upstream's `tools/ci.sh` `ci_unix_qemu_arm_*`; execution and the `hf` ABI deliberately do not (see that job's comment) |
 | unix                       | `mipsel`                                       |       ❌        |        ✔️        | 🔶                | same dedicated `usermod-cross` job (`arch_label: mipsel`) — little-endian, deliberately not upstream's big-endian `mips-linux-gnu`: this module hardcodes `uctypes.LITTLE_ENDIAN` (a7p.py) over memory nanopb populates in the host's native byte order, so big-endian genuinely mismatches (confirmed by a real CI run: build+QEMU run succeeded, `test_a7p.py`'s zero_x/zero_y/sc_height assertion failed). Proven working on mipsel by ballistics-lab/micropython-bclibc's own CI |
 | windows                    | `x86`                                         |       ❌        |        ✔️        | 🔶                | `usermod` job, `arch_label: x86`, `runs_on: windows-latest`, MSYS2 MINGW32 (`mingw-w64-i686-gcc`, no CROSS_COMPILE) — native build+run (WOW64), same recipe as upstream's `build-mingw` job                                                                                                                      |
 | windows                    | `x64`                                         |       ❌        |        ✔️        | 🔶                | `usermod` job, `arch_label: x64`, `runs_on: windows-latest`, MSYS2 MINGW64 (`mingw-w64-x86_64-gcc`, no CROSS_COMPILE) — native build+run, same upstream recipe                                                                                                                                                   |
+| windows                    | `arm64`                                       |       ❌        |        ✔️        | 🔶                | `usermod` job, `arch_label: arm64`, `runs_on: windows-11-arm`, MSYS2 CLANGARM64 (`mingw-w64-clang-aarch64-gcc-compat` + `-clang`) — native build+run. Needs four MicroPython-build-system overrides plus `CFLAGS_EXTRA=-Wno-error`; see that row's own comment for each |
 | webassembly                | `wasm`                                        |       ❌        |        ✔️        | 🔶                | `usermod` job, `port: webassembly`, `variant: pyscript`, `runs_on: ubuntu-latest`, tests via `run_wasm_tests.mjs` — full suite (module now uses its own vendored `_a7p._md5()`, not `hashlib.md5`)                                                                                                                |
 | rp2                        | `armv6m`, `armv7emsp`, `armv7emdp`, `rv32imc` |       ✔️        |        ✔️        | 🔷                | `natmod` job covers all 4 ARCHes; usermod deliberately not added — natmod already covers it                                                                                                                                                                                                                      |
 | esp32                      | `xtensawin` (+ `rv32imc` for C3/C6)           |       ✔️        |        ✔️        | 🔷                | `natmod` job, `arch: xtensawin`; usermod deliberately not added                                                                                                                                                                                                                                                  |
@@ -448,19 +449,25 @@ job), three targets, all genuinely natmod-can't-reach cases:
   regardless of architecture. Same unprefixed-gcc recipe upstream's own
   `build-mingw` CI job uses (see
   `micropython/.github/workflows/ports_windows.yml`) -- a recompile of an
-  already-proven recipe, not a first attempt. `arm64` was tried via MSYS2's
-  `CLANGARM64` environment (`windows-11-arm`) but dropped: upstream
-  MicroPython doesn't test Windows ARM64 at all, so there was no proven
-  recipe to check failures against, and each one (a missing
-  `set_fmode_binary`, then `strip`, then `size`, then `windres` --
-  binutils tools that gcc-compat package doesn't provide under their
-  usual `aarch64-w64-mingw32-*` names) needed a full CI round-trip of
-  genuine trial-and-error. Left as a follow-up for whenever there's an
-  actual reference implementation to work from.
-* `unix` on `armhf`/`mipsel`, cross-compiled and run under `qemu-user-static`
-  -- directly mirrors upstream MicroPython's own `tools/ci.sh`
-  `ci_unix_qemu_arm_*` (also proven working for this project's own module by
-  a real CI run), with `mipsel` substituted for upstream's own big-endian
+  already-proven recipe, not a first attempt.
+* `windows` on `arm64`, on `windows-11-arm` via MSYS2's `CLANGARM64`
+  environment. This was tried once and dropped, because upstream MicroPython
+  doesn't test Windows ARM64 at all and each failure (a missing
+  `set_fmode_binary`, then `strip`, then `size`, then `windres`) cost a full
+  CI round-trip of guesswork. A proven reference exists now --
+  o-murphy/micropython-wasm3 runs the same combination green -- and it both
+  confirms those earlier fixes and shows `windres` never needed one, only an
+  empty `CROSS_COMPILE`.
+* `unix` on `armhf`/`mipsel`, cross-compiled -- the build recipe directly
+  mirrors upstream MicroPython's own `tools/ci.sh` `ci_unix_qemu_arm_*` (also
+  proven working for this project's own module by a real CI run). Only
+  `mipsel` still *runs* under `qemu-user-static`: `armhf` moved to
+  `ubuntu-24.04-arm`, which executes 32-bit ARM on its own CPU (measured on
+  the runner, not assumed), and switched to `gnueabihf` to match -- soft-float
+  `gnueabi` baselines at ARMv5TE, whose SWP atomics ARMv8 removed. Two further
+  deltas from upstream are deliberate: `LDFLAGS_EXTRA=-static` (deployability,
+  same reasoning as micropython/micropython#17456) and `mipsel` substituted
+  for upstream's own big-endian
   `mips` choice: this module's zero-copy design hardcodes
   `uctypes.LITTLE_ENDIAN` (`a7p.py`) over memory nanopb populates in the
   host's native byte order, so a genuinely big-endian host produces wrong

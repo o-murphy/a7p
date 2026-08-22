@@ -55,16 +55,18 @@ name: usermod
 #     confirms the earlier fixes were right and that WINDRES needed no fix
 #     at all, only an empty CROSS_COMPILE. See that row's own comment.
 #   - unix on armhf/mipsel: also usermod-only (no matching dynruntime.mk
-#     ARCH). Both are their own dedicated job (usermod-cross), directly
-#     mirroring upstream MicroPython's own tools/ci.sh
-#     ci_unix_qemu_arm_*/ci_unix_qemu_mips_* -- plain ubuntu-latest, no
-#     container, qemu-user-static's /usr/gnemul symlink instead of static
-#     linking -- proven by years of upstream CI, not reconstructed by hand
-#     from a fork's Makefile (an earlier version of this job tried that,
-#     hit two real failures diverging from it, and was rewritten to match
-#     upstream exactly plus this project's own USER_C_MODULES/
-#     FROZEN_MANIFEST on top). See that job's own comment for the exact
-#     deltas kept intentionally (mips not mipsel, gnueabi not gnueabihf).
+#     ARCH). Both are their own dedicated job (usermod-cross), whose build
+#     recipe mirrors upstream MicroPython's own tools/ci.sh
+#     ci_unix_qemu_arm_*/ci_unix_qemu_mips_* -- proven by years of upstream
+#     CI, not reconstructed by hand from a fork's Makefile (an earlier
+#     version of this job tried that, hit two real failures diverging from
+#     it, and was rewritten to match upstream exactly plus this project's
+#     own USER_C_MODULES/FROZEN_MANIFEST on top). Where it no longer
+#     mirrors upstream is *execution*: armhf runs on ubuntu-24.04-arm's own
+#     CPU rather than under qemu-user, which is measured rather than
+#     assumed, and switched to gnueabihf to match. mipsel is still
+#     emulated. See that job's own comment for every delta kept
+#     intentionally (mipsel not mips, gnueabihf not gnueabi).
 #   - cc3200 (deprecated hardware, native emit off by default), bare-arm/
 #     minimal (demo configs, not real boards), pic16bit/powerpc (different
 #     CPU families entirely, no matching natmod ARCH, explicitly disabled
@@ -558,7 +560,16 @@ jobs:
             mpy/ports/windows/build-standard/micropython.exe
           if-no-files-found: warn
 
-  # ── usermod: unix-armhf, unix-mipsel (cross-compiled via QEMU) ──────────────
+  # ── usermod: unix-armhf (real AArch32), unix-mipsel (cross, via QEMU) ───────
+  #
+  # armhf no longer runs under an emulator. micropython-wasm3's usermod
+  # workflow carried a probe job that measured the question directly on a
+  # GitHub arm64 runner: a statically linked, freestanding AArch32 binary
+  # executes on ubuntu-24.04-arm with no emulator and no binfmt handler
+  # ("RESULT: AArch32 IS supported on this runner", that repo's usermod run
+  # #18). So this job's armhf row cross-builds the 32-bit binary on the arm64
+  # runner and then runs it on that runner's own CPU. mipsel stays on
+  # qemu-user, because GitHub has no mips runner and never will.
   #
   # This job stopped trying to reconstruct the cross-compile-unix-with-libffi
   # recipe from a fork's Makefile and instead directly mirrors upstream
@@ -590,8 +601,17 @@ jobs:
   #     actually work end-to-end on mipsel by
   #     ballistics-lab/micropython-bclibc's own CI (see the natmod job's
   #     README-linked comment elsewhere in this repo).
-  #   - CROSS_COMPILE=arm-linux-gnueabi- (soft-float ABI, no "hf"), not
-  #     arm-linux-gnueabihf- -- matches upstream's own choice for this job.
+  #   - CROSS_COMPILE=arm-linux-gnueabihf-, *not* upstream's
+  #     arm-linux-gnueabi-. This used to follow upstream, and under qemu the
+  #     choice was nearly free -- the emulator implements whatever ARMv5
+  #     asks for. On the real ARMv8 hardware this row now runs on it is not
+  #     free: gnueabi is soft-float and baselines at ARMv5TE, whose SWP/SWPB
+  #     atomics ARMv8 removed outright, surviving only through the kernel's
+  #     opt-in ARMV8_DEPRECATED emulation. gnueabihf is also the toolchain
+  #     the probe binary was built with, so it is the one actually proven on
+  #     that runner -- and it is what "armhf" has always named here anyway.
+  #     mipsel is untouched: it is still emulated, so upstream's choice
+  #     still applies to it.
   #   - USER_C_MODULES/FROZEN_MANIFEST added on top of upstream's exact
   #     CROSS_COMPILE/VARIANT=coverage/MICROPY_STANDALONE=1 combination, to
   #     get this project's own module built in. LDFLAGS_EXTRA=-static is
@@ -613,16 +633,18 @@ jobs:
   #     other usermod job in this workflow.
   usermod-cross:
     name: usermod (unix-${{ matrix.arch_label }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs_on }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch_label: armhf
-            cross_compile: arm-linux-gnueabi-
-            cross_apt: gcc-arm-linux-gnueabi g++-arm-linux-gnueabi libltdl-dev
-            gnemul_arch: arm
+            runs_on: ubuntu-24.04-arm
+            cross_compile: arm-linux-gnueabihf-
+            cross_apt: gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf libltdl-dev
+            gnemul_arch: ""
           - arch_label: mipsel
+            runs_on: ubuntu-latest
             cross_compile: mipsel-linux-gnu-
             cross_apt: gcc-mipsel-linux-gnu g++-mipsel-linux-gnu libc6-mipsel-cross libltdl-dev
             gnemul_arch: mipsel
@@ -649,11 +671,17 @@ jobs:
         # result has no dynamic library dependencies to resolve in the
         # first place -- qemu-user-static's binfmt_misc handler runs it
         # directly either way.
+        #
+        # qemu-user-static is installed for mipsel only. armhf runs on the
+        # runner's own CPU now, so an emulator there would be dead weight
+        # that could also mask a genuine failure to execute.
         run: |
           sudo apt-get update
           sudo apt-get install -y ${{ matrix.cross_apt }}
-          sudo apt-get install -y qemu-user-static
-          qemu-${{ matrix.gnemul_arch }}-static --version
+          if [ -n "${{ matrix.gnemul_arch }}" ]; then
+            sudo apt-get install -y qemu-user-static
+            qemu-${{ matrix.gnemul_arch }}-static --version
+          fi
 
       - name: Write combined FROZEN_MANIFEST
         run: |
@@ -698,11 +726,15 @@ jobs:
             FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
 
       - name: Run tests (${{ matrix.arch_label }})
-        # No explicit qemu-<arch> prefix -- qemu-user-static registers a
-        # binfmt_misc handler, so the cross-compiled binary runs directly,
-        # exactly like upstream's own ci_unix_qemu_arm_run_tests/
-        # ci_unix_qemu_mips_run_tests invoke theirs.
+        # No explicit qemu-<arch> prefix in either case, but for two
+        # different reasons: on mipsel qemu-user-static registers a
+        # binfmt_misc handler and the cross-compiled binary runs through it,
+        # exactly like upstream's own ci_unix_qemu_mips_run_tests; on armhf
+        # there is no emulator involved at all and the arm64 runner executes
+        # the 32-bit binary itself. `file` is printed first so the log
+        # records which of the two actually happened.
         run: |
+          file mpy/ports/unix/build-coverage/micropython
           mpy/ports/unix/build-coverage/micropython -c "import _a7p; print(_a7p._decode)"
           mpy/ports/unix/build-coverage/micropython -c "import a7p; print(a7p.PAYLOAD_SIZE)"
           mpy/ports/unix/build-coverage/micropython micropython/tests/test_a7p.py
