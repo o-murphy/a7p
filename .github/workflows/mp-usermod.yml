@@ -714,3 +714,82 @@ jobs:
           name: a7p-usermod-unix-${{ matrix.arch_label }}
           path: mpy/ports/unix/build-coverage/micropython
           if-no-files-found: error
+
+  # ── usermod: armv7m on bare-metal QEMU (Cortex-M3) ──────────────────────────
+  #
+  # The one target in this workflow that is neither a desktop OS nor an
+  # emulated Linux: real firmware for a Cortex-M3, run under
+  # qemu-system-arm. It is a genuine functional execution test on a
+  # bare-metal target, which nothing else here provides -- natmod's own
+  # armv7m coverage is a build check.
+  #
+  # Scope note: unlike every other row, natmod *can* reach armv7m, so this
+  # duplicates an ARCH rather than filling a gap. It earns its place anyway,
+  # because it exercises something the natmod build cannot: ports/qemu links
+  # -nostdlib with only libgcc (Makefile:74), so a usermod here has no libc
+  # and no libm at all. This module needs neither -- it has no malloc, no
+  # math, no printf -- and that is worth holding true rather than assuming.
+  # A module that did would fail to link here, which is exactly the signal
+  # wanted. micropython-bclibc runs the same job for the same reason.
+  #
+  # Only test_a7p_core.py: the port has no filesystem, and while the fixture
+  # can be pushed in read-only (see micropython/ci/run_qemu.py), test_a7p.py
+  # also *writes* a roundtrip file, which would need a writable VFS. Both
+  # full suites run on every other target.
+  usermod-qemu-armv7m:
+    name: usermod (qemu-armv7m)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout a7p
+        uses: actions/checkout@v7
+
+      - name: Checkout MicroPython ${{ env.MPY_REF }}
+        uses: actions/checkout@v7
+        with:
+          repository: micropython/micropython
+          ref: ${{ env.MPY_REF }}
+          path: mpy
+
+      - name: Install toolchain + QEMU
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            gcc-arm-none-eabi libnewlib-arm-none-eabi qemu-system-arm
+          pip install pyserial
+
+      - name: Fetch nanopb
+        run: make -C micropython/natmod fetch-nanopb
+
+      - name: Write FROZEN_MANIFEST
+        # No `include("$(PORT_DIR)/...")` line here, unlike every other job:
+        # ports/qemu ships no boards/manifest.py, and referencing one fails
+        # the freeze outright.
+        run: |
+          cat > "$RUNNER_TEMP/a7p_manifest.py" <<EOF
+          include("$GITHUB_WORKSPACE/micropython/usermod/manifest.py")
+          EOF
+          cat "$RUNNER_TEMP/a7p_manifest.py"
+          echo "A7P_FROZEN_MANIFEST=$RUNNER_TEMP/a7p_manifest.py" >> "$GITHUB_ENV"
+
+      - name: Build mpy-cross
+        run: make -C mpy/mpy-cross -j"$(nproc)"
+
+      - name: Build firmware (MPS2_AN385 / Cortex-M3)
+        run: |
+          make -C mpy/ports/qemu BOARD=MPS2_AN385 \
+            USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" \
+            FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
+
+      - name: Run tests via QEMU
+        env:
+          MPY_DIR: ${{ github.workspace }}/mpy
+        run: |
+          python3 micropython/ci/run_qemu.py \
+            mpy/ports/qemu/build-MPS2_AN385/firmware.elf
+
+      - name: Upload build (qemu-armv7m)
+        uses: actions/upload-artifact@v7
+        with:
+          name: a7p-usermod-qemu-armv7m
+          path: mpy/ports/qemu/build-MPS2_AN385/firmware.elf
+          if-no-files-found: error
