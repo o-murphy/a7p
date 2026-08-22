@@ -503,6 +503,18 @@ job), three targets, all genuinely natmod-can't-reach cases:
   little-endian, so this isn't a real-world gap; `mipsel` is proven working
   end-to-end by ballistics-lab/micropython-bclibc's own CI.
 
+**Not done: musl for those two static builds.** `armhf` and `mipsel` link
+`-static` against glibc, and glibc warns on every such link that `dlopen` and
+`getaddrinfo` still need the shared libraries from the glibc they were linked
+against — so a "static" glibc binary is not actually self-contained on the
+minimal target it exists for. That is also half the reason the `aarch64` row
+stopped linking static. musl has no NSS and a stub `dlopen`, so the same build
+has neither caveat. Measured rather than assumed: a musl static build came back
+with **zero** link warnings against glibc's two, `ldd` reporting `not a dynamic
+executable`, and `getaddrinfo` working, at the cost of `MICROPY_PY_BTREE=0` and
+`MICROPY_PY_FFI=0`. Deliberately not implemented for now; recorded so the
+measurement is not lost.
+
 Per the natmod-first policy above, `unix` on `x64`/`rp2`/`esp32`/`stm32`/
 `samd`/`mimxrt`/`esp8266`/`nrf` are intentionally **not** in the `usermod`
 CI job -- natmod already covers all of them (see the ARCH table earlier in
