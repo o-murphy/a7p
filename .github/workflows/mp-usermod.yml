@@ -166,23 +166,27 @@ jobs:
             # dynruntime.mk at all), so this is exactly the natmod-can't-
             # reach-it case the usermod job exists for.
             #
-            # MICROPY_STANDALONE=1/LDFLAGS_EXTRA=-static: not needed for
-            # this job to merely pass CI (a plain dynamic build runs fine
-            # on the same runner that built it) -- this is a deliberate
-            # requirement for real deployability instead, same reasoning
-            # as micropython/micropython#17456 (LDFLAGS_EXTRA="-static"
-            # for minimal-Linux/Buildroot-style targets that can't be
-            # assumed to have a matching ld.so/libc at all): a fully
-            # static aarch64 binary is what's actually useful to hand to
-            # someone running this on e.g. a minimal embedded Linux
-            # board, not just whatever happens to satisfy this CI runner.
-            # MICROPY_STANDALONE=1 builds libffi from source so its
-            # static .a is guaranteed to exist for that link, rather than
-            # assuming the system's libffi-dev ships one.
+            # Plain dynamic build, deliberately -- this row used to carry
+            # MICROPY_STANDALONE=1 plus LDFLAGS_EXTRA=-static "for real
+            # deployability", and that reasoning did not survive a second
+            # look. Unlike usermod-cross's armhf and mipsel rows, where a
+            # static link is load-bearing (the arm64 runner has no armhf
+            # glibc and no /lib/ld-linux-armhf.so.3; qemu-user runs mipsel
+            # with no sysroot), aarch64 executes natively on the machine
+            # that builds it and needs nothing special to run. And nothing
+            # consumes the artifact: release.yml deliberately does not call
+            # this workflow, so the binary is a CI artifact and never a
+            # release asset. What the static link did cost was an extra apt
+            # set, a separate libffi-from-source pass, and two glibc
+            # static-link warnings (dlopen, getaddrinfo) on every build --
+            # the dlopen one being self-defeating, since a static glibc's
+            # dlopen still needs the matching shared libraries at run time,
+            # i.e. it works on the machine you did not need a static binary
+            # for and stops working on the minimal board you did.
+            # o-murphy/micropython-wasm3's aarch64 row has always been a
+            # plain native build; this now matches it.
             default_manifest: variants/standard/manifest.py
             runs_on: ubuntu-24.04-arm
-            standalone: "1"
-            ldflags_extra: "-static"
           - port: windows
             arch_label: x86
             # windows-latest is a real x64 Windows box (WOW64 runs the
@@ -281,13 +285,11 @@ jobs:
             source emsdk/emsdk_env.sh
             make -C mpy/ports/webassembly VARIANT=${{ matrix.variant }} submodules
           else
-            # MICROPY_STANDALONE=1 (aarch64 only right now, for the
-            # static-link deployability build) must reach this step too
-            # -- it's what makes the unix Makefile add lib/libffi to
-            # GIT_SUBMODULES at all; without it here, "submodules"
-            # wouldn't fetch libffi, and the later deplibs/build steps
-            # would fail looking for it.
-            make -C mpy/ports/unix MICROPY_STANDALONE="${{ matrix.standalone }}" submodules
+            # No MICROPY_STANDALONE here any more: the aarch64 row was
+            # the only one that ever set it, and it now links against the
+            # system libffi like every other plain unix build, so
+            # lib/libffi never needs to reach GIT_SUBMODULES.
+            make -C mpy/ports/unix submodules
           fi
 
       - name: Fetch port submodules (windows)
@@ -381,27 +383,19 @@ jobs:
         # never triggers.
         run: make -C mpy/mpy-cross -j"$(nproc)"
 
-      - name: Install libffi build deps
-        if: matrix.standalone == '1'
-        # autoconf/libtool/libtool-bin + libltdl-dev: same packages the
-        # usermod-cross job installs for its own MICROPY_STANDALONE=1
-        # libffi build -- ubuntu-24.04-arm's default image is missing
-        # these too (confirmed by a real CI failure here: autoreconf
-        # failed with "possibly undefined macro: LT_SYS_SYMBOL_USCORE"
-        # because libtoolize had no libltdl-dev-provided macros to copy
-        # in), not just the x64/cross-compile runners.
-        run: sudo apt-get install -y autoconf libtool libtool-bin libltdl-dev
-
-      - name: Build libffi (deplibs)
-        if: matrix.standalone == '1'
-        # MICROPY_STANDALONE=1 only makes libffi a DEPLIBS entry, not an
-        # actual prerequisite of the default build (`deplibs:
-        # $(DEPLIBS)` is its own separate Makefile target) -- same fix as
-        # the usermod-cross job's identical step; see that job's comment
-        # for the full explanation (a real CI failure on that job caught
-        # this exact thing). No manual libtoolize/autoreconf needed --
-        # the Makefile's own ./autogen.sh-triggering rule handles it.
-        run: make -C mpy/ports/unix MICROPY_STANDALONE=1 deplibs
+      - name: Install unix build deps
+        if: matrix.port == 'unix'
+        # The system libffi this port links against, now that the aarch64
+        # row no longer builds its own from source. Not assumed present on
+        # the runner image: o-murphy/micropython-wasm3's aarch64 usermod
+        # row installs exactly these two and has always been green with
+        # them. The autoconf/libtool/libltdl-dev set the old
+        # MICROPY_STANDALONE=1 build needed is gone with it -- usermod-cross
+        # still installs those for armhf/mipsel, where static linking is
+        # load-bearing rather than aspirational.
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y libffi-dev pkg-config
 
       - name: Build mpy-cross (windows)
         if: matrix.port == 'windows'
@@ -471,12 +465,10 @@ jobs:
               USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" \
               FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
           else
-            # MICROPY_STANDALONE/LDFLAGS_EXTRA are empty strings for x64
-            # (covered by natmod, not this job) -- only aarch64 sets
-            # them, see that matrix entry's comment above.
+            # A plain build: nothing here sets MICROPY_STANDALONE or
+            # LDFLAGS_EXTRA any more. aarch64 was the only row that did;
+            # see that matrix entry's comment for why it stopped.
             make -C mpy/ports/unix \
-              MICROPY_STANDALONE="${{ matrix.standalone }}" \
-              LDFLAGS_EXTRA="${{ matrix.ldflags_extra }}" \
               USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" \
               FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
           fi
