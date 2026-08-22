@@ -175,6 +175,18 @@ This proves the native module and its relocations are right on real ARM
 silicon. It is not a board, and it is not the bare-metal firmware environment
 that `mp-usermod.yml`'s `qemu-armv7m` job covers.
 
+What that job actually guards is worth stating: `ports/qemu/Makefile:74` links
+`-nostdlib` with `libgcc` alone, so a usermod there has **no libc and no libm at
+all**. That holds for this module -- no `malloc`, no `math`, no `printf`
+anywhere in `micropython/src` or `micropython/usermod` -- and the job exists to
+keep it true rather than to assume it: a dependency on either would stop
+linking, which is exactly the signal wanted.
+`ballistics-lab/micropython-bclibc` runs the same job for the same reason.
+`o-murphy/micropython-wasm3` cannot: wasm3 allocates through the port's
+`calloc()`, and supplying its own shims would link and then corrupt, because
+they allocate on the GC heap while a usermod's globals sit in firmware `.bss`
+that `gc_collect()` does not scan.
+
 Copy it to the device (e.g. `mpremote cp build/armv6m/a7p.mpy :`) -- `import a7p`
 is all that's needed, there's no separate module to also copy.
 
@@ -231,7 +243,7 @@ list, when CI coverage changes):
 | nrf                        | `armv7emsp`                                   |       ✔️        |        ✔️        | 🔷                | `natmod` job, `arch: armv7emsp` (where EXTRA_FEAT is set); usermod explicitly excluded — MICROBIT overflows flash, nRF52840 boards either need a Bluetooth softdevice or hit an LTO bug in gcc-arm-none-eabi                                                                                                     |
 | mimxrt                     | `armv7emsp`, `armv7emdp`                      |       ✔️        |        ✔️        | 🔷                | `natmod` job covers both ARCHes; usermod deliberately not added                                                                                                                                                                                                                                                  |
 | zephyr (rv32m1_vega_ri5cy) | `rv32imc`                                     |       ✔️        |        ❌        | ➖                | not in CI — no job added yet (unverified)                                                                                                                                                                                                                                                                        |
-| qemu                       | depends on emulation target                   |       ✔️        |        ✔️        | ➖                | not in CI — separate candidate for a "build+run" functional test under QEMU, not added yet                                                                                                                                                                                                                       |
+| qemu                       | depends on emulation target                   |       ✔️        |        ✔️        | 🔶                | `usermod-qemu-armv7m` job — real Cortex-M3 firmware (`BOARD=MPS2_AN385`) under `qemu-system-arm`, driven over the raw REPL by `micropython/ci/run_qemu.py`. The only bare-metal execution test here; `test_a7p_core.py` only, since the port has no writable filesystem |
 | cc3200                     | ➖                                             |       ❌        |        ✔️        | ➖                | not in CI — deprecated, native emit disabled by default                                                                                                                                                                                                                                                          |
 | alif (M55)                 | `armv7emsp`/`armv7emdp` (Cortex-M55)          |       ✔️        |        ✔️        | ➖                | not in CI — ARCH-compatible in principle, unverified, deliberately not added                                                                                                                                                                                                                                     |
 | renesas-ra (M4/M33)        | `armv7emsp`                                   |       ✔️        |        ✔️        | ➖                | not in CI — same story: unverified, deliberately not added                                                                                                                                                                                                                                                       |
@@ -534,6 +546,16 @@ you do:
   unimplemented: Thumb-1 'hard-float' VFP ABI`, reproduced locally against
   the pinned `v1.28.0` + Ubuntu's `gcc-arm-none-eabi`, persists with
   `LTO=0`).
+* `esp8266`: the flash budget is the *second* problem. The first is that
+  `ports/esp8266/posix_helpers.c:35` implements `malloc` as `gc_alloc`, while a
+  usermod's globals live in firmware `.bss`, which `gc_collect()` never scans --
+  so anything allocated at import time is unreachable to the collector and free
+  to be reused. That is not a build error and not an immediate crash; it is
+  wrong answers later. `MP_REGISTER_ROOT_POINTER` is the prerequisite, and the
+  hard part of it is that MicroPython's GC only traces block-aligned pointers.
+  This module does not allocate in C, so it is not affected today -- but treat
+  the port as unsafe for usermods in general rather than merely flash-tight.
+  `stm32`, `samd`, `nrf`, `alif`, `zephyr` and `cc3200` have no C heap at all.
 * `stm32`: some tiny-flash boards (`NUCLEO_F091RC` among them) set
   `FROZEN_MANIFEST` empty in their own `mpconfigboard.h` ("MCU is tight on
   flash space") -- forcing one on anyway also skips that board's
