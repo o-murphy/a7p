@@ -68,7 +68,7 @@ jobs:
       - name: Checkout a7p
         uses: actions/checkout@v7
 
-      - uses: ballistics-lab/micropython-native-ci/.github/actions/clone-micropython@main
+      - uses: ballistics-lab/micropython-native-ci/.github/actions/clone-micropython@v0.1.0
         with:
           mpy_tag: ${{ env.MPY_REF }}
           # a7p's own micropython/ subtree already occupies that name at the
@@ -76,7 +76,7 @@ jobs:
           # would collide with it (git clone refuses a non-empty target).
           path: mpy
 
-      - uses: ballistics-lab/micropython-native-ci/.github/actions/build-natmod-arch@main
+      - uses: ballistics-lab/micropython-native-ci/.github/actions/build-natmod-arch@v0.1.0
         with:
           arch: ${{ matrix.arch }}
           natmod_dir: micropython/natmod
@@ -163,7 +163,7 @@ jobs:
       - name: Checkout a7p
         uses: actions/checkout@v7
 
-      - uses: ballistics-lab/micropython-native-ci/.github/actions/clone-micropython@main
+      - uses: ballistics-lab/micropython-native-ci/.github/actions/clone-micropython@v0.1.0
         with:
           mpy_tag: ${{ env.MPY_REF }}
           # a7p's own micropython/ subtree already occupies that name at the
