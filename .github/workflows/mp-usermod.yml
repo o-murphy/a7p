@@ -894,14 +894,14 @@ jobs:
   # matching what mp-natmod.yml already covers as an ARCH.
   #
   # Written CI-first rather than verified locally, which is worth stating
-  # plainly: dl.espressif.com and components-file.espressif.com are both
+  # plainly: dl.espressif.com and components-file.espressif.com were both
   # refused by the development environment this was authored in, so neither
   # the toolchain nor IDF's managed components (espressif/mdns
   # unconditionally, espressif/lan867x for target esp32) could be fetched
-  # there at all. esp-idf's own install.sh is known to work on the runner --
-  # ballistics-lab/micropython-bclibc's natmod xtensawin leg has been doing
-  # exactly that, green. Whether the managed-component fetch and the full port
-  # build follow is what this job settles.
+  # there at all. It cost one round-trip -- ports/esp32's `submodules` target
+  # is `idf.py ... reconfigure`, not a git command, so it needs export.sh
+  # sourced like the build does. Both hosts have since been allowed, so
+  # further work here can be reproduced locally first.
   usermod-esp32:
     name: usermod (esp32 / ESP32_GENERIC)
     runs-on: ubuntu-latest
