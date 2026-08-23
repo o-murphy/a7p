@@ -423,65 +423,6 @@ jobs:
         # part of the same fix.
         run: make -C mpy/mpy-cross -j"$(nproc)"
 
-      - name: Build mpy-cross (windows)
-        if: matrix.port == 'windows'
-        # Same fix, same reason as above. CROSS_COMPILE must match what
-        # the port build itself uses -- mpy-cross has to run *on this same
-        # Windows host* during the build (to compile frozen .py sources),
-        # so it needs the same toolchain/arch as the rest of this job, not
-        # a genuinely different cross-compiler.
-        #
-        # LDFLAGS_ARCH override: mpy-cross/Makefile hardcodes
-        # "-Wl,-Map=$@.map,--cref -Wl,--gc-sections" for every non-Darwin
-        # host (checked directly in the v1.28.0 tree) -- fine for GNU ld
-        # (MINGW32/64's real mingw-w64 gcc), but CLANGARM64's
-        # aarch64-w64-mingw32-gcc wrapper links via clang+lld, and lld
-        # doesn't understand --cref ("lld: error: unknown argument:
-        # --cref"), which fails the whole link. It's a plain `=` in the
-        # Makefile (not `override`), so a command-line value wins; the map
-        # file's cross-reference table is diagnostic-only, not needed here.
-        #
-        # COMPILER_TARGET override: mpy-cross/Makefile decides whether to
-        # compile in ports/windows/fmode.c (which defines
-        # set_fmode_binary(), called unconditionally under #ifdef _WIN32
-        # in mpy-cross/main.c) by grepping `$(CC) -dumpmachine` for the
-        # substring "mingw". Real mingw-w64 gcc (MINGW32/64) reports e.g.
-        # "x86_64-w64-mingw32", which matches -- but the CLANGARM64
-        # aarch64-w64-mingw32-gcc wrapper is clang underneath and reports
-        # its own triple naming instead, which doesn't contain "mingw", so
-        # fmode.c silently never gets compiled in and the link fails with
-        # "undefined symbol: set_fmode_binary" (confirmed directly in CI).
-        # Forcing this to a value that contains "mingw" -- true for this
-        # toolchain regardless of what -dumpmachine actually prints --
-        # restores the intended behavior. Same plain-`:=`-vs-command-line
-        # override mechanism as LDFLAGS_ARCH above.
-        #
-        # STRIP="": py/mkenv.mk sets STRIP = $(CROSS_COMPILE)strip
-        # unconditionally, and mpy-cross/py/mkrules.mk's link recipe runs
-        # it whenever the (always-non-empty) variable is defined --
-        # regardless of whether that binary actually exists. CLANGARM64's
-        # gcc-compat package provides gcc/windres wrappers but no
-        # aarch64-w64-mingw32-strip, so the link succeeds and then the
-        # build fails anyway on "No such file or directory" trying to
-        # strip the result (confirmed directly in CI, right after the
-        # COMPILER_TARGET fix above actually got this far for the first
-        # time). Stripping is a size optimization only, not needed for a
-        # transient build-time host tool -- empty this out for all three
-        # windows arches for simplicity, not just the one that needs it.
-        # STRIP="" works because py/mkrules.mk guards that whole step with
-        # `ifdef STRIP` -- and GNU Make's ifdef treats an empty value as
-        # "not defined", so this skips it outright.
-        #
-        # SIZE="true": same missing-binary problem
-        # (aarch64-w64-mingw32-size, confirmed directly in CI right after
-        # the STRIP fix above got this far for the first time), but
-        # py/mkrules.mk's `$(SIZE) ... $@` line has no `ifdef` guard --
-        # SIZE="" would leave a blank command name and break the recipe's
-        # shell syntax instead of skipping it. `true` is a real, universal
-        # no-op binary that swallows all its arguments and exits 0.
-        shell: msys2 {0}
-        run: make -C mpy/mpy-cross CROSS_COMPILE="${{ matrix.cross_compile }}" LDFLAGS_ARCH="-Wl,--gc-sections" COMPILER_TARGET="mingw-forced" STRIP="" SIZE="true" -j"$(nproc)"
-
       - name: Build usermod (webassembly)
         if: matrix.port == 'webassembly'
         run: |
@@ -521,17 +462,19 @@ jobs:
         # USER_C_MODULES source file. $(pwd) here is MSYS2's own
         # POSIX-style view of the same directory ("/d/a/..."), with no
         # backslashes to mis-escape.
-        # STRIP=""/SIZE="true": same reasons as the "Build mpy-cross
-        # (windows)" step above -- CLANGARM64's gcc-compat package has
-        # neither aarch64-w64-mingw32-strip nor -size, and
-        # ports/windows/Makefile hits the exact same generic
-        # py/mkrules.mk PROG-linking step mpy-cross does.
-        shell: msys2 {0}
-        run: |
-          make -C mpy/ports/windows CROSS_COMPILE="${{ matrix.cross_compile }}" STRIP="" SIZE="true" \
-            CFLAGS_EXTRA="${{ matrix.cflags_extra }}" \
-            USER_C_MODULES="$(pwd)/micropython/usermod" \
-            FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
+        #
+        # mpy-cross + main build (the four CLANGARM64 overrides included)
+        # now come from the shared action -- CROSS_COMPILE is always empty
+        # for every row in this matrix, so dropping it here changes
+        # nothing; A7P_FROZEN_MANIFEST is set above by "Write combined
+        # FROZEN_MANIFEST (windows)". No build_dir override: this repo
+        # never set BUILD= either, so the action's own build-standard
+        # default lands exactly where Run tests (windows) below expects.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-windows-arch@claude/usermod-shared-action-kwulzv
+        with:
+          user_c_modules: $(pwd)/micropython/usermod
+          frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
+          cflags_extra: ${{ matrix.cflags_extra }}
 
       - name: Run tests (${{ matrix.port }})
         if: matrix.port != 'windows'
