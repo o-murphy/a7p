@@ -595,11 +595,15 @@ jobs:
   #     handler runs it directly with no /usr/gnemul sysroot symlink
   #     needed (that trick is specifically for *dynamically* linked
   #     cross binaries, which this deliberately isn't).
-  #   - VARIANT=coverage (not standard) is upstream's own choice for these
-  #     two jobs specifically -- kept rather than switched to standard, to
-  #     stay on the tested combination; its own default manifest is what
-  #     this job's FROZEN_MANIFEST combines with, same pattern as every
-  #     other usermod job in this workflow.
+  #   - VARIANT=standard, not upstream's own VARIANT=coverage choice for
+  #     these two jobs -- switched for consistency with every other unix
+  #     row in this workflow (x64/x86/aarch64 above all build standard
+  #     too), which is what this job's own FROZEN_MANIFEST now combines
+  #     with (variants/standard/manifest.py). coverage exists in
+  #     tools/ci.sh to broaden upstream's own CI surface across their
+  #     whole matrix; nothing about armhf/mipsel specifically needs it,
+  #     and the mismatch against every other row here was inherited from
+  #     a straight port of the upstream recipe rather than deliberate.
   usermod-cross:
     name: usermod (unix-${{ matrix.arch_label }})
     runs-on: ${{ matrix.runs_on }}
@@ -632,7 +636,7 @@ jobs:
       - name: Write combined FROZEN_MANIFEST
         run: |
           cat > "$RUNNER_TEMP/a7p_manifest.py" <<EOF
-          include("\$(PORT_DIR)/variants/coverage/manifest.py")
+          include("\$(PORT_DIR)/variants/standard/manifest.py")
           include("$GITHUB_WORKSPACE/micropython/usermod/manifest.py")
           EOF
           cat "$RUNNER_TEMP/a7p_manifest.py"
@@ -651,7 +655,7 @@ jobs:
         # (clone-micropython), where lib/libffi is still an empty submodule
         # placeholder until this runs.
         run: |
-          make -C mpy/ports/unix CROSS_COMPILE="${{ matrix.cross_compile }}" VARIANT=coverage MICROPY_STANDALONE=1 submodules
+          make -C mpy/ports/unix CROSS_COMPILE="${{ matrix.cross_compile }}" VARIANT=standard MICROPY_STANDALONE=1 submodules
 
       - name: Build usermod (${{ matrix.arch_label }})
         # mpy-cross/deplibs/main-build all now come from the action --
@@ -662,17 +666,16 @@ jobs:
         # default target) is handled internally whenever standalone linking
         # applies, which for armhf/mipsel it always does.
         #
-        # variant: coverage matches upstream's own ci_unix_qemu_arm/mips
-        # choice, kept rather than switched to standard to stay on the
-        # tested combination -- its own default manifest is what
-        # A7P_FROZEN_MANIFEST above combines with.
+        # No variant: override -- the action's own default (standard) is
+        # what this row now builds, same as every other unix row in this
+        # workflow. See this job's own header comment for why it switched
+        # off upstream's VARIANT=coverage.
         uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-unix-arch@claude/usermod-shared-action-kwulzv
         with:
           arch: ${{ matrix.arch_label }}
           user_c_modules: ${{ github.workspace }}/micropython/usermod
           frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
-          variant: coverage
-          build_dir: build-coverage
+          build_dir: build-standard
 
       - name: Run tests (${{ matrix.arch_label }})
         # No explicit qemu-<arch> prefix in either case, but for two
@@ -683,17 +686,17 @@ jobs:
         # the 32-bit binary itself. `file` is printed first so the log
         # records which of the two actually happened.
         run: |
-          file mpy/ports/unix/build-coverage/micropython
-          mpy/ports/unix/build-coverage/micropython -c "import _a7p; print(_a7p._decode)"
-          mpy/ports/unix/build-coverage/micropython -c "import a7p; print(a7p.PAYLOAD_SIZE)"
-          mpy/ports/unix/build-coverage/micropython micropython/tests/test_a7p.py
-          mpy/ports/unix/build-coverage/micropython micropython/tests/test_validate.py
+          file mpy/ports/unix/build-standard/micropython
+          mpy/ports/unix/build-standard/micropython -c "import _a7p; print(_a7p._decode)"
+          mpy/ports/unix/build-standard/micropython -c "import a7p; print(a7p.PAYLOAD_SIZE)"
+          mpy/ports/unix/build-standard/micropython micropython/tests/test_a7p.py
+          mpy/ports/unix/build-standard/micropython micropython/tests/test_validate.py
 
       - name: Upload build (unix-${{ matrix.arch_label }})
         uses: actions/upload-artifact@v7
         with:
           name: a7p-usermod-unix-${{ matrix.arch_label }}
-          path: mpy/ports/unix/build-coverage/micropython
+          path: mpy/ports/unix/build-standard/micropython
           if-no-files-found: error
 
   # ── usermod: armv7m on bare-metal QEMU (Cortex-M3) ──────────────────────────
