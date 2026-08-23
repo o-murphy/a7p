@@ -149,6 +149,44 @@ xtensawin, rv32imc, rv64imc`. This produces:
 natmod/build/<ARCH>/a7p.mpy   native (C) and Python parts merged into one file
 ```
 
+### Running an ARM natmod on an ARM Linux host
+
+CI executes `x64` on the runner and builds the other nine. Two of the ARM
+ARCHes can also be *executed*, on real ARM silicon and without a board: the
+`natmod (armv7emsp | armv7emdp / 32-bit ARM Linux)` jobs build a statically
+linked 32-bit armhf `ports/unix` interpreter on `ubuntu-24.04-arm` -- which
+runs AArch32 on its own CPU -- and load the `.mpy` into it.
+
+It is allowed because `py/persistentcode.h` gives a Thumb-2 host with a
+double-precision FPU `MPY_FEATURE_ARCH = MP_NATIVE_ARCH_ARMV7EMDP`, and the
+compatibility test is a *range* (`ARMV6M <= x <= that`), not an equality.
+
+Only those two, because that check says nothing about the **float ABI**.
+`py/dynruntime.mk` gives `armv6m` and `armv7m` no `-mfloat-abi=hard`, so their
+floats reach the runtime in core registers while an armhf host reads them from
+VFP registers. The `.mpy` loads and then returns wrong values instead of
+failing, so do not try it.
+
+The host must be linked `-static`: an arm64 runner executes AArch32 but ships
+no armhf glibc, so a dynamically linked binary cannot find
+`/lib/ld-linux-armhf.so.3` and dies with exit 127 before MicroPython starts.
+
+This proves the native module and its relocations are right on real ARM
+silicon. It is not a board, and it is not the bare-metal firmware environment
+that `mp-usermod.yml`'s `qemu-armv7m` job covers.
+
+What that job actually guards is worth stating: `ports/qemu/Makefile:74` links
+`-nostdlib` with `libgcc` alone, so a usermod there has **no libc and no libm at
+all**. That holds for this module -- no `malloc`, no `math`, no `printf`
+anywhere in `micropython/src` or `micropython/usermod` -- and the job exists to
+keep it true rather than to assume it: a dependency on either would stop
+linking, which is exactly the signal wanted.
+`ballistics-lab/micropython-bclibc` runs the same job for the same reason.
+`o-murphy/micropython-wasm3` cannot: wasm3 allocates through the port's
+`calloc()`, and supplying its own shims would link and then corrupt, because
+they allocate on the GC heap while a usermod's globals sit in firmware `.bss`
+that `gc_collect()` does not scan.
+
 Copy it to the device (e.g. `mpremote cp build/armv6m/a7p.mpy :`) -- `import a7p`
 is all that's needed, there's no separate module to also copy.
 
@@ -189,22 +227,23 @@ list, when CI coverage changes):
 
 | port                       | arch                                          | natmod support | usermod support | current CI build | implementation (as wired in `.github/workflows/mp-natmod.yml` / `.github/workflows/mp-usermod.yml`)                                                                                                                                                                                                                                                 |
 | -------------------------- | --------------------------------------------- | :------------: | :-------------: | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| unix                       | `x64`, `x86`                                  |       ✔️        |        ✔️        | 🔷                | the `natmod (x64)` / `natmod (x86)` jobs in the Actions UI — the name is generic per-ARCH and doesn't say "unix", but this is the same job that also builds the unix port and runs `test_a7p.py`/`test_validate.py` on x64                                                                                       |
+| unix                       | `x64`, `x86`                                  |       ✔️        |        ✔️        | 🔷 🔶             | the `natmod (x64)` / `natmod (x86)` jobs build and run the natmod path; `usermod` rows of the same names build and run the usermod path on the same runner (`x86` via `MICROPY_FORCE_32BIT=1`). Both are kept because the two modes fail differently — a usermod links against the port's own libc, a natmod against dynruntime |
 | unix                       | `aarch64`                                     |       ❌        |        ✔️        | 🔶                | `usermod` job, `port: unix`, `arch_label: aarch64`, `runs_on: ubuntu-24.04-arm` — native build, no cross-compiler                                                                                                                                                                                                |
-| unix                       | `armhf`                                       |       ❌        |        ✔️        | 🔶                | dedicated `usermod-cross` job (`arch_label: armhf`), `runs_on: ubuntu-latest` — mirrors upstream MicroPython's own `tools/ci.sh` `ci_unix_qemu_arm_*` exactly: `CROSS_COMPILE=arm-linux-gnueabi-`, `VARIANT=coverage`, `MICROPY_STANDALONE=1`, `make deplibs` as its own step, `qemu-user-static` + `/usr/gnemul/qemu-arm` symlink (no static linking, no container) |
+| unix                       | `armhf`                                       |       ❌        |        ✔️        | 🔶                | dedicated `usermod-cross` job (`arch_label: armhf`), `runs_on: ubuntu-24.04-arm` — cross-built with `CROSS_COMPILE=arm-linux-gnueabihf-`, `VARIANT=coverage`, `MICROPY_STANDALONE=1`, `make deplibs` as its own step, `LDFLAGS_EXTRA=-static`, then **run on the arm64 runner's own CPU — no qemu, no binfmt handler**. Build recipe still follows upstream's `tools/ci.sh` `ci_unix_qemu_arm_*`; execution and the `hf` ABI deliberately do not (see that job's comment) |
 | unix                       | `mipsel`                                       |       ❌        |        ✔️        | 🔶                | same dedicated `usermod-cross` job (`arch_label: mipsel`) — little-endian, deliberately not upstream's big-endian `mips-linux-gnu`: this module hardcodes `uctypes.LITTLE_ENDIAN` (a7p.py) over memory nanopb populates in the host's native byte order, so big-endian genuinely mismatches (confirmed by a real CI run: build+QEMU run succeeded, `test_a7p.py`'s zero_x/zero_y/sc_height assertion failed). Proven working on mipsel by ballistics-lab/micropython-bclibc's own CI |
 | windows                    | `x86`                                         |       ❌        |        ✔️        | 🔶                | `usermod` job, `arch_label: x86`, `runs_on: windows-latest`, MSYS2 MINGW32 (`mingw-w64-i686-gcc`, no CROSS_COMPILE) — native build+run (WOW64), same recipe as upstream's `build-mingw` job                                                                                                                      |
 | windows                    | `x64`                                         |       ❌        |        ✔️        | 🔶                | `usermod` job, `arch_label: x64`, `runs_on: windows-latest`, MSYS2 MINGW64 (`mingw-w64-x86_64-gcc`, no CROSS_COMPILE) — native build+run, same upstream recipe                                                                                                                                                   |
+| windows                    | `arm64`                                       |       ❌        |        ✔️        | 🔶                | `usermod` job, `arch_label: arm64`, `runs_on: windows-11-arm`, MSYS2 CLANGARM64 (`mingw-w64-clang-aarch64-gcc-compat` + `-clang`) — native build+run. Needs four MicroPython-build-system overrides plus `CFLAGS_EXTRA=-Wno-error`; see that row's own comment for each |
 | webassembly                | `wasm`                                        |       ❌        |        ✔️        | 🔶                | `usermod` job, `port: webassembly`, `variant: pyscript`, `runs_on: ubuntu-latest`, tests via `run_wasm_tests.mjs` — full suite (module now uses its own vendored `_a7p._md5()`, not `hashlib.md5`)                                                                                                                |
-| rp2                        | `armv6m`, `armv7emsp`, `armv7emdp`, `rv32imc` |       ✔️        |        ✔️        | 🔷                | `natmod` job covers all 4 ARCHes; usermod deliberately not added — natmod already covers it                                                                                                                                                                                                                      |
-| esp32                      | `xtensawin` (+ `rv32imc` for C3/C6)           |       ✔️        |        ✔️        | 🔷                | `natmod` job, `arch: xtensawin`; usermod deliberately not added                                                                                                                                                                                                                                                  |
+| rp2                        | `armv6m`, `armv7emsp`, `armv7emdp`, `rv32imc` |       ✔️        |        ✔️        | 🔷 🔶             | `natmod` job builds all 4 ARCHes; plus a `usermod-rp2040` job that builds `BOARD=RPI_PICO` firmware and **runs** `test_a7p_core.py` on it under the rp2040py emulator. That execution is the point: natmod builds `armv6m` and never runs it, so this is the only RP2040 execution this project has |
+| esp32                      | `xtensawin` (+ `rv32imc` for C3/C6)           |       ✔️        |        ✔️        | 🔷 🔶             | `natmod` job, `arch: xtensawin`; plus a `usermod-esp32` **build-only** job (`BOARD=ESP32_GENERIC`, ESP-IDF v5.5.1) — there is no esp32 emulator to run a firmware image on, so that job proves the module links into a real esp32 firmware and nothing more |
 | esp8266                    | `xtensa`                                      |       ✔️        |        ✔️        | 🔷                | `natmod` job, `arch: xtensa`; usermod explicitly excluded — stock firmware overflows `iram1_0_seg`                                                                                                                                                                                                               |
 | stm32                      | `armv6m`, `armv7m`, `armv7emsp`, `armv7emdp`  |       ✔️        |        ✔️        | 🔷                | `natmod` job covers all 4 ARCHes (except tiny-flash boards); usermod deliberately not added                                                                                                                                                                                                                      |
 | samd                       | `armv7emsp`                                   |       ✔️        |        ✔️        | 🔷                | `natmod` job, `arch: armv7emsp` (M4/SAMD51 only, M0 conditional); usermod deliberately not added                                                                                                                                                                                                                 |
 | nrf                        | `armv7emsp`                                   |       ✔️        |        ✔️        | 🔷                | `natmod` job, `arch: armv7emsp` (where EXTRA_FEAT is set); usermod explicitly excluded — MICROBIT overflows flash, nRF52840 boards either need a Bluetooth softdevice or hit an LTO bug in gcc-arm-none-eabi                                                                                                     |
 | mimxrt                     | `armv7emsp`, `armv7emdp`                      |       ✔️        |        ✔️        | 🔷                | `natmod` job covers both ARCHes; usermod deliberately not added                                                                                                                                                                                                                                                  |
 | zephyr (rv32m1_vega_ri5cy) | `rv32imc`                                     |       ✔️        |        ❌        | ➖                | not in CI — no job added yet (unverified)                                                                                                                                                                                                                                                                        |
-| qemu                       | depends on emulation target                   |       ✔️        |        ✔️        | ➖                | not in CI — separate candidate for a "build+run" functional test under QEMU, not added yet                                                                                                                                                                                                                       |
+| qemu                       | depends on emulation target                   |       ✔️        |        ✔️        | 🔶                | `usermod-qemu-armv7m` job — real Cortex-M3 firmware (`BOARD=MPS2_AN385`) under `qemu-system-arm`, driven over the raw REPL by `micropython/ci/run_qemu.py`. The only bare-metal execution test here; `test_a7p_core.py` only, since the port has no writable filesystem |
 | cc3200                     | ➖                                             |       ❌        |        ✔️        | ➖                | not in CI — deprecated, native emit disabled by default                                                                                                                                                                                                                                                          |
 | alif (M55)                 | `armv7emsp`/`armv7emdp` (Cortex-M55)          |       ✔️        |        ✔️        | ➖                | not in CI — ARCH-compatible in principle, unverified, deliberately not added                                                                                                                                                                                                                                     |
 | renesas-ra (M4/M33)        | `armv7emsp`                                   |       ✔️        |        ✔️        | ➖                | not in CI — same story: unverified, deliberately not added                                                                                                                                                                                                                                                       |
@@ -448,19 +487,25 @@ job), three targets, all genuinely natmod-can't-reach cases:
   regardless of architecture. Same unprefixed-gcc recipe upstream's own
   `build-mingw` CI job uses (see
   `micropython/.github/workflows/ports_windows.yml`) -- a recompile of an
-  already-proven recipe, not a first attempt. `arm64` was tried via MSYS2's
-  `CLANGARM64` environment (`windows-11-arm`) but dropped: upstream
-  MicroPython doesn't test Windows ARM64 at all, so there was no proven
-  recipe to check failures against, and each one (a missing
-  `set_fmode_binary`, then `strip`, then `size`, then `windres` --
-  binutils tools that gcc-compat package doesn't provide under their
-  usual `aarch64-w64-mingw32-*` names) needed a full CI round-trip of
-  genuine trial-and-error. Left as a follow-up for whenever there's an
-  actual reference implementation to work from.
-* `unix` on `armhf`/`mipsel`, cross-compiled and run under `qemu-user-static`
-  -- directly mirrors upstream MicroPython's own `tools/ci.sh`
-  `ci_unix_qemu_arm_*` (also proven working for this project's own module by
-  a real CI run), with `mipsel` substituted for upstream's own big-endian
+  already-proven recipe, not a first attempt.
+* `windows` on `arm64`, on `windows-11-arm` via MSYS2's `CLANGARM64`
+  environment. This was tried once and dropped, because upstream MicroPython
+  doesn't test Windows ARM64 at all and each failure (a missing
+  `set_fmode_binary`, then `strip`, then `size`, then `windres`) cost a full
+  CI round-trip of guesswork. A proven reference exists now --
+  o-murphy/micropython-wasm3 runs the same combination green -- and it both
+  confirms those earlier fixes and shows `windres` never needed one, only an
+  empty `CROSS_COMPILE`.
+* `unix` on `armhf`/`mipsel`, cross-compiled -- the build recipe directly
+  mirrors upstream MicroPython's own `tools/ci.sh` `ci_unix_qemu_arm_*` (also
+  proven working for this project's own module by a real CI run). Only
+  `mipsel` still *runs* under `qemu-user-static`: `armhf` moved to
+  `ubuntu-24.04-arm`, which executes 32-bit ARM on its own CPU (measured on
+  the runner, not assumed), and switched to `gnueabihf` to match -- soft-float
+  `gnueabi` baselines at ARMv5TE, whose SWP atomics ARMv8 removed. Two further
+  deltas from upstream are deliberate: `LDFLAGS_EXTRA=-static` (deployability,
+  same reasoning as micropython/micropython#17456) and `mipsel` substituted
+  for upstream's own big-endian
   `mips` choice: this module's zero-copy design hardcodes
   `uctypes.LITTLE_ENDIAN` (`a7p.py`) over memory nanopb populates in the
   host's native byte order, so a genuinely big-endian host produces wrong
@@ -470,11 +515,36 @@ job), three targets, all genuinely natmod-can't-reach cases:
   little-endian, so this isn't a real-world gap; `mipsel` is proven working
   end-to-end by ballistics-lab/micropython-bclibc's own CI.
 
-Per the natmod-first policy above, `unix` on `x64`/`rp2`/`esp32`/`stm32`/
-`samd`/`mimxrt`/`esp8266`/`nrf` are intentionally **not** in the `usermod`
-CI job -- natmod already covers all of them (see the ARCH table earlier in
-this file), so a usermod build there would just be a slower, more expensive
-way to verify what natmod already verifies. The mechanism still works on
+**Not done: musl for those two static builds.** `armhf` and `mipsel` link
+`-static` against glibc, and glibc warns on every such link that `dlopen` and
+`getaddrinfo` still need the shared libraries from the glibc they were linked
+against — so a "static" glibc binary is not actually self-contained on the
+minimal target it exists for. That is also half the reason the `aarch64` row
+stopped linking static. musl has no NSS and a stub `dlopen`, so the same build
+has neither caveat. Measured rather than assumed: a musl static build came back
+with **zero** link warnings against glibc's two, `ldd` reporting `not a dynamic
+executable`, and `getaddrinfo` working, at the cost of `MICROPY_PY_BTREE=0` and
+`MICROPY_PY_FFI=0`. Deliberately not implemented for now; recorded so the
+measurement is not lost.
+
+Per the natmod-first policy above, `stm32`, `samd`, `mimxrt`, `esp8266` and
+`nrf` are intentionally **not** in the `usermod` CI job -- natmod already
+covers all of them (see the ARCH table earlier in this file), so a usermod
+build there would just be a slower, more expensive way to verify what natmod
+already verifies.
+
+`unix` on `x64`/`x86`, `rp2` and `esp32` used to be on that list and are not
+any more, each for its own reason. The two unix rows because a usermod links
+against the port's own libc and lives in firmware `.bss` while a natmod links
+against dynruntime and carries its own -- a green natmod says nothing about
+the usermod path on the same machine. `esp32` because a natmod only borrows
+the xtensa compiler out of ESP-IDF, while a usermod has to survive IDF's own
+components and the port's flash/IRAM budget. And `rp2` for the strongest
+reason of the three: `mp-natmod.yml` *builds* `armv6m` and never runs it, so
+until `usermod-rp2040` landed, nothing in this project had ever executed on
+an RP2040, emulated or otherwise.
+
+The mechanism still works on
 every one of them (`USER_C_MODULES` + `FROZEN_MANIFEST`, exactly as
 documented above) if you build it yourself; it's just not exercised by this
 project's own CI. Two ports are worth calling out for board-level nuance if
@@ -489,6 +559,16 @@ you do:
   unimplemented: Thumb-1 'hard-float' VFP ABI`, reproduced locally against
   the pinned `v1.28.0` + Ubuntu's `gcc-arm-none-eabi`, persists with
   `LTO=0`).
+* `esp8266`: the flash budget is the *second* problem. The first is that
+  `ports/esp8266/posix_helpers.c:35` implements `malloc` as `gc_alloc`, while a
+  usermod's globals live in firmware `.bss`, which `gc_collect()` never scans --
+  so anything allocated at import time is unreachable to the collector and free
+  to be reused. That is not a build error and not an immediate crash; it is
+  wrong answers later. `MP_REGISTER_ROOT_POINTER` is the prerequisite, and the
+  hard part of it is that MicroPython's GC only traces block-aligned pointers.
+  This module does not allocate in C, so it is not affected today -- but treat
+  the port as unsafe for usermods in general rather than merely flash-tight.
+  `stm32`, `samd`, `nrf`, `alif`, `zephyr` and `cc3200` have no C heap at all.
 * `stm32`: some tiny-flash boards (`NUCLEO_F091RC` among them) set
   `FROZEN_MANIFEST` empty in their own `mpconfigboard.h` ("MCU is tight on
   flash space") -- forcing one on anyway also skips that board's

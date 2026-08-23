@@ -56,6 +56,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   variant per device — see `scripts/ci/build_micropython_release_assets.py`
   and `micropython/tools/nmip.py` (bootstrap for the tagged-`urls` format,
   until the upstream `mip` support for it ships).
+- CI: the `usermod` matrix now also covers `unix` on `x64`/`x86`, and two new
+  jobs cover `esp32` (`BOARD=ESP32_GENERIC`, ESP-IDF v5.5.1, **build-only** —
+  there is no esp32 emulator to run a firmware image on) and `rp2040`
+  (`BOARD=RPI_PICO`, built **and run** under the
+  [rp2040py](https://github.com/o-murphy/rp2040py) emulator via
+  `micropython/ci/run_rp2040py.py`). All four go against the natmod-first
+  policy deliberately: the two unix rows because a usermod links against the
+  port's own libc while a natmod links against dynruntime, `esp32` because a
+  usermod must survive IDF's own components and the port's flash/IRAM budget,
+  and `rp2040` because `mp-natmod.yml` builds `armv6m` without ever running
+  it — that job is the first time anything here has executed on an RP2040.
+- CI: `natmod` now *executes* `armv7emsp` and `armv7emdp`, not just builds
+  them, on a 32-bit armhf `ports/unix` host on `ubuntu-24.04-arm` — real ARM
+  silicon, no emulator. `py/persistentcode.h`'s `MPY_FEATURE_ARCH_TEST` is a
+  range (`ARMV6M <= x <= ARMV7EMDP`) rather than an equality, so a Cortex-M
+  `.mpy` loads on such a host. `armv6m`/`armv7m` cannot join them: they are
+  built soft-float, so their floats reach the runtime in core registers while
+  an armhf host reads them from VFP registers, and the `.mpy` loads and then
+  returns wrong values rather than failing.
+
+#### Changed
+
+- CI: the `usermod` `armhf` row runs on `ubuntu-24.04-arm` instead of under
+  `qemu-user`. A GitHub arm64 runner executes 32-bit ARM on its own CPU —
+  measured on the runner rather than assumed — so the binary is cross-built
+  there and then run natively. That is also why it switched from upstream's
+  soft-float `gnueabi` to `gnueabihf`: `armel` baselines at ARMv5TE, whose
+  SWP atomics ARMv8 removed outright. `mipsel` is still emulated; GitHub has
+  no mips runner.
+- CI: the `usermod` `aarch64` row is a plain dynamic build again, dropping
+  `MICROPY_STANDALONE=1 LDFLAGS_EXTRA=-static`. It runs natively on the
+  machine that builds it, `release.yml` deliberately does not publish
+  `mp-usermod.yml`'s artifacts, and a static glibc's `dlopen` still needs the
+  matching shared libraries at run time — so the static link cost an extra
+  toolchain set and a libffi-from-source pass while buying nothing. `armhf`
+  and `mipsel` keep it, where it is what lets the binary start at all.
 
 ## [1.2.4] - 2026-07-16
 
