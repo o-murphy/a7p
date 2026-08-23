@@ -53,124 +53,30 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # Toolchain dispatch per ARCH (apt package / xtensa-lx106 tarball /
+      # esp-idf) now lives inside the build-natmod-arch action below, so
+      # this is just the flat list of dynruntime.mk ARCHes to build. Note
+      # for anyone diffing against the pre-unification version: that one
+      # also passed g++-multilib for x86 and printed each cross-compiler's
+      # --version after install -- dynruntime.mk never compiles C++, and
+      # ballistics-lab/micropython-bclibc's own x86 leg has never carried
+      # g++-multilib, so both were extra rather than load-bearing.
       matrix:
-        include:
-          - arch: x64
-          - arch: x86
-            # dynruntime.mk's x86 case uses the native gcc with -m32, not a
-            # separate i686-linux-gnu- cross compiler -- gcc-multilib is what
-            # actually provides the 32-bit headers/libs -m32 needs (verified:
-            # gcc-i686-linux-gnu alone fails on missing bits/wordsize.h since
-            # that's not the compiler dynruntime.mk invokes for this ARCH).
-            apt: gcc-multilib g++-multilib
-          - arch: armv6m
-            apt: gcc-arm-none-eabi libnewlib-arm-none-eabi
-            verify_bin: arm-none-eabi-gcc
-          - arch: armv7m
-            apt: gcc-arm-none-eabi libnewlib-arm-none-eabi
-            verify_bin: arm-none-eabi-gcc
-          - arch: armv7emsp
-            apt: gcc-arm-none-eabi libnewlib-arm-none-eabi
-            verify_bin: arm-none-eabi-gcc
-          - arch: armv7emdp
-            apt: gcc-arm-none-eabi libnewlib-arm-none-eabi
-            verify_bin: arm-none-eabi-gcc
-          - arch: rv32imc
-            apt: gcc-riscv64-unknown-elf picolibc-riscv64-unknown-elf
-            verify_bin: riscv64-unknown-elf-gcc
-          - arch: rv64imc
-            apt: gcc-riscv64-unknown-elf picolibc-riscv64-unknown-elf
-            verify_bin: riscv64-unknown-elf-gcc
-          # xtensa/xtensawin need a toolchain tarball / esp-idf, not a plain
-          # apt package -- handled by their own steps below, not the generic
-          # "Install cross-compiler" step every other entry uses.
-          - arch: xtensa
-            toolchain: xtensa-lx106
-          - arch: xtensawin
-            toolchain: esp-idf
+        arch: [x64, x86, armv6m, armv7m, armv7emsp, armv7emdp, rv32imc, rv64imc, xtensa, xtensawin]
 
     steps:
       - name: Checkout a7p
         uses: actions/checkout@v7
 
-      - name: Checkout MicroPython ${{ env.MPY_REF }}
-        uses: actions/checkout@v7
+      - uses: ballistics-lab/micropython-native-ci/.github/actions/clone-micropython@main
         with:
-          repository: micropython/micropython
-          ref: ${{ env.MPY_REF }}
-          path: mpy
+          mpy_tag: ${{ env.MPY_REF }}
 
-      - name: Install cross-compiler
-        if: matrix.apt != ''
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ${{ matrix.apt }}
-          if [ -n "${{ matrix.verify_bin }}" ]; then
-            ${{ matrix.verify_bin }} --version
-          fi
-
-      - name: Install xtensa (esp8266) toolchain
-        if: matrix.toolchain == 'xtensa-lx106'
-        run: |
-          wget -q https://micropython.org/resources/xtensa-lx106-elf-standalone.tar.gz
-          tar xzf xtensa-lx106-elf-standalone.tar.gz
-          echo "$PWD/xtensa-lx106-elf/bin" >> "$GITHUB_PATH"
-
-      - name: Install esp-idf (xtensawin toolchain)
-        if: matrix.toolchain == 'esp-idf'
-        # Deliberately NOT running `git submodule update --init --recursive`
-        # here (unlike upstream MicroPython's own ci_esp32_idf_setup/
-        # tools/ci.sh, which need it to build the actual esp32 port against
-        # esp-idf's own components -- bt/mbedtls/lwip/openthread/...): this
-        # job only uses esp-idf to obtain the xtensa-esp32s3-elf- toolchain
-        # that install.sh downloads separately from GitHub releases, so
-        # nothing here touches IDF_PATH or any esp-idf header/component.
-        # esp-idf's own tools/tools.json, which install.sh reads, is a plain
-        # tracked file, not inside a submodule -- the submodule step was
-        # ~3.5 of this step's ~6 minutes for zero benefit here (see
-        # ballistics-lab/micropython-bclibc's own natmod.yml, which dropped
-        # it for the same reason).
-        env:
-          IDF_VER: v5.4
-        run: |
-          git clone --depth 1 --branch $IDF_VER https://github.com/espressif/esp-idf.git
-          ./esp-idf/install.sh
-          # esp-idf's own venv only exists for the rest of *this* step --
-          # each workflow step is a fresh shell, so install here too (not
-          # just once globally) or later steps that `source export.sh`
-          # won't have them either.
-          source esp-idf/export.sh
-          pip install pyelftools ar
-
-      - name: Install Python deps for mpy_ld.py
-        if: matrix.toolchain != 'esp-idf'
-        run: pip install pyelftools ar
-
-      - name: Build mpy-cross
-        run: make -C mpy/mpy-cross -j"$(nproc)"
-
-      - name: Fetch nanopb
-        run: make -C micropython/natmod fetch-nanopb
-
-      - name: Build natmod (${{ matrix.arch }})
-        # esp-idf's export.sh puts its own python venv ahead of system
-        # PATH, which resolves to a *different* python3/pip than the one
-        # the earlier "Install esp-idf" step's `pip install` targeted --
-        # mpy_ld.py then fails with "RuntimeError: Please run 'pip install
-        # ar' to link .a files" even though that install already ran (each
-        # workflow step is a fresh shell, but esp-idf's venv is a fixed,
-        # persistent path, so it's the *same* venv both times -- this
-        # doesn't reliably reproduce on every runner image, but
-        # ballistics-lab/micropython-bclibc's own natmod.yml hit it for
-        # real on this exact xtensawin/esp-idf leg; the earlier
-        # xtensa/tarball-toolchain leg never sources export.sh, so it
-        # doesn't hit this).
-        run: |
-          if [ "${{ matrix.toolchain }}" = "esp-idf" ]; then
-            source esp-idf/export.sh
-            pip install pyelftools ar
-          fi
-          make -C micropython/natmod MPY_DIR="$GITHUB_WORKSPACE/mpy" ARCH=${{ matrix.arch }} dist
+      - uses: ballistics-lab/micropython-native-ci/.github/actions/build-natmod-arch@main
+        with:
+          arch: ${{ matrix.arch }}
+          natmod_dir: micropython/natmod
+          pre_build_command: make fetch-nanopb
 
       - name: Build unix port + run tests (x64 only)
         if: matrix.arch == 'x64'
@@ -182,11 +88,11 @@ jobs:
         env:
           MICROPYPATH: micropython/natmod/build/x64
         run: |
-          make -C mpy/ports/unix submodules
-          make -C mpy/ports/unix deplibs
-          make -C mpy/ports/unix -j"$(nproc)"
-          mpy/ports/unix/build-standard/micropython micropython/tests/test_a7p.py
-          mpy/ports/unix/build-standard/micropython micropython/tests/test_validate.py
+          make -C "$MPY_DIR/ports/unix" submodules
+          make -C "$MPY_DIR/ports/unix" deplibs
+          make -C "$MPY_DIR/ports/unix" -j"$(nproc)"
+          "$MPY_DIR/ports/unix/build-standard/micropython" micropython/tests/test_a7p.py
+          "$MPY_DIR/ports/unix/build-standard/micropython" micropython/tests/test_validate.py
 
       - name: Upload natmod .mpy files (${{ matrix.arch }})
         uses: actions/upload-artifact@v7
@@ -253,12 +159,9 @@ jobs:
       - name: Checkout a7p
         uses: actions/checkout@v7
 
-      - name: Checkout MicroPython ${{ env.MPY_REF }}
-        uses: actions/checkout@v7
+      - uses: ballistics-lab/micropython-native-ci/.github/actions/clone-micropython@main
         with:
-          repository: micropython/micropython
-          ref: ${{ env.MPY_REF }}
-          path: mpy
+          mpy_tag: ${{ env.MPY_REF }}
 
       - name: Install the armhf cross toolchain
         run: |
@@ -270,7 +173,7 @@ jobs:
         # Native arm64 host tool, built explicitly first for the same reason
         # every other job in this project does it -- see mp-usermod.yml's own
         # "Build mpy-cross" comment.
-        run: make -C mpy/mpy-cross -j"$(nproc)"
+        run: make -C "$MPY_DIR/mpy-cross" -j"$(nproc)"
 
       - name: Build a 32-bit ARM micropython host
         # MICROPY_PY_FFI=0/MICROPY_PY_BTREE=0: both want target libraries the
@@ -287,8 +190,8 @@ jobs:
         # before this job reached here. A static link has no interpreter to
         # find. Same reason mp-usermod.yml's armhf row links static.
         run: |
-          make -C mpy/ports/unix MICROPY_PY_FFI=0 MICROPY_PY_BTREE=0 submodules
-          make -C mpy/ports/unix VARIANT=standard \
+          make -C "$MPY_DIR/ports/unix" MICROPY_PY_FFI=0 MICROPY_PY_BTREE=0 submodules
+          make -C "$MPY_DIR/ports/unix" VARIANT=standard \
             BUILD="$GITHUB_WORKSPACE/mpy-host-${{ matrix.arch }}" \
             CROSS_COMPILE=arm-linux-gnueabihf- \
             MICROPY_PY_FFI=0 MICROPY_PY_BTREE=0 \
