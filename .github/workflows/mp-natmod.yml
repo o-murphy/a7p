@@ -71,6 +71,10 @@ jobs:
       - uses: ballistics-lab/micropython-native-ci/.github/actions/clone-micropython@main
         with:
           mpy_tag: ${{ env.MPY_REF }}
+          # a7p's own micropython/ subtree already occupies that name at the
+          # workspace root -- clone-micropython's default destination dir
+          # would collide with it (git clone refuses a non-empty target).
+          path: mpy
 
       - uses: ballistics-lab/micropython-native-ci/.github/actions/build-natmod-arch@main
         with:
@@ -162,6 +166,10 @@ jobs:
       - uses: ballistics-lab/micropython-native-ci/.github/actions/clone-micropython@main
         with:
           mpy_tag: ${{ env.MPY_REF }}
+          # a7p's own micropython/ subtree already occupies that name at the
+          # workspace root -- clone-micropython's default destination dir
+          # would collide with it (git clone refuses a non-empty target).
+          path: mpy
 
       - name: Install the armhf cross toolchain
         run: |
