@@ -78,6 +78,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Changed
 
+- CI: `usermod-qemu-armv7m`, `usermod-esp32`, and `usermod-rp2040` now check
+  out MicroPython via `micropython-native-ci`'s `fetch-micropython` (the
+  first two) or `clone-micropython` (`rp2040`, which needs
+  `lib/pico-sdk`'s own nested submodules a release tarball can't provide)
+  instead of a plain `actions/checkout` -- matching what every other job
+  in this workflow already does, and what bclibc/wasm3 already do for the
+  same three ports. Each job's own now-unnecessary manual submodule-init
+  step (a `make ... submodules` or raw `git submodule` invocation, needed
+  only because MicroPython came from a git checkout) is gone with it.
 - CI: the `usermod-cross` (`armhf`/`mipsel`) job now builds `VARIANT=standard`
   instead of upstream's own `VARIANT=coverage`, matching every other unix row
   in `mp-usermod.yml` (`x64`/`x86`/`aarch64` all already build standard).
