@@ -14,12 +14,22 @@ name: usermod
 # code emission outright). Checked directly, port by port, against real
 # MICROPY_EMIT_*/USER_C_MODULES config in the v1.28.0 tree -- not assumed:
 #
-#   - unix, rp2, esp32, stm32 (non-tiny-flash boards), samd (M4/SAMD51),
-#     mimxrt, esp8266, nrf (EXTRA_FEAT boards): natmod already works by
-#     default on the boards this workflow would otherwise pick as
-#     "representative" -- usermod there would just be a slower, more
-#     expensive way to test the same thing natmod already covers, so it's
-#     not in this matrix at all.
+#   - stm32 (non-tiny-flash boards), samd (M4/SAMD51), mimxrt, esp8266, nrf
+#     (EXTRA_FEAT boards): natmod already works by default on the boards this
+#     workflow would otherwise pick as "representative" -- usermod there
+#     would just be a slower, more expensive way to test the same thing
+#     natmod already covers, so it's not in this matrix at all.
+#
+#     unix, rp2 and esp32 used to be on that list and are not any more, each
+#     for its own reason. unix x64/x86: the two build modes fail differently
+#     (a usermod links against the port's own libc and lives in firmware
+#     .bss; a natmod links against dynruntime), so a green natmod says
+#     nothing about the usermod path on the same machine. esp32: a natmod
+#     only borrows the xtensa compiler out of esp-idf, while a usermod has to
+#     survive IDF's components and the port's flash/IRAM budget. rp2: the
+#     strongest case of the three -- mp-natmod.yml *builds* armv6m and never
+#     runs it, so before usermod-rp2040 nothing in this project had ever
+#     executed on an RP2040, emulated or otherwise.
 #   - webassembly: natmod is impossible (no WASM ARCH in dynruntime.mk --
 #     architecturally different mechanism), but USER_C_MODULES works fine
 #     (Make-based, via py/py.mk).
@@ -977,4 +987,108 @@ jobs:
           path: |
             mpy/ports/esp32/build-ESP32_GENERIC/micropython.bin
             mpy/ports/esp32/build-ESP32_GENERIC/firmware.bin
+          if-no-files-found: error
+
+  # ── usermod: RP2040, build + run under the rp2040py emulator ────────────────
+  #
+  # The natmod-first policy at the top of this file lists rp2 among the ports
+  # where "usermod would just be a slower way to test what natmod already
+  # covers". That was true when natmod's rp2 ARCHes were the only coverage
+  # this project had of them -- but mp-natmod.yml *builds* armv6m and never
+  # runs it. Nothing in this project has ever executed on an RP2040, emulated
+  # or otherwise, which makes this the one exception to that policy that adds
+  # execution rather than another build.
+  #
+  # Both sibling projects already do exactly this and have for a while
+  # (ballistics-lab/micropython-bclibc's build-test-rp2040,
+  # o-murphy/micropython-wasm3's rp2 matrix row), so the recipe is
+  # transplanted rather than invented -- including the rp2040py pin.
+  #
+  # micropython/ci/run_rp2040py.py drives it. rp2040py's `micropython <file>`
+  # mode pushes a script over the raw REPL and runs it in place, so the module
+  # itself needs nothing (a usermod is already in the firmware) -- but the
+  # fixture does, and it cannot ride along as a file: `rp2040py mklittlefs`
+  # accepts only .py/.mpy/.js, so a .a7p blob has no way into the image. Same
+  # answer as the qemu job: inline it and shadow open() for that one path.
+  #
+  # test_a7p_core.py only, matching the qemu job -- test_a7p.py also *writes*
+  # a roundtrip file. That would actually work here, unlike on ports/qemu
+  # (rp2 has a real littlefs), but the point of this job is the execution
+  # environment rather than the suite, and both full suites run on every
+  # desktop target.
+  usermod-rp2040:
+    name: usermod (rp2040 / RPI_PICO)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout a7p
+        uses: actions/checkout@v7
+
+      - name: Checkout MicroPython ${{ env.MPY_REF }}
+        uses: actions/checkout@v7
+        with:
+          repository: micropython/micropython
+          ref: ${{ env.MPY_REF }}
+          path: mpy
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y cmake gcc-arm-none-eabi libnewlib-arm-none-eabi
+
+      - name: Fetch port submodules
+        # `make -C ports/rp2 submodules` alone is not enough: it passes only
+        # GIT_SUBMODULES="lib/pico-sdk" (Makefile:79). The full set below is
+        # micropython-bclibc's, which is green -- lib/mbedtls in particular is
+        # listed unconditionally in ports/rp2/CMakeLists.txt's GIT_SUBMODULES
+        # even with no wifi or BT, and omitting it fails configure outright
+        # with "Cannot find source file: .../lib/mbedtls/library/aes.c".
+        # pico-sdk's own submodules (tinyusb among them) are a second level
+        # down and need their own init.
+        run: |
+          git -C mpy submodule update --init --filter=blob:none \
+            lib/pico-sdk lib/micropython-lib lib/tinyusb lib/mbedtls
+          git -C mpy/lib/pico-sdk submodule update --init
+
+      - name: Fetch nanopb
+        run: make -C micropython/natmod fetch-nanopb
+
+      - name: Build mpy-cross
+        run: make -C mpy/mpy-cross -j"$(nproc)"
+
+      - name: Write combined FROZEN_MANIFEST
+        # rp2's default manifest is boards/manifest.py, like esp32's and
+        # unlike unix's variants/... one. Keeping the port default matters
+        # here: it is what freezes _boot.py, and without it the board comes up
+        # with no filesystem mounted.
+        run: |
+          cat > "$RUNNER_TEMP/a7p_manifest.py" <<EOF
+          include("\$(PORT_DIR)/boards/manifest.py")
+          include("$GITHUB_WORKSPACE/micropython/usermod/manifest.py")
+          EOF
+          cat "$RUNNER_TEMP/a7p_manifest.py"
+          echo "A7P_FROZEN_MANIFEST=$RUNNER_TEMP/a7p_manifest.py" >> "$GITHUB_ENV"
+
+      - name: Build RP2040 firmware
+        # USER_C_MODULES points at micropython.cmake itself: CMake's
+        # USER_C_MODULES takes a file, not a directory to glob.
+        run: |
+          make -C mpy/ports/rp2 \
+            BOARD=RPI_PICO \
+            USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod/micropython.cmake" \
+            FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
+
+      - uses: o-murphy/rp2040py/.github/actions/setup-rp2040py@v0.3.1
+        with:
+          version: "0.3.1"
+
+      - name: Run test_a7p_core.py on the emulated RP2040
+        run: |
+          python3 micropython/ci/run_rp2040py.py \
+            mpy/ports/rp2/build-RPI_PICO/firmware.uf2
+
+      - name: Upload build (rp2040)
+        uses: actions/upload-artifact@v7
+        with:
+          name: a7p-usermod-rp2040
+          path: mpy/ports/rp2/build-RPI_PICO/firmware.uf2
           if-no-files-found: error
