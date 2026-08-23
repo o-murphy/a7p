@@ -78,6 +78,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Changed
 
+- CI: `mp-usermod.yml`'s unix rows (`x64`/`x86`/`aarch64`/`armhf`/`mipsel`)
+  and Windows rows (`x86`/`x64`/`arm64`) no longer carry their own
+  apt/cross-compile/deplibs/MSYS2 recipe inline — both now call
+  `build-usermod-unix-arch`/`build-usermod-windows-arch` from
+  [`ballistics-lab/micropython-native-ci`](https://github.com/ballistics-lab/micropython-native-ci),
+  the same repo `mp-natmod.yml` already used for `build-natmod-arch`.
+  `micropython/` is checked out via that repo's `clone-micropython` action
+  now too, for the same reason `mp-natmod.yml` already did — the shared
+  actions need `MPY_DIR` exported, which a plain `actions/checkout` never
+  did. No behavior change: manifests, `USER_C_MODULES` paths, and every
+  build output land exactly where they did before.
 - CI: the `usermod` `armhf` row runs on `ubuntu-24.04-arm` instead of under
   `qemu-user`. A GitHub arm64 runner executes 32-bit ARM on its own CPU —
   measured on the runner rather than assumed — so the binary is cross-built
