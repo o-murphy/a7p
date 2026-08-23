@@ -78,6 +78,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Changed
 
+- CI: the `usermod-cross` (`armhf`/`mipsel`) job now builds `VARIANT=standard`
+  instead of upstream's own `VARIANT=coverage`, matching every other unix row
+  in `mp-usermod.yml` (`x64`/`x86`/`aarch64` all already build standard).
+  `coverage` broadens upstream's own `tools/ci.sh` CI surface across their
+  whole matrix; nothing about armhf/mipsel specifically needs it here, and
+  the mismatch against this workflow's other rows was inherited from a
+  straight port of the upstream recipe rather than a deliberate choice.
+  `FROZEN_MANIFEST` now combines with `variants/standard/manifest.py`
+  instead, same as the x64/x86/aarch64 rows.
 - CI: `mp-usermod.yml`'s unix rows (`x64`/`x86`/`aarch64`/`armhf`/`mipsel`)
   and Windows rows (`x86`/`x64`/`arm64`) no longer carry their own
   apt/cross-compile/deplibs/MSYS2 recipe inline — both now call
