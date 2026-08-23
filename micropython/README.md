@@ -527,11 +527,24 @@ executable`, and `getaddrinfo` working, at the cost of `MICROPY_PY_BTREE=0` and
 `MICROPY_PY_FFI=0`. Deliberately not implemented for now; recorded so the
 measurement is not lost.
 
-Per the natmod-first policy above, `unix` on `x64`/`rp2`/`esp32`/`stm32`/
-`samd`/`mimxrt`/`esp8266`/`nrf` are intentionally **not** in the `usermod`
-CI job -- natmod already covers all of them (see the ARCH table earlier in
-this file), so a usermod build there would just be a slower, more expensive
-way to verify what natmod already verifies. The mechanism still works on
+Per the natmod-first policy above, `stm32`, `samd`, `mimxrt`, `esp8266` and
+`nrf` are intentionally **not** in the `usermod` CI job -- natmod already
+covers all of them (see the ARCH table earlier in this file), so a usermod
+build there would just be a slower, more expensive way to verify what natmod
+already verifies.
+
+`unix` on `x64`/`x86`, `rp2` and `esp32` used to be on that list and are not
+any more, each for its own reason. The two unix rows because a usermod links
+against the port's own libc and lives in firmware `.bss` while a natmod links
+against dynruntime and carries its own -- a green natmod says nothing about
+the usermod path on the same machine. `esp32` because a natmod only borrows
+the xtensa compiler out of ESP-IDF, while a usermod has to survive IDF's own
+components and the port's flash/IRAM budget. And `rp2` for the strongest
+reason of the three: `mp-natmod.yml` *builds* `armv6m` and never runs it, so
+until `usermod-rp2040` landed, nothing in this project had ever executed on
+an RP2040, emulated or otherwise.
+
+The mechanism still works on
 every one of them (`USER_C_MODULES` + `FROZEN_MANIFEST`, exactly as
 documented above) if you build it yourself; it's just not exercised by this
 project's own CI. Two ports are worth calling out for board-level nuance if
