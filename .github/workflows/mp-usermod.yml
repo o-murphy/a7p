@@ -283,10 +283,14 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Checkout MicroPython ${{ env.MPY_REF }}
-        uses: actions/checkout@v7
+        # clone-micropython rather than a plain checkout: it also exports
+        # MPY_DIR, which build-usermod-unix-arch below requires. path: mpy,
+        # same as before -- this repo's own module tree already occupies
+        # "micropython" (the action's own default clone dir) at the
+        # workspace root.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/clone-micropython@claude/usermod-shared-action-kwulzv
         with:
-          repository: micropython/micropython
-          ref: ${{ env.MPY_REF }}
+          mpy_tag: ${{ env.MPY_REF }}
           path: mpy
 
       - name: Install emsdk
@@ -399,7 +403,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build mpy-cross
-        if: matrix.port != 'windows'
+        if: matrix.port == 'webassembly'
         # Building this explicitly first -- exactly like mp-natmod.yml's own
         # job does -- avoids py/mkenv.mk's auto-build rule for mpy-cross,
         # which resets USER_C_MODULES= for that recursive `make` but *not*
@@ -413,27 +417,11 @@ jobs:
         # here means mpy-cross/build/mpy-cross already exists by the time
         # the port Makefile checks for it, so that buggy auto-build path
         # never triggers.
+        #
+        # unix rows no longer need this step here at all -- the
+        # build-usermod-unix-arch action below builds mpy-cross itself as
+        # part of the same fix.
         run: make -C mpy/mpy-cross -j"$(nproc)"
-
-      - name: Install unix build deps
-        if: matrix.port == 'unix'
-        # The system libffi this port links against, now that the aarch64
-        # row no longer builds its own from source. Not assumed present on
-        # the runner image: o-murphy/micropython-wasm3's aarch64 usermod
-        # row installs exactly these two and has always been green with
-        # them. The autoconf/libtool/libltdl-dev set the old
-        # MICROPY_STANDALONE=1 build needed is gone with it -- usermod-cross
-        # still installs those for armhf/mipsel, where static linking is
-        # load-bearing rather than aspirational.
-        run: |
-          if [ "${{ matrix.force_32bit }}" = "1" ]; then
-            sudo dpkg --add-architecture i386
-            sudo apt-get update -q
-            sudo apt-get install -y gcc-multilib libffi-dev:i386 pkg-config
-          else
-            sudo apt-get update -q
-            sudo apt-get install -y libffi-dev pkg-config
-          fi
 
       - name: Build mpy-cross (windows)
         if: matrix.port == 'windows'
@@ -494,26 +482,30 @@ jobs:
         shell: msys2 {0}
         run: make -C mpy/mpy-cross CROSS_COMPILE="${{ matrix.cross_compile }}" LDFLAGS_ARCH="-Wl,--gc-sections" COMPILER_TARGET="mingw-forced" STRIP="" SIZE="true" -j"$(nproc)"
 
-      - name: Build usermod (${{ matrix.port }})
-        if: matrix.port != 'windows'
+      - name: Build usermod (webassembly)
+        if: matrix.port == 'webassembly'
         run: |
-          if [ "${{ matrix.port }}" = "webassembly" ]; then
-            source emsdk/emsdk_env.sh
-            make -C mpy/ports/webassembly VARIANT=${{ matrix.variant }} \
-              USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" \
-              FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
-          else
-            # A plain build: nothing here sets MICROPY_STANDALONE or
-            # LDFLAGS_EXTRA any more. aarch64 was the only row that did;
-            # see that matrix entry's comment for why it stopped.
-            FORCE32=""
-            if [ "${{ matrix.force_32bit }}" = "1" ]; then
-              FORCE32="MICROPY_FORCE_32BIT=1"
-            fi
-            make -C mpy/ports/unix $FORCE32 \
-              USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" \
-              FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
-          fi
+          source emsdk/emsdk_env.sh
+          make -C mpy/ports/webassembly VARIANT=${{ matrix.variant }} \
+            USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" \
+            FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
+
+      - name: Build usermod (unix)
+        if: matrix.port == 'unix'
+        # build_dir pinned to the exact default the plain `make` invocation
+        # this replaces used to land at (no VARIANT=/BUILD= override there
+        # either, so ports/unix's own default -- build-standard, relative to
+        # $MPY_DIR/ports/unix) -- keeps the Run tests/Upload build steps
+        # below unchanged, no arch-specific path to thread through them.
+        # Force32/apt/libffi dispatch per arch, previously the "Install unix
+        # build deps" step plus the FORCE32 shell logic above, now lives
+        # inside the action.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-unix-arch@claude/usermod-shared-action-kwulzv
+        with:
+          arch: ${{ matrix.arch_label }}
+          user_c_modules: ${{ github.workspace }}/micropython/usermod
+          frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
+          build_dir: build-standard
 
       - name: Build usermod (windows)
         if: matrix.port == 'windows'
@@ -687,35 +679,12 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Checkout MicroPython ${{ env.MPY_REF }}
-        uses: actions/checkout@v7
+        # clone-micropython, same as the usermod job above: exports MPY_DIR,
+        # which build-usermod-unix-arch below requires.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/clone-micropython@claude/usermod-shared-action-kwulzv
         with:
-          repository: micropython/micropython
-          ref: ${{ env.MPY_REF }}
+          mpy_tag: ${{ env.MPY_REF }}
           path: mpy
-
-      - name: Install packages
-        # Package names from tools/ci.sh's
-        # ci_unix_qemu_arm_setup/ci_unix_qemu_mips_setup, parameterized
-        # per arch via the matrix above. Unlike that function, no
-        # /usr/gnemul symlink here -- upstream's own build there is a
-        # plain dynamic link, which needs that symlink so qemu-user-static
-        # can find a matching sysroot/ld.so at run time. This build adds
-        # LDFLAGS_EXTRA=-static (see the job comment above for why: real
-        # deployability, not just satisfying this CI runner), so the
-        # result has no dynamic library dependencies to resolve in the
-        # first place -- qemu-user-static's binfmt_misc handler runs it
-        # directly either way.
-        #
-        # qemu-user-static is installed for mipsel only. armhf runs on the
-        # runner's own CPU now, so an emulator there would be dead weight
-        # that could also mask a genuine failure to execute.
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ${{ matrix.cross_apt }}
-          if [ -n "${{ matrix.gnemul_arch }}" ]; then
-            sudo apt-get install -y qemu-user-static
-            qemu-${{ matrix.gnemul_arch }}-static --version
-          fi
 
       - name: Write combined FROZEN_MANIFEST
         run: |
@@ -729,35 +698,38 @@ jobs:
       - name: Fetch nanopb
         run: make -C micropython/natmod fetch-nanopb
 
-      - name: Build (mpy-cross, submodules, deplibs, main build)
-        # Base sequence exactly matches tools/ci.sh's ci_unix_build_helper
-        # -- mpy-cross first (native host tool), then
-        # submodules/deplibs/build all with the same
-        # CROSS_COMPILE/VARIANT/MICROPY_STANDALONE options, in that order,
-        # `deplibs` (which actually builds lib/libffi from source, invoked
-        # via its own ./autogen.sh -- no manual libtoolize/autoreconf
-        # needed) as its own step before the main build -- confirmed
-        # directly by a real CI failure that this project's own module
-        # build must do the same, since MICROPY_STANDALONE=1 alone only
-        # adds libffi to DEPLIBS, it doesn't make `deplibs` a prerequisite
-        # of the default target.
-        #
-        # LDFLAGS_EXTRA=-static added on top of upstream's own options --
-        # upstream doesn't use it here since ci_unix_qemu_arm/mips only
-        # need the result to run inside their own CI, not to be handed to
-        # anyone. Same reasoning as micropython/micropython#17456: a
-        # fully static binary is what's actually deployable to a minimal
-        # embedded Linux target that can't be assumed to have a matching
-        # ld.so/libc, which is the realistic use case for this port/arch
-        # combination (unlike aarch64/x64, static there is for the same
-        # deployability reason but not load-bearing for *this* job).
+      - name: Fetch port submodules
+        # Base sequence exactly matches tools/ci.sh's ci_unix_build_helper --
+        # submodules before mpy-cross/deplibs/build, all with the same
+        # CROSS_COMPILE/VARIANT/MICROPY_STANDALONE options. Kept as its own
+        # step: the build-usermod-unix-arch action below assumes a
+        # tarball-vendored MPY_DIR (fetch-micropython's own case) where this
+        # is a no-op, but this job's MPY_DIR is a plain git clone
+        # (clone-micropython), where lib/libffi is still an empty submodule
+        # placeholder until this runs.
         run: |
-          make -C mpy/mpy-cross -j"$(nproc)"
           make -C mpy/ports/unix CROSS_COMPILE="${{ matrix.cross_compile }}" VARIANT=coverage MICROPY_STANDALONE=1 submodules
-          make -C mpy/ports/unix CROSS_COMPILE="${{ matrix.cross_compile }}" VARIANT=coverage MICROPY_STANDALONE=1 LDFLAGS_EXTRA="-static" deplibs
-          make -C mpy/ports/unix CROSS_COMPILE="${{ matrix.cross_compile }}" VARIANT=coverage MICROPY_STANDALONE=1 LDFLAGS_EXTRA="-static" \
-            USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" \
-            FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
+
+      - name: Build usermod (${{ matrix.arch_label }})
+        # mpy-cross/deplibs/main-build all now come from the action --
+        # deplibs (build lib/libffi from source, invoked via its own
+        # ./autogen.sh -- confirmed by a real CI failure that this must run
+        # as its own step first, since MICROPY_STANDALONE=1 alone only adds
+        # libffi to DEPLIBS, it doesn't make `deplibs` a prerequisite of the
+        # default target) is handled internally whenever standalone linking
+        # applies, which for armhf/mipsel it always does.
+        #
+        # variant: coverage matches upstream's own ci_unix_qemu_arm/mips
+        # choice, kept rather than switched to standard to stay on the
+        # tested combination -- its own default manifest is what
+        # A7P_FROZEN_MANIFEST above combines with.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-unix-arch@claude/usermod-shared-action-kwulzv
+        with:
+          arch: ${{ matrix.arch_label }}
+          user_c_modules: ${{ github.workspace }}/micropython/usermod
+          frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
+          variant: coverage
+          build_dir: build-coverage
 
       - name: Run tests (${{ matrix.arch_label }})
         # No explicit qemu-<arch> prefix in either case, but for two
