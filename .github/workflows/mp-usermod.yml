@@ -938,21 +938,8 @@ jobs:
         with:
           mpy_tag: ${{ env.MPY_REF }}
 
-      - name: Install toolchain
-        # libstdc++-arm-none-eabi-newlib: pico-sdk compiles one .cpp of its
-        # own, which fails with "cstdlib: No such file or directory"
-        # without it -- a real CI failure on o-murphy/micropython-wasm3's
-        # own rp2 row (see build-usermod-rp2040's own header, once this job
-        # is wired to it).
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y cmake gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
-
       - name: Fetch nanopb
         run: make -C micropython/natmod fetch-nanopb
-
-      - name: Build mpy-cross
-        run: make -C "$MPY_DIR/mpy-cross" -j"$(nproc)"
 
       - name: Write combined FROZEN_MANIFEST
         # rp2's default manifest is boards/manifest.py, like esp32's and
@@ -967,14 +954,16 @@ jobs:
           cat "$RUNNER_TEMP/a7p_manifest.py"
           echo "A7P_FROZEN_MANIFEST=$RUNNER_TEMP/a7p_manifest.py" >> "$GITHUB_ENV"
 
-      - name: Build RP2040 firmware
-        # USER_C_MODULES points at micropython.cmake itself: CMake's
-        # USER_C_MODULES takes a file, not a directory to glob.
-        run: |
-          make -C "$MPY_DIR/ports/rp2" \
-            BOARD=RPI_PICO \
-            USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod/micropython.cmake" \
-            FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
+      - name: Build usermod (rp2040)
+        # build_dir: build-RPI_PICO (bare relative), matching the port's
+        # own default the Run tests/Upload build steps below already
+        # reference -- no BUILD= override in the plain `make` invocation
+        # this replaces either.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-rp2040@claude/usermod-shared-action-kwulzv
+        with:
+          user_c_modules: ${{ github.workspace }}/micropython/usermod/micropython.cmake
+          frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
+          build_dir: build-RPI_PICO
 
       - uses: o-murphy/rp2040py/.github/actions/setup-rp2040py@v0.3.1
         with:
