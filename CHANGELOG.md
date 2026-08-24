@@ -150,6 +150,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   copies, so pico-sdk's internal submodule tree is never actually touched.
   Proven, green, on `o-murphy/micropython-wasm3`'s rp2 row and
   `ballistics-lab/micropython-bclibc`'s own rp2040 job first.
+- CI: `usermod-rp2040`'s toolchain-install/mpy-cross/port-build steps are
+  now `build-usermod-rp2040` from
+  [`ballistics-lab/micropython-native-ci`](https://github.com/ballistics-lab/micropython-native-ci),
+  same as the unix/Windows/webassembly rows above. `build_dir:
+  build-RPI_PICO` keeps the resulting path exactly where the Run
+  tests/Upload build steps already expect it (`$MPY_DIR/ports/rp2/build-RPI_PICO`),
+  same as the plain `make` invocation this replaces, which never passed
+  `BUILD=` either.
 
 ## [1.2.4] - 2026-07-16
 
