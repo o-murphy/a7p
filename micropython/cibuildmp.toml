@@ -1,0 +1,24 @@
+# Experimental M5 draft -- not yet wired into CI. See cibuildmp's own
+# docs/BACKLOG.md M5, and ballistics-lab/micropython-bclibc's own
+# cibuildmp.toml for the sibling adopter this one mirrors.
+#
+# Lives here (micropython/), not at the a7p repo root: a7p is a polyglot
+# monorepo (dart/, go/, js/, py/, clojure/, proto/, schema/, src/ alongside
+# this directory) and cibuildmp's own package_dir/cibuildmp.toml convention
+# expects the module (natmod/, usermod/) as a direct child of the directory
+# holding the config -- same as micropython/natmod/Makefile's own MOD_BASE
+# and NANOPB_COMMIT already scope to this directory, not the repo root.
+#
+# pre-build-command guards the nanopb fetch itself (nanopb/pb.h existence
+# check) rather than relying on `make fetch-nanopb`'s own unconditional
+# `rm -rf` + reclone -- cibuildmp runs pre-build-command once per target
+# (D9: one job, all targets, sequential), and a bare `make fetch-nanopb`
+# would re-clone nanopb from scratch on every one of the ten arches.
+
+micropython = "v1.28.0"
+
+[natmod]
+archs = ["x64", "x86", "armv6m", "armv7m", "armv7emsp", "armv7emdp",
+         "rv32imc", "rv64imc", "xtensa", "xtensawin"]
+module-dir = "natmod"
+pre-build-command = "test -f nanopb/pb.h || make fetch-nanopb"
