@@ -76,7 +76,11 @@ jobs:
           # would collide with it (git clone refuses a non-empty target).
           path: mpy
 
-      - uses: ballistics-lab/micropython-native-ci/.github/actions/build-natmod@v0.1.0
+      - uses: ballistics-lab/micropython-native-ci/.github/actions/build-natmod-arch@v0.1.0
+        # Still -arch here, unlike mp-usermod.yml's actions: this is pinned
+        # to the v0.1.0 tag, a fixed point that predates the -arch suffix
+        # drop on the claude/usermod-shared-action-kwulzv branch -- that
+        # rename only exists past this tag. Update once a new tag is cut.
         with:
           arch: ${{ matrix.arch }}
           natmod_dir: micropython/natmod
