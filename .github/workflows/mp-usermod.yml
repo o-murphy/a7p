@@ -293,15 +293,6 @@ jobs:
           mpy_tag: ${{ env.MPY_REF }}
           path: mpy
 
-      - name: Install emsdk
-        if: matrix.port == 'webassembly'
-        # Same recipe as MicroPython's own tools/ci.sh (ci_webassembly_setup)
-        # -- "latest" is what upstream itself pins to for this port, not a
-        # version we chose.
-        run: |
-          git clone --depth 1 https://github.com/emscripten-core/emsdk.git
-          (cd emsdk && ./emsdk install latest && ./emsdk activate latest)
-
       - name: Install MSYS2 (windows)
         if: matrix.port == 'windows'
         uses: msys2/setup-msys2@v2
@@ -316,9 +307,15 @@ jobs:
 
       - name: Fetch port submodules
         if: matrix.port != 'windows'
+        # webassembly's branch no longer sources emsdk/emsdk_env.sh first:
+        # this target is py/mkrules.mk's generic `submodules` rule (a plain
+        # $(GIT) submodule update --init over GIT_SUBMODULES), which never
+        # touches emcc -- the sourcing was only ever incidental to "Install
+        # emsdk" having previously run as the step right before this one,
+        # not load-bearing. The action below now owns installing emsdk,
+        # later in the job, after this step runs.
         run: |
           if [ "${{ matrix.port }}" = "webassembly" ]; then
-            source emsdk/emsdk_env.sh
             make -C mpy/ports/webassembly VARIANT=${{ matrix.variant }} submodules
           else
             # No MICROPY_STANDALONE here any more: the aarch64 row was
@@ -402,34 +399,32 @@ jobs:
         shell: msys2 {0}
         run: make -C micropython/natmod fetch-nanopb
 
-      - name: Build mpy-cross
+      - name: Build usermod (webassembly)
         if: matrix.port == 'webassembly'
-        # Building this explicitly first -- exactly like mp-natmod.yml's own
-        # job does -- avoids py/mkenv.mk's auto-build rule for mpy-cross,
+        # mpy-cross is now built by the action itself, as an explicit step
+        # ahead of the port build -- same pre-build-first fix this job used
+        # to do by hand (see the removed standalone "Build mpy-cross" step's
+        # history): it avoids py/mkenv.mk's auto-build rule for mpy-cross,
         # which resets USER_C_MODULES= for that recursive `make` but *not*
-        # FROZEN_MANIFEST= (checked directly in py/mkrules.mk v1.28.0).
+        # FROZEN_MANIFEST= (checked directly in py/mkrules.mk v1.28.0) --
         # FROZEN_MANIFEST leaks through MAKEFLAGS into that sub-make, which
         # then compiles mpy-cross with
         # -DMICROPY_QSTR_EXTRA_POOL=mp_qstr_frozen_const_pool without ever
-        # defining that symbol (mpy-cross has no frozen_content.c of its
-        # own) -- an undefined-reference link failure, reproduced on both
-        # the webassembly and unix-aarch64 usermod builds. Pre-building
-        # here means mpy-cross/build/mpy-cross already exists by the time
-        # the port Makefile checks for it, so that buggy auto-build path
-        # never triggers.
+        # defining that symbol, an undefined-reference link failure
+        # reproduced on both the webassembly and unix-aarch64 usermod
+        # builds.
         #
-        # unix rows no longer need this step here at all -- the
-        # build-usermod-unix-arch action below builds mpy-cross itself as
-        # part of the same fix.
-        run: make -C mpy/mpy-cross -j"$(nproc)"
-
-      - name: Build usermod (webassembly)
-        if: matrix.port == 'webassembly'
-        run: |
-          source emsdk/emsdk_env.sh
-          make -C mpy/ports/webassembly VARIANT=${{ matrix.variant }} \
-            USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" \
-            FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
+        # build_dir: build-${{ matrix.variant }}, matching what the plain
+        # `make` invocation this replaces used to land at with no BUILD=
+        # override (the port's own default, relative to
+        # $MPY_DIR/ports/webassembly) -- keeps the Run tests/Upload build
+        # steps below unchanged.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-webassembly-arch@claude/usermod-shared-action-kwulzv
+        with:
+          variant: ${{ matrix.variant }}
+          user_c_modules: ${{ github.workspace }}/micropython/usermod
+          frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
+          build_dir: build-${{ matrix.variant }}
 
       - name: Build usermod (unix)
         if: matrix.port == 'unix'
