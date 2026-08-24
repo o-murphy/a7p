@@ -73,7 +73,7 @@ jobs:
       - if: matrix.arch == 'x86'
         run: sudo apt-get update -q && sudo apt-get install -y gcc-multilib
 
-      - uses: ballistics-lab/cibuildmp/.github/actions/clone-micropython@345db93fa48810856e80a98d62dea3b2d3499864
+      - uses: ballistics-lab/cibuildmp/.github/actions/clone-micropython@v0.3.0
         with:
           mpy_tag: ${{ env.MPY_REF }}
           # a7p's own micropython/ subtree already occupies that name at the
@@ -87,11 +87,7 @@ jobs:
           # cibuildmp's build.
           path: mpy
 
-      # TODO: pin to a released tag once one exists past cibuildmp's own
-      # M3/D13-D15 (see ballistics-lab/micropython-bclibc's own natmod.yml
-      # for the same TODO and the same reasoning -- v0.3.0a1 predates M3
-      # entirely). Not @main: never float a consumer's pin.
-      - uses: ballistics-lab/cibuildmp@345db93fa48810856e80a98d62dea3b2d3499864
+      - uses: ballistics-lab/cibuildmp@v0.3.0
         with:
           package-dir: micropython
         env:
@@ -183,7 +179,7 @@ jobs:
       - name: Checkout a7p
         uses: actions/checkout@v7
 
-      - uses: ballistics-lab/cibuildmp/.github/actions/clone-micropython@345db93fa48810856e80a98d62dea3b2d3499864
+      - uses: ballistics-lab/cibuildmp/.github/actions/clone-micropython@v0.3.0
         with:
           mpy_tag: ${{ env.MPY_REF }}
           # a7p's own micropython/ subtree already occupies that name at the

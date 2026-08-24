@@ -294,10 +294,8 @@ jobs:
         # build-usermod-*) now live in cibuildmp's own repo, same paths and
         # names as before -- cibuildmp the CLI/tool still only drives natmod
         # (usermod is unimplemented there, see its own docs/BACKLOG.md), but
-        # the action *repo* hosts both. Pinned to the same commit
-        # mp-natmod.yml pins ballistics-lab/cibuildmp@ to, for the same
-        # reason: no released tag exists past M3 yet.
-        uses: ballistics-lab/cibuildmp/.github/actions/clone-micropython@345db93fa48810856e80a98d62dea3b2d3499864
+        # the action *repo* hosts both.
+        uses: ballistics-lab/cibuildmp/.github/actions/clone-micropython@v0.3.0
         with:
           mpy_tag: ${{ env.MPY_REF }}
           path: mpy
@@ -428,7 +426,7 @@ jobs:
         # override (the port's own default, relative to
         # $MPY_DIR/ports/webassembly) -- keeps the Run tests/Upload build
         # steps below unchanged.
-        uses: ballistics-lab/cibuildmp/.github/actions/build-usermod-webassembly@345db93fa48810856e80a98d62dea3b2d3499864
+        uses: ballistics-lab/cibuildmp/.github/actions/build-usermod-webassembly@v0.3.0
         with:
           variant: ${{ matrix.variant }}
           user_c_modules: ${{ github.workspace }}/micropython/usermod
@@ -445,7 +443,7 @@ jobs:
         # Force32/apt/libffi dispatch per arch, previously the "Install unix
         # build deps" step plus the FORCE32 shell logic above, now lives
         # inside the action.
-        uses: ballistics-lab/cibuildmp/.github/actions/build-usermod-unix@345db93fa48810856e80a98d62dea3b2d3499864
+        uses: ballistics-lab/cibuildmp/.github/actions/build-usermod-unix@v0.3.0
         with:
           arch: ${{ matrix.arch_label }}
           user_c_modules: ${{ github.workspace }}/micropython/usermod
@@ -474,7 +472,7 @@ jobs:
         # FROZEN_MANIFEST (windows)". No build_dir override: this repo
         # never set BUILD= either, so the action's own build-standard
         # default lands exactly where Run tests (windows) below expects.
-        uses: ballistics-lab/cibuildmp/.github/actions/build-usermod-windows@345db93fa48810856e80a98d62dea3b2d3499864
+        uses: ballistics-lab/cibuildmp/.github/actions/build-usermod-windows@v0.3.0
         with:
           user_c_modules: $(pwd)/micropython/usermod
           frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
@@ -632,7 +630,7 @@ jobs:
       - name: Checkout MicroPython ${{ env.MPY_REF }}
         # clone-micropython, same as the usermod job above: exports MPY_DIR,
         # which build-usermod-unix below requires.
-        uses: ballistics-lab/cibuildmp/.github/actions/clone-micropython@345db93fa48810856e80a98d62dea3b2d3499864
+        uses: ballistics-lab/cibuildmp/.github/actions/clone-micropython@v0.3.0
         with:
           mpy_tag: ${{ env.MPY_REF }}
           path: mpy
@@ -674,7 +672,7 @@ jobs:
         # what this row now builds, same as every other unix row in this
         # workflow. See this job's own header comment for why it switched
         # off upstream's VARIANT=coverage.
-        uses: ballistics-lab/cibuildmp/.github/actions/build-usermod-unix@345db93fa48810856e80a98d62dea3b2d3499864
+        uses: ballistics-lab/cibuildmp/.github/actions/build-usermod-unix@v0.3.0
         with:
           arch: ${{ matrix.arch_label }}
           user_c_modules: ${{ github.workspace }}/micropython/usermod
@@ -739,7 +737,7 @@ jobs:
         # every step below now uses instead of the fixed "mpy" this job
         # used to hardcode -- fetch-micropython's own extract dir is
         # version-named (micropython-<ver>), not "mpy".
-        uses: ballistics-lab/cibuildmp/.github/actions/fetch-micropython@345db93fa48810856e80a98d62dea3b2d3499864
+        uses: ballistics-lab/cibuildmp/.github/actions/fetch-micropython@v0.3.0
         with:
           mpy_tag: ${{ env.MPY_REF }}
 
@@ -771,7 +769,7 @@ jobs:
         # build_dir: build-MPS2_AN385, matching the port's own default the
         # plain `make` invocation this replaces already landed at -- keeps
         # Run tests/Upload build below unchanged.
-        uses: ballistics-lab/cibuildmp/.github/actions/build-usermod-armv7m@345db93fa48810856e80a98d62dea3b2d3499864
+        uses: ballistics-lab/cibuildmp/.github/actions/build-usermod-armv7m@v0.3.0
         with:
           user_c_modules: ${{ github.workspace }}/micropython/usermod
           frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
@@ -837,7 +835,7 @@ jobs:
         # replaced, previously needed only because MicroPython came from
         # git here). Exports MPY_DIR (version-named, not "mpy"), which
         # every step below now uses.
-        uses: ballistics-lab/cibuildmp/.github/actions/fetch-micropython@345db93fa48810856e80a98d62dea3b2d3499864
+        uses: ballistics-lab/cibuildmp/.github/actions/fetch-micropython@v0.3.0
         with:
           mpy_tag: ${{ env.MPY_REF }}
 
@@ -866,7 +864,7 @@ jobs:
         # mpy-cross sub-build on bclibc's own first run of this action
         # (see its own header for the full story). Matches the path
         # Upload build below already expects.
-        uses: ballistics-lab/cibuildmp/.github/actions/build-usermod-esp32@345db93fa48810856e80a98d62dea3b2d3499864
+        uses: ballistics-lab/cibuildmp/.github/actions/build-usermod-esp32@v0.3.0
         with:
           user_c_modules: ${{ github.workspace }}/micropython/usermod/micropython.cmake
           frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
@@ -931,7 +929,7 @@ jobs:
         # o-murphy/micropython-wasm3's rp2 row and
         # ballistics-lab/micropython-bclibc's own rp2040 job, both on the
         # same BOARD=RPI_PICO with plain fetch-micropython.
-        uses: ballistics-lab/cibuildmp/.github/actions/fetch-micropython@345db93fa48810856e80a98d62dea3b2d3499864
+        uses: ballistics-lab/cibuildmp/.github/actions/fetch-micropython@v0.3.0
         with:
           mpy_tag: ${{ env.MPY_REF }}
 
@@ -956,7 +954,7 @@ jobs:
         # own default the Run tests/Upload build steps below already
         # reference -- no BUILD= override in the plain `make` invocation
         # this replaces either.
-        uses: ballistics-lab/cibuildmp/.github/actions/build-usermod-rp2040@345db93fa48810856e80a98d62dea3b2d3499864
+        uses: ballistics-lab/cibuildmp/.github/actions/build-usermod-rp2040@v0.3.0
         with:
           user_c_modules: ${{ github.workspace }}/micropython/usermod/micropython.cmake
           frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
