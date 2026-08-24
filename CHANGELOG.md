@@ -78,6 +78,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Changed
 
+- CI: every `ballistics-lab/micropython-native-ci` action reference (both
+  `mp-natmod.yml` and `mp-usermod.yml`) is now pinned to the `v0.2.0` tag
+  instead of a mix of the `v0.1.0` tag (`fetch-/clone-micropython`,
+  `build-natmod-arch`) and the `claude/usermod-shared-action-kwulzv`
+  development branch (everything added this cycle). `build-natmod-arch`
+  also drops its `-arch` suffix (`build-natmod`) now that a tag past that
+  rename exists. No behavior change: `v0.2.0` is exactly what that branch
+  contained, squash-merged.
+- CI: `usermod-qemu-armv7m`, `usermod-esp32`, and `usermod-rp2040` now check
+  out MicroPython via `micropython-native-ci`'s `fetch-micropython` instead
+  of a plain `actions/checkout` -- matching what every other job in this
+  workflow already does, and what bclibc/wasm3 already do for the same
+  three ports. Each job's own now-unnecessary manual submodule-init step
+  (a `make ... submodules` or raw `git submodule` invocation, needed only
+  because MicroPython came from a git checkout) is gone with it.
+  `usermod-rp2040` originally switched to `clone-micropython` +
+  `pico_sdk_submodules: "true"` instead (see below for why plain
+  `fetch-micropython` turned out to be enough there too).
+- CI: the `usermod-cross` (`armhf`/`mipsel`) job now builds `VARIANT=standard`
+  instead of upstream's own `VARIANT=coverage`, matching every other unix row
+  in `mp-usermod.yml` (`x64`/`x86`/`aarch64` all already build standard).
+  `coverage` broadens upstream's own `tools/ci.sh` CI surface across their
+  whole matrix; nothing about armhf/mipsel specifically needs it here, and
+  the mismatch against this workflow's other rows was inherited from a
+  straight port of the upstream recipe rather than a deliberate choice.
+  `FROZEN_MANIFEST` now combines with `variants/standard/manifest.py`
+  instead, same as the x64/x86/aarch64 rows.
+- CI: `mp-usermod.yml`'s unix rows (`x64`/`x86`/`aarch64`/`armhf`/`mipsel`)
+  and Windows rows (`x86`/`x64`/`arm64`) no longer carry their own
+  apt/cross-compile/deplibs/MSYS2 recipe inline — both now call
+  `build-usermod-unix`/`build-usermod-windows` from
+  [`ballistics-lab/micropython-native-ci`](https://github.com/ballistics-lab/micropython-native-ci),
+  the same repo `mp-natmod.yml` already used for `build-natmod`.
+  `micropython/` is checked out via that repo's `clone-micropython` action
+  now too, for the same reason `mp-natmod.yml` already did — the shared
+  actions need `MPY_DIR` exported, which a plain `actions/checkout` never
+  did. No behavior change: manifests, `USER_C_MODULES` paths, and every
+  build output land exactly where they did before.
 - CI: the `usermod` `armhf` row runs on `ubuntu-24.04-arm` instead of under
   `qemu-user`. A GitHub arm64 runner executes 32-bit ARM on its own CPU —
   measured on the runner rather than assumed — so the binary is cross-built
@@ -92,6 +130,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   matching shared libraries at run time — so the static link cost an extra
   toolchain set and a libffi-from-source pass while buying nothing. `armhf`
   and `mipsel` keep it, where it is what lets the binary start at all.
+- CI: the `usermod` `webassembly` row's emsdk-install/mpy-cross/port-build
+  steps are now `build-usermod-webassembly` from
+  [`ballistics-lab/micropython-native-ci`](https://github.com/ballistics-lab/micropython-native-ci),
+  same as the unix/Windows rows above. The row's own "Fetch port submodules"
+  step (needed because `micropython/` here comes from `clone-micropython`,
+  a shallow clone with no submodules, not a release tarball) stays
+  caller-side and now runs without first sourcing `emsdk/emsdk_env.sh` —
+  that target is `py/mkrules.mk`'s generic `submodules` rule, a plain `git
+  submodule update --init`, and never touched `emcc`; the sourcing was only
+  ever incidental to "Install emsdk" having previously run as the step
+  right before it. No behavior change: `VARIANT=pyscript`, `emsdk latest`,
+  and the combined FROZEN_MANIFEST step stay exactly what they were.
+- CI: `usermod-rp2040`'s checkout simplified again, this time to plain
+  `fetch-micropython` — the `clone-micropython` + explicit submodule list
+  + `pico_sdk_submodules: "true"` from the entry above was itself never
+  required. The "Cannot find source file:
+  .../lib/mbedtls/library/aes.c" failure that originally justified it was
+  against an *incomplete* `clone-micropython` `submodules:` value (missing
+  `lib/mbedtls`), not evidence a git clone was ever needed — the release
+  tarball already vendors every `lib/` this port's `CMakeLists.txt` needs.
+  `pico_sdk_submodules` was never load-bearing either:
+  `ports/rp2/CMakeLists.txt` redirects
+  `PICO_TINYUSB_PATH`/`PICO_LWIP_PATH`/`PICO_BTSTACK_PATH`/
+  `PICO_CYW43_DRIVER_PATH` at `${MICROPY_DIR}/lib/<name>` (MicroPython's
+  own top-level submodules) rather than pico-sdk's own nested vendored
+  copies, so pico-sdk's internal submodule tree is never actually touched.
+  Proven, green, on `o-murphy/micropython-wasm3`'s rp2 row and
+  `ballistics-lab/micropython-bclibc`'s own rp2040 job first.
+- CI: `usermod-rp2040`'s toolchain-install/mpy-cross/port-build steps are
+  now `build-usermod-rp2040` from
+  [`ballistics-lab/micropython-native-ci`](https://github.com/ballistics-lab/micropython-native-ci),
+  same as the unix/Windows/webassembly rows above. `build_dir:
+  build-RPI_PICO` keeps the resulting path exactly where the Run
+  tests/Upload build steps already expect it (`$MPY_DIR/ports/rp2/build-RPI_PICO`),
+  same as the plain `make` invocation this replaces, which never passed
+  `BUILD=` either.
+- CI: `usermod-qemu-armv7m`'s toolchain-install/mpy-cross/port-build steps
+  are now `build-usermod-armv7m` from the same
+  [`ballistics-lab/micropython-native-ci`](https://github.com/ballistics-lab/micropython-native-ci)
+  repo (named after the target architecture, not the QEMU test mechanism
+  -- see that action's own header). `qemu-system-arm`/`pyserial` stay
+  caller-side: neither is a build dependency (QEMU only runs the
+  resulting firmware), same split `build-usermod-rp2040` uses for the
+  rp2040py emulator. `build_dir: build-MPS2_AN385` keeps the resulting
+  path exactly where Run tests/Upload build already expect it.
+- CI: `usermod-esp32`'s ESP-IDF-install/mpy-cross/port-build steps are now
+  `build-usermod-esp32` from the same
+  [`ballistics-lab/micropython-native-ci`](https://github.com/ballistics-lab/micropython-native-ci)
+  repo. `source esp-idf/export.sh` and the port build stay in the
+  action's same step (export.sh's env doesn't survive a composite action
+  step boundary). No `BUILD=` override: a real CI failure on
+  `ballistics-lab/micropython-bclibc`'s own first run showed that passing
+  it explicitly -- even set to the port's own default value -- makes
+  esp32's internal CMake-driven `mpy-cross` sub-build pick up
+  `FROZEN_MANIFEST` through `MAKEFLAGS` and fail with `undefined
+  reference to mp_qstr_frozen_const_pool`; the action always uses
+  `build-$(BOARD)` now, exactly what Upload build already expects. This
+  job also gains a "Dump IDF build logs on failure" diagnostic for free.
 
 ## [1.2.4] - 2026-07-16
 

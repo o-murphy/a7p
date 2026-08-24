@@ -283,20 +283,15 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Checkout MicroPython ${{ env.MPY_REF }}
-        uses: actions/checkout@v7
+        # clone-micropython rather than a plain checkout: it also exports
+        # MPY_DIR, which build-usermod-unix below requires. path: mpy,
+        # same as before -- this repo's own module tree already occupies
+        # "micropython" (the action's own default clone dir) at the
+        # workspace root.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/clone-micropython@v0.2.0
         with:
-          repository: micropython/micropython
-          ref: ${{ env.MPY_REF }}
+          mpy_tag: ${{ env.MPY_REF }}
           path: mpy
-
-      - name: Install emsdk
-        if: matrix.port == 'webassembly'
-        # Same recipe as MicroPython's own tools/ci.sh (ci_webassembly_setup)
-        # -- "latest" is what upstream itself pins to for this port, not a
-        # version we chose.
-        run: |
-          git clone --depth 1 https://github.com/emscripten-core/emsdk.git
-          (cd emsdk && ./emsdk install latest && ./emsdk activate latest)
 
       - name: Install MSYS2 (windows)
         if: matrix.port == 'windows'
@@ -312,9 +307,15 @@ jobs:
 
       - name: Fetch port submodules
         if: matrix.port != 'windows'
+        # webassembly's branch no longer sources emsdk/emsdk_env.sh first:
+        # this target is py/mkrules.mk's generic `submodules` rule (a plain
+        # $(GIT) submodule update --init over GIT_SUBMODULES), which never
+        # touches emcc -- the sourcing was only ever incidental to "Install
+        # emsdk" having previously run as the step right before this one,
+        # not load-bearing. The action below now owns installing emsdk,
+        # later in the job, after this step runs.
         run: |
           if [ "${{ matrix.port }}" = "webassembly" ]; then
-            source emsdk/emsdk_env.sh
             make -C mpy/ports/webassembly VARIANT=${{ matrix.variant }} submodules
           else
             # No MICROPY_STANDALONE here any more: the aarch64 row was
@@ -398,122 +399,49 @@ jobs:
         shell: msys2 {0}
         run: make -C micropython/natmod fetch-nanopb
 
-      - name: Build mpy-cross
-        if: matrix.port != 'windows'
-        # Building this explicitly first -- exactly like mp-natmod.yml's own
-        # job does -- avoids py/mkenv.mk's auto-build rule for mpy-cross,
+      - name: Build usermod (webassembly)
+        if: matrix.port == 'webassembly'
+        # mpy-cross is now built by the action itself, as an explicit step
+        # ahead of the port build -- same pre-build-first fix this job used
+        # to do by hand (see the removed standalone "Build mpy-cross" step's
+        # history): it avoids py/mkenv.mk's auto-build rule for mpy-cross,
         # which resets USER_C_MODULES= for that recursive `make` but *not*
-        # FROZEN_MANIFEST= (checked directly in py/mkrules.mk v1.28.0).
+        # FROZEN_MANIFEST= (checked directly in py/mkrules.mk v1.28.0) --
         # FROZEN_MANIFEST leaks through MAKEFLAGS into that sub-make, which
         # then compiles mpy-cross with
         # -DMICROPY_QSTR_EXTRA_POOL=mp_qstr_frozen_const_pool without ever
-        # defining that symbol (mpy-cross has no frozen_content.c of its
-        # own) -- an undefined-reference link failure, reproduced on both
-        # the webassembly and unix-aarch64 usermod builds. Pre-building
-        # here means mpy-cross/build/mpy-cross already exists by the time
-        # the port Makefile checks for it, so that buggy auto-build path
-        # never triggers.
-        run: make -C mpy/mpy-cross -j"$(nproc)"
+        # defining that symbol, an undefined-reference link failure
+        # reproduced on both the webassembly and unix-aarch64 usermod
+        # builds.
+        #
+        # build_dir: build-${{ matrix.variant }}, matching what the plain
+        # `make` invocation this replaces used to land at with no BUILD=
+        # override (the port's own default, relative to
+        # $MPY_DIR/ports/webassembly) -- keeps the Run tests/Upload build
+        # steps below unchanged.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-webassembly@v0.2.0
+        with:
+          variant: ${{ matrix.variant }}
+          user_c_modules: ${{ github.workspace }}/micropython/usermod
+          frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
+          build_dir: build-${{ matrix.variant }}
 
-      - name: Install unix build deps
+      - name: Build usermod (unix)
         if: matrix.port == 'unix'
-        # The system libffi this port links against, now that the aarch64
-        # row no longer builds its own from source. Not assumed present on
-        # the runner image: o-murphy/micropython-wasm3's aarch64 usermod
-        # row installs exactly these two and has always been green with
-        # them. The autoconf/libtool/libltdl-dev set the old
-        # MICROPY_STANDALONE=1 build needed is gone with it -- usermod-cross
-        # still installs those for armhf/mipsel, where static linking is
-        # load-bearing rather than aspirational.
-        run: |
-          if [ "${{ matrix.force_32bit }}" = "1" ]; then
-            sudo dpkg --add-architecture i386
-            sudo apt-get update -q
-            sudo apt-get install -y gcc-multilib libffi-dev:i386 pkg-config
-          else
-            sudo apt-get update -q
-            sudo apt-get install -y libffi-dev pkg-config
-          fi
-
-      - name: Build mpy-cross (windows)
-        if: matrix.port == 'windows'
-        # Same fix, same reason as above. CROSS_COMPILE must match what
-        # the port build itself uses -- mpy-cross has to run *on this same
-        # Windows host* during the build (to compile frozen .py sources),
-        # so it needs the same toolchain/arch as the rest of this job, not
-        # a genuinely different cross-compiler.
-        #
-        # LDFLAGS_ARCH override: mpy-cross/Makefile hardcodes
-        # "-Wl,-Map=$@.map,--cref -Wl,--gc-sections" for every non-Darwin
-        # host (checked directly in the v1.28.0 tree) -- fine for GNU ld
-        # (MINGW32/64's real mingw-w64 gcc), but CLANGARM64's
-        # aarch64-w64-mingw32-gcc wrapper links via clang+lld, and lld
-        # doesn't understand --cref ("lld: error: unknown argument:
-        # --cref"), which fails the whole link. It's a plain `=` in the
-        # Makefile (not `override`), so a command-line value wins; the map
-        # file's cross-reference table is diagnostic-only, not needed here.
-        #
-        # COMPILER_TARGET override: mpy-cross/Makefile decides whether to
-        # compile in ports/windows/fmode.c (which defines
-        # set_fmode_binary(), called unconditionally under #ifdef _WIN32
-        # in mpy-cross/main.c) by grepping `$(CC) -dumpmachine` for the
-        # substring "mingw". Real mingw-w64 gcc (MINGW32/64) reports e.g.
-        # "x86_64-w64-mingw32", which matches -- but the CLANGARM64
-        # aarch64-w64-mingw32-gcc wrapper is clang underneath and reports
-        # its own triple naming instead, which doesn't contain "mingw", so
-        # fmode.c silently never gets compiled in and the link fails with
-        # "undefined symbol: set_fmode_binary" (confirmed directly in CI).
-        # Forcing this to a value that contains "mingw" -- true for this
-        # toolchain regardless of what -dumpmachine actually prints --
-        # restores the intended behavior. Same plain-`:=`-vs-command-line
-        # override mechanism as LDFLAGS_ARCH above.
-        #
-        # STRIP="": py/mkenv.mk sets STRIP = $(CROSS_COMPILE)strip
-        # unconditionally, and mpy-cross/py/mkrules.mk's link recipe runs
-        # it whenever the (always-non-empty) variable is defined --
-        # regardless of whether that binary actually exists. CLANGARM64's
-        # gcc-compat package provides gcc/windres wrappers but no
-        # aarch64-w64-mingw32-strip, so the link succeeds and then the
-        # build fails anyway on "No such file or directory" trying to
-        # strip the result (confirmed directly in CI, right after the
-        # COMPILER_TARGET fix above actually got this far for the first
-        # time). Stripping is a size optimization only, not needed for a
-        # transient build-time host tool -- empty this out for all three
-        # windows arches for simplicity, not just the one that needs it.
-        # STRIP="" works because py/mkrules.mk guards that whole step with
-        # `ifdef STRIP` -- and GNU Make's ifdef treats an empty value as
-        # "not defined", so this skips it outright.
-        #
-        # SIZE="true": same missing-binary problem
-        # (aarch64-w64-mingw32-size, confirmed directly in CI right after
-        # the STRIP fix above got this far for the first time), but
-        # py/mkrules.mk's `$(SIZE) ... $@` line has no `ifdef` guard --
-        # SIZE="" would leave a blank command name and break the recipe's
-        # shell syntax instead of skipping it. `true` is a real, universal
-        # no-op binary that swallows all its arguments and exits 0.
-        shell: msys2 {0}
-        run: make -C mpy/mpy-cross CROSS_COMPILE="${{ matrix.cross_compile }}" LDFLAGS_ARCH="-Wl,--gc-sections" COMPILER_TARGET="mingw-forced" STRIP="" SIZE="true" -j"$(nproc)"
-
-      - name: Build usermod (${{ matrix.port }})
-        if: matrix.port != 'windows'
-        run: |
-          if [ "${{ matrix.port }}" = "webassembly" ]; then
-            source emsdk/emsdk_env.sh
-            make -C mpy/ports/webassembly VARIANT=${{ matrix.variant }} \
-              USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" \
-              FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
-          else
-            # A plain build: nothing here sets MICROPY_STANDALONE or
-            # LDFLAGS_EXTRA any more. aarch64 was the only row that did;
-            # see that matrix entry's comment for why it stopped.
-            FORCE32=""
-            if [ "${{ matrix.force_32bit }}" = "1" ]; then
-              FORCE32="MICROPY_FORCE_32BIT=1"
-            fi
-            make -C mpy/ports/unix $FORCE32 \
-              USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" \
-              FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
-          fi
+        # build_dir pinned to the exact default the plain `make` invocation
+        # this replaces used to land at (no VARIANT=/BUILD= override there
+        # either, so ports/unix's own default -- build-standard, relative to
+        # $MPY_DIR/ports/unix) -- keeps the Run tests/Upload build steps
+        # below unchanged, no arch-specific path to thread through them.
+        # Force32/apt/libffi dispatch per arch, previously the "Install unix
+        # build deps" step plus the FORCE32 shell logic above, now lives
+        # inside the action.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-unix@v0.2.0
+        with:
+          arch: ${{ matrix.arch_label }}
+          user_c_modules: ${{ github.workspace }}/micropython/usermod
+          frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
+          build_dir: build-standard
 
       - name: Build usermod (windows)
         if: matrix.port == 'windows'
@@ -529,17 +457,19 @@ jobs:
         # USER_C_MODULES source file. $(pwd) here is MSYS2's own
         # POSIX-style view of the same directory ("/d/a/..."), with no
         # backslashes to mis-escape.
-        # STRIP=""/SIZE="true": same reasons as the "Build mpy-cross
-        # (windows)" step above -- CLANGARM64's gcc-compat package has
-        # neither aarch64-w64-mingw32-strip nor -size, and
-        # ports/windows/Makefile hits the exact same generic
-        # py/mkrules.mk PROG-linking step mpy-cross does.
-        shell: msys2 {0}
-        run: |
-          make -C mpy/ports/windows CROSS_COMPILE="${{ matrix.cross_compile }}" STRIP="" SIZE="true" \
-            CFLAGS_EXTRA="${{ matrix.cflags_extra }}" \
-            USER_C_MODULES="$(pwd)/micropython/usermod" \
-            FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
+        #
+        # mpy-cross + main build (the four CLANGARM64 overrides included)
+        # now come from the shared action -- CROSS_COMPILE is always empty
+        # for every row in this matrix, so dropping it here changes
+        # nothing; A7P_FROZEN_MANIFEST is set above by "Write combined
+        # FROZEN_MANIFEST (windows)". No build_dir override: this repo
+        # never set BUILD= either, so the action's own build-standard
+        # default lands exactly where Run tests (windows) below expects.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-windows@v0.2.0
+        with:
+          user_c_modules: $(pwd)/micropython/usermod
+          frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
+          cflags_extra: ${{ matrix.cflags_extra }}
 
       - name: Run tests (${{ matrix.port }})
         if: matrix.port != 'windows'
@@ -660,11 +590,15 @@ jobs:
   #     handler runs it directly with no /usr/gnemul sysroot symlink
   #     needed (that trick is specifically for *dynamically* linked
   #     cross binaries, which this deliberately isn't).
-  #   - VARIANT=coverage (not standard) is upstream's own choice for these
-  #     two jobs specifically -- kept rather than switched to standard, to
-  #     stay on the tested combination; its own default manifest is what
-  #     this job's FROZEN_MANIFEST combines with, same pattern as every
-  #     other usermod job in this workflow.
+  #   - VARIANT=standard, not upstream's own VARIANT=coverage choice for
+  #     these two jobs -- switched for consistency with every other unix
+  #     row in this workflow (x64/x86/aarch64 above all build standard
+  #     too), which is what this job's own FROZEN_MANIFEST now combines
+  #     with (variants/standard/manifest.py). coverage exists in
+  #     tools/ci.sh to broaden upstream's own CI surface across their
+  #     whole matrix; nothing about armhf/mipsel specifically needs it,
+  #     and the mismatch against every other row here was inherited from
+  #     a straight port of the upstream recipe rather than deliberate.
   usermod-cross:
     name: usermod (unix-${{ matrix.arch_label }})
     runs-on: ${{ matrix.runs_on }}
@@ -687,40 +621,17 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Checkout MicroPython ${{ env.MPY_REF }}
-        uses: actions/checkout@v7
+        # clone-micropython, same as the usermod job above: exports MPY_DIR,
+        # which build-usermod-unix below requires.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/clone-micropython@v0.2.0
         with:
-          repository: micropython/micropython
-          ref: ${{ env.MPY_REF }}
+          mpy_tag: ${{ env.MPY_REF }}
           path: mpy
-
-      - name: Install packages
-        # Package names from tools/ci.sh's
-        # ci_unix_qemu_arm_setup/ci_unix_qemu_mips_setup, parameterized
-        # per arch via the matrix above. Unlike that function, no
-        # /usr/gnemul symlink here -- upstream's own build there is a
-        # plain dynamic link, which needs that symlink so qemu-user-static
-        # can find a matching sysroot/ld.so at run time. This build adds
-        # LDFLAGS_EXTRA=-static (see the job comment above for why: real
-        # deployability, not just satisfying this CI runner), so the
-        # result has no dynamic library dependencies to resolve in the
-        # first place -- qemu-user-static's binfmt_misc handler runs it
-        # directly either way.
-        #
-        # qemu-user-static is installed for mipsel only. armhf runs on the
-        # runner's own CPU now, so an emulator there would be dead weight
-        # that could also mask a genuine failure to execute.
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ${{ matrix.cross_apt }}
-          if [ -n "${{ matrix.gnemul_arch }}" ]; then
-            sudo apt-get install -y qemu-user-static
-            qemu-${{ matrix.gnemul_arch }}-static --version
-          fi
 
       - name: Write combined FROZEN_MANIFEST
         run: |
           cat > "$RUNNER_TEMP/a7p_manifest.py" <<EOF
-          include("\$(PORT_DIR)/variants/coverage/manifest.py")
+          include("\$(PORT_DIR)/variants/standard/manifest.py")
           include("$GITHUB_WORKSPACE/micropython/usermod/manifest.py")
           EOF
           cat "$RUNNER_TEMP/a7p_manifest.py"
@@ -729,35 +640,37 @@ jobs:
       - name: Fetch nanopb
         run: make -C micropython/natmod fetch-nanopb
 
-      - name: Build (mpy-cross, submodules, deplibs, main build)
-        # Base sequence exactly matches tools/ci.sh's ci_unix_build_helper
-        # -- mpy-cross first (native host tool), then
-        # submodules/deplibs/build all with the same
-        # CROSS_COMPILE/VARIANT/MICROPY_STANDALONE options, in that order,
-        # `deplibs` (which actually builds lib/libffi from source, invoked
-        # via its own ./autogen.sh -- no manual libtoolize/autoreconf
-        # needed) as its own step before the main build -- confirmed
-        # directly by a real CI failure that this project's own module
-        # build must do the same, since MICROPY_STANDALONE=1 alone only
-        # adds libffi to DEPLIBS, it doesn't make `deplibs` a prerequisite
-        # of the default target.
-        #
-        # LDFLAGS_EXTRA=-static added on top of upstream's own options --
-        # upstream doesn't use it here since ci_unix_qemu_arm/mips only
-        # need the result to run inside their own CI, not to be handed to
-        # anyone. Same reasoning as micropython/micropython#17456: a
-        # fully static binary is what's actually deployable to a minimal
-        # embedded Linux target that can't be assumed to have a matching
-        # ld.so/libc, which is the realistic use case for this port/arch
-        # combination (unlike aarch64/x64, static there is for the same
-        # deployability reason but not load-bearing for *this* job).
+      - name: Fetch port submodules
+        # Base sequence exactly matches tools/ci.sh's ci_unix_build_helper --
+        # submodules before mpy-cross/deplibs/build, all with the same
+        # CROSS_COMPILE/VARIANT/MICROPY_STANDALONE options. Kept as its own
+        # step: the build-usermod-unix action below assumes a
+        # tarball-vendored MPY_DIR (fetch-micropython's own case) where this
+        # is a no-op, but this job's MPY_DIR is a plain git clone
+        # (clone-micropython), where lib/libffi is still an empty submodule
+        # placeholder until this runs.
         run: |
-          make -C mpy/mpy-cross -j"$(nproc)"
-          make -C mpy/ports/unix CROSS_COMPILE="${{ matrix.cross_compile }}" VARIANT=coverage MICROPY_STANDALONE=1 submodules
-          make -C mpy/ports/unix CROSS_COMPILE="${{ matrix.cross_compile }}" VARIANT=coverage MICROPY_STANDALONE=1 LDFLAGS_EXTRA="-static" deplibs
-          make -C mpy/ports/unix CROSS_COMPILE="${{ matrix.cross_compile }}" VARIANT=coverage MICROPY_STANDALONE=1 LDFLAGS_EXTRA="-static" \
-            USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" \
-            FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
+          make -C mpy/ports/unix CROSS_COMPILE="${{ matrix.cross_compile }}" VARIANT=standard MICROPY_STANDALONE=1 submodules
+
+      - name: Build usermod (${{ matrix.arch_label }})
+        # mpy-cross/deplibs/main-build all now come from the action --
+        # deplibs (build lib/libffi from source, invoked via its own
+        # ./autogen.sh -- confirmed by a real CI failure that this must run
+        # as its own step first, since MICROPY_STANDALONE=1 alone only adds
+        # libffi to DEPLIBS, it doesn't make `deplibs` a prerequisite of the
+        # default target) is handled internally whenever standalone linking
+        # applies, which for armhf/mipsel it always does.
+        #
+        # No variant: override -- the action's own default (standard) is
+        # what this row now builds, same as every other unix row in this
+        # workflow. See this job's own header comment for why it switched
+        # off upstream's VARIANT=coverage.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-unix@v0.2.0
+        with:
+          arch: ${{ matrix.arch_label }}
+          user_c_modules: ${{ github.workspace }}/micropython/usermod
+          frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
+          build_dir: build-standard
 
       - name: Run tests (${{ matrix.arch_label }})
         # No explicit qemu-<arch> prefix in either case, but for two
@@ -768,17 +681,17 @@ jobs:
         # the 32-bit binary itself. `file` is printed first so the log
         # records which of the two actually happened.
         run: |
-          file mpy/ports/unix/build-coverage/micropython
-          mpy/ports/unix/build-coverage/micropython -c "import _a7p; print(_a7p._decode)"
-          mpy/ports/unix/build-coverage/micropython -c "import a7p; print(a7p.PAYLOAD_SIZE)"
-          mpy/ports/unix/build-coverage/micropython micropython/tests/test_a7p.py
-          mpy/ports/unix/build-coverage/micropython micropython/tests/test_validate.py
+          file mpy/ports/unix/build-standard/micropython
+          mpy/ports/unix/build-standard/micropython -c "import _a7p; print(_a7p._decode)"
+          mpy/ports/unix/build-standard/micropython -c "import a7p; print(a7p.PAYLOAD_SIZE)"
+          mpy/ports/unix/build-standard/micropython micropython/tests/test_a7p.py
+          mpy/ports/unix/build-standard/micropython micropython/tests/test_validate.py
 
       - name: Upload build (unix-${{ matrix.arch_label }})
         uses: actions/upload-artifact@v7
         with:
           name: a7p-usermod-unix-${{ matrix.arch_label }}
-          path: mpy/ports/unix/build-coverage/micropython
+          path: mpy/ports/unix/build-standard/micropython
           if-no-files-found: error
 
   # ── usermod: armv7m on bare-metal QEMU (Cortex-M3) ──────────────────────────
@@ -810,27 +723,26 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Checkout MicroPython ${{ env.MPY_REF }}
-        uses: actions/checkout@v7
+        # fetch-micropython, not a plain checkout: the release tarball
+        # already vendors lib/micropython-lib (a real submodule-init
+        # failure this job hit on its first run, against a git checkout),
+        # matching bclibc's own qemu-armv7m job. Exports MPY_DIR, which
+        # every step below now uses instead of the fixed "mpy" this job
+        # used to hardcode -- fetch-micropython's own extract dir is
+        # version-named (micropython-<ver>), not "mpy".
+        uses: ballistics-lab/micropython-native-ci/.github/actions/fetch-micropython@v0.2.0
         with:
-          repository: micropython/micropython
-          ref: ${{ env.MPY_REF }}
-          path: mpy
+          mpy_tag: ${{ env.MPY_REF }}
 
-      - name: Install toolchain + QEMU
+      - name: Install QEMU
+        # gcc-arm-none-eabi/libnewlib-arm-none-eabi now live inside
+        # build-usermod-armv7m below -- QEMU itself (and pyserial,
+        # this job's own test-harness dependency) stays here, since
+        # neither is a build dependency.
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y --no-install-recommends \
-            gcc-arm-none-eabi libnewlib-arm-none-eabi qemu-system-arm
+          sudo apt-get install -y --no-install-recommends qemu-system-arm
           pip install pyserial
-
-      - name: Fetch port submodules
-        # Needed because this workflow checks MicroPython out from git, where
-        # lib/micropython-lib is an uninitialized submodule and the freeze
-        # step fails with "micropython-lib submodule is not initialized".
-        # Every other job here has the equivalent step; this one was written
-        # against a release tarball locally, which vendors that directory and
-        # hides the difference.
-        run: make -C mpy/ports/qemu submodules
 
       - name: Fetch nanopb
         run: make -C micropython/natmod fetch-nanopb
@@ -846,27 +758,28 @@ jobs:
           cat "$RUNNER_TEMP/a7p_manifest.py"
           echo "A7P_FROZEN_MANIFEST=$RUNNER_TEMP/a7p_manifest.py" >> "$GITHUB_ENV"
 
-      - name: Build mpy-cross
-        run: make -C mpy/mpy-cross -j"$(nproc)"
-
-      - name: Build firmware (MPS2_AN385 / Cortex-M3)
-        run: |
-          make -C mpy/ports/qemu BOARD=MPS2_AN385 \
-            USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" \
-            FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
+      - name: Build usermod (qemu, MPS2_AN385)
+        # build_dir: build-MPS2_AN385, matching the port's own default the
+        # plain `make` invocation this replaces already landed at -- keeps
+        # Run tests/Upload build below unchanged.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-armv7m@v0.2.0
+        with:
+          user_c_modules: ${{ github.workspace }}/micropython/usermod
+          frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
+          build_dir: build-MPS2_AN385
 
       - name: Run tests via QEMU
-        env:
-          MPY_DIR: ${{ github.workspace }}/mpy
+        # No env: MPY_DIR override needed any more -- fetch-micropython
+        # already exported the real one for the whole job.
         run: |
           python3 micropython/ci/run_qemu.py \
-            mpy/ports/qemu/build-MPS2_AN385/firmware.elf
+            "$MPY_DIR/ports/qemu/build-MPS2_AN385/firmware.elf"
 
       - name: Upload build (qemu-armv7m)
         uses: actions/upload-artifact@v7
         with:
           name: a7p-usermod-qemu-armv7m
-          path: mpy/ports/qemu/build-MPS2_AN385/firmware.elf
+          path: ${{ env.MPY_DIR }}/ports/qemu/build-MPS2_AN385/firmware.elf
           if-no-files-found: error
 
   # ── usermod: ESP32, build-only ──────────────────────────────────────────────
@@ -898,10 +811,8 @@ jobs:
   # refused by the development environment this was authored in, so neither
   # the toolchain nor IDF's managed components (espressif/mdns
   # unconditionally, espressif/lan867x for target esp32) could be fetched
-  # there at all. It cost one round-trip -- ports/esp32's `submodules` target
-  # is `idf.py ... reconfigure`, not a git command, so it needs export.sh
-  # sourced like the build does. Both hosts have since been allowed, so
-  # further work here can be reproduced locally first.
+  # there at all. Both hosts have since been allowed, so further work here
+  # can be reproduced locally first.
   usermod-esp32:
     name: usermod (esp32 / ESP32_GENERIC)
     runs-on: ubuntu-latest
@@ -910,41 +821,16 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Checkout MicroPython ${{ env.MPY_REF }}
-        uses: actions/checkout@v7
+        # fetch-micropython, not a plain checkout: matching bclibc/wasm3's
+        # own esp32 jobs, both green without any submodule-init step at
+        # all -- the release tarball already vendors what this port needs,
+        # unlike a git checkout (see the "Fetch port submodules" step this
+        # replaced, previously needed only because MicroPython came from
+        # git here). Exports MPY_DIR (version-named, not "mpy"), which
+        # every step below now uses.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/fetch-micropython@v0.2.0
         with:
-          repository: micropython/micropython
-          ref: ${{ env.MPY_REF }}
-          path: mpy
-
-      - name: Install esp-idf
-        # --recursive: a usermod builds against IDF's own components, unlike a
-        # natmod, which only wants the compiler install.sh downloads.
-        # `install.sh esp32` limits that download to the one target rather
-        # than every chip IDF supports.
-        env:
-          IDF_VER: v5.5.1
-        run: |
-          git clone --depth 1 --recursive --branch "$IDF_VER" \
-            https://github.com/espressif/esp-idf.git
-          ./esp-idf/install.sh esp32
-
-      - name: Fetch port submodules
-        # MicroPython is a git checkout here, not a release tarball, so
-        # lib/micropython-lib and the port's own submodules are empty
-        # placeholders until this runs -- the same omission that broke the
-        # qemu-armv7m job on its first attempt.
-        #
-        # export.sh has to be sourced for this step too, not only for the
-        # build: ports/esp32's `submodules` target is not a git command, it
-        # is `idf.py -D UPDATE_SUBMODULES=1 reconfigure` (Makefile:115).
-        # Without the IDF environment it dies with "/bin/sh: 1: idf.py: not
-        # found" (exit 127) -- a real failure of this job's first run. The
-        # sibling repos do not have this step at all, because they take
-        # MicroPython from a release tarball where the submodules are already
-        # vendored.
-        run: |
-          source esp-idf/export.sh
-          make -C mpy/ports/esp32 submodules
+          mpy_tag: ${{ env.MPY_REF }}
 
       - name: Fetch nanopb
         # Same fetch, same reason as every other job here: satisfies
@@ -964,29 +850,25 @@ jobs:
           cat "$RUNNER_TEMP/a7p_manifest.py"
           echo "A7P_FROZEN_MANIFEST=$RUNNER_TEMP/a7p_manifest.py" >> "$GITHUB_ENV"
 
-      - name: Build mpy-cross
-        # Before export.sh is sourced: mpy-cross is a host tool and has no
-        # business being built inside IDF's own python/toolchain environment.
-        run: make -C mpy/mpy-cross -j"$(nproc)"
-
-      - name: Build ESP32 firmware
-        # USER_C_MODULES points at micropython.cmake itself, not at a
-        # directory: CMake's USER_C_MODULES takes a file, unlike the
-        # Make-based ports' directory-to-glob.
-        run: |
-          source esp-idf/export.sh
-          make -C mpy/ports/esp32 \
-            BOARD=ESP32_GENERIC \
-            USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod/micropython.cmake" \
-            FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST"
+      - name: Build usermod (esp32, ESP32_GENERIC)
+        # No build_dir input: the action always uses the port's own
+        # build-$(BOARD) default -- an explicit BUILD= override, even set
+        # to that exact value, broke esp32's internal CMake-driven
+        # mpy-cross sub-build on bclibc's own first run of this action
+        # (see its own header for the full story). Matches the path
+        # Upload build below already expects.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-esp32@v0.2.0
+        with:
+          user_c_modules: ${{ github.workspace }}/micropython/usermod/micropython.cmake
+          frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
 
       - name: Upload build (esp32)
         uses: actions/upload-artifact@v7
         with:
           name: a7p-usermod-esp32
           path: |
-            mpy/ports/esp32/build-ESP32_GENERIC/micropython.bin
-            mpy/ports/esp32/build-ESP32_GENERIC/firmware.bin
+            ${{ env.MPY_DIR }}/ports/esp32/build-ESP32_GENERIC/micropython.bin
+            ${{ env.MPY_DIR }}/ports/esp32/build-ESP32_GENERIC/firmware.bin
           if-no-files-found: error
 
   # ── usermod: RP2040, build + run under the rp2040py emulator ────────────────
@@ -1024,36 +906,28 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Checkout MicroPython ${{ env.MPY_REF }}
-        uses: actions/checkout@v7
+        # Not clone-micropython + an explicit submodule list +
+        # pico_sdk_submodules any more: the earlier "Cannot find source
+        # file: .../lib/mbedtls/library/aes.c" failure that justified that
+        # was against an *incomplete* clone-micropython submodules: value
+        # (missing lib/mbedtls), not evidence a git clone was ever
+        # required -- the release tarball already vendors every lib/ this
+        # port's CMakeLists.txt needs. pico_sdk_submodules was never
+        # load-bearing either: ports/rp2/CMakeLists.txt redirects
+        # PICO_TINYUSB_PATH/PICO_LWIP_PATH/PICO_BTSTACK_PATH/
+        # PICO_CYW43_DRIVER_PATH at ${MICROPY_DIR}/lib/<name> (MicroPython's
+        # own top-level submodules, already vendored) rather than
+        # pico-sdk's own nested vendored copies, so pico-sdk's internal
+        # submodule tree is never actually touched. Proven, green, on
+        # o-murphy/micropython-wasm3's rp2 row and
+        # ballistics-lab/micropython-bclibc's own rp2040 job, both on the
+        # same BOARD=RPI_PICO with plain fetch-micropython.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/fetch-micropython@v0.2.0
         with:
-          repository: micropython/micropython
-          ref: ${{ env.MPY_REF }}
-          path: mpy
-
-      - name: Install toolchain
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y cmake gcc-arm-none-eabi libnewlib-arm-none-eabi
-
-      - name: Fetch port submodules
-        # `make -C ports/rp2 submodules` alone is not enough: it passes only
-        # GIT_SUBMODULES="lib/pico-sdk" (Makefile:79). The full set below is
-        # micropython-bclibc's, which is green -- lib/mbedtls in particular is
-        # listed unconditionally in ports/rp2/CMakeLists.txt's GIT_SUBMODULES
-        # even with no wifi or BT, and omitting it fails configure outright
-        # with "Cannot find source file: .../lib/mbedtls/library/aes.c".
-        # pico-sdk's own submodules (tinyusb among them) are a second level
-        # down and need their own init.
-        run: |
-          git -C mpy submodule update --init --filter=blob:none \
-            lib/pico-sdk lib/micropython-lib lib/tinyusb lib/mbedtls
-          git -C mpy/lib/pico-sdk submodule update --init
+          mpy_tag: ${{ env.MPY_REF }}
 
       - name: Fetch nanopb
         run: make -C micropython/natmod fetch-nanopb
-
-      - name: Build mpy-cross
-        run: make -C mpy/mpy-cross -j"$(nproc)"
 
       - name: Write combined FROZEN_MANIFEST
         # rp2's default manifest is boards/manifest.py, like esp32's and
@@ -1068,14 +942,16 @@ jobs:
           cat "$RUNNER_TEMP/a7p_manifest.py"
           echo "A7P_FROZEN_MANIFEST=$RUNNER_TEMP/a7p_manifest.py" >> "$GITHUB_ENV"
 
-      - name: Build RP2040 firmware
-        # USER_C_MODULES points at micropython.cmake itself: CMake's
-        # USER_C_MODULES takes a file, not a directory to glob.
-        run: |
-          make -C mpy/ports/rp2 \
-            BOARD=RPI_PICO \
-            USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod/micropython.cmake" \
-            FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
+      - name: Build usermod (rp2040)
+        # build_dir: build-RPI_PICO (bare relative), matching the port's
+        # own default the Run tests/Upload build steps below already
+        # reference -- no BUILD= override in the plain `make` invocation
+        # this replaces either.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-rp2040@v0.2.0
+        with:
+          user_c_modules: ${{ github.workspace }}/micropython/usermod/micropython.cmake
+          frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
+          build_dir: build-RPI_PICO
 
       - uses: o-murphy/rp2040py/.github/actions/setup-rp2040py@v0.3.1
         with:
@@ -1084,11 +960,11 @@ jobs:
       - name: Run test_a7p_core.py on the emulated RP2040
         run: |
           python3 micropython/ci/run_rp2040py.py \
-            mpy/ports/rp2/build-RPI_PICO/firmware.uf2
+            "$MPY_DIR/ports/rp2/build-RPI_PICO/firmware.uf2"
 
       - name: Upload build (rp2040)
         uses: actions/upload-artifact@v7
         with:
           name: a7p-usermod-rp2040
-          path: mpy/ports/rp2/build-RPI_PICO/firmware.uf2
+          path: ${{ env.MPY_DIR }}/ports/rp2/build-RPI_PICO/firmware.uf2
           if-no-files-found: error
