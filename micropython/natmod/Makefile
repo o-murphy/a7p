@@ -69,6 +69,20 @@ vpath %.py $(SRC_DIR)
 MOD_BASE = a7p
 MOD      = $(MOD_BASE)_$(ARCH)
 BUILD    = build/$(ARCH)
+# dist: below renames the merged native output to $(BUILD)/a7p.mpy -- the
+# exact path dynruntime.mk's own $(BUILD)/%.mpy: %.py rule also owns, for
+# the compiled *facade* (../src/a7p.py). A second build in this same
+# $(BUILD) directory (e.g. cibuildmp run twice locally, or a stale build/
+# left over between local runs) finds that leftover, already-native file,
+# treats it as the up-to-date facade compile, and mpy-tool.py then refuses
+# to merge two files that both contain native code -- reproduced for real:
+# "Exception: can't merge files when more than one contains native code".
+# A recipe-line `rm -f` in dist: is too late -- by the time dist:'s own
+# recipe runs, `all` has already decided the stale file was fine. This has
+# to happen before make resolves any rule, hence $(shell) at parse time,
+# not a prerequisite. Same fix as ballistics-lab/micropython-bclibc's own
+# natmod/Makefile.
+$(shell rm -f $(BUILD)/a7p.mpy 2>/dev/null)
 
 SRC = a7p_mp.c a7p_validate.c profedit.pb.c pb_common.c pb_decode.c pb_encode.c md5.c a7p.py
 
@@ -106,17 +120,23 @@ include $(MPY_DIR)/py/dynruntime.mk
 endif
 
 # On MicroPython versions whose mpy_ld.py doesn't special-case memcpy/memset/
-# memmove internally (this was caught building against a pinned v1.28.0 in
-# CI -- x64/rv32imc/rv64imc worked, armv6m/armv7m/armv7emsp/armv7emdp/xtensa/
-# xtensawin failed with "undefined symbol: memset/memcpy"), those have to be
-# resolved by linking an actual libc. dynruntime.mk's own LINK_RUNTIME only
-# does that for picolibc/musl targets (rv32imc/rv64imc here already get
-# libc.a for free); plain newlib ARM/Xtensa targets only get libm.a. Link
-# newlib's libc.a explicitly for those so this doesn't depend on exactly
-# which MicroPython version MPY_DIR points at. Native x64/x86 (glibc) never
-# needed this -- small/bounded memcpy/memset there get inlined by gcc without
-# an external symbol.
-ifneq ($(filter armv6m armv7m armv7emsp armv7emdp xtensa xtensawin,$(ARCH)),)
+# memmove internally, those have to be resolved by linking an actual libc.
+# dynruntime.mk's own LINK_RUNTIME does that for picolibc/musl targets but
+# only pulls in libm.a for plain-newlib ARM/Xtensa targets, so those need
+# libc.a linked explicitly too. Originally rv32imc/rv64imc were excluded
+# from this list on the assumption they "already get libc.a for free" from
+# LINK_RUNTIME -- true against the picolibc-riscv64-unknown-elf apt package
+# this project's own CI used to build with, but not against cibuildmp's own
+# riscv-none-elf toolchain (a newlib-based xpack build, no picolibc
+# involved): under that one rv32imc failed the exact same way --
+# "build/rv32imc/pb_common.o: undefined symbol: memset" -- confirmed by a
+# real cibuildmp build, not assumed. Linking libc.a explicitly for every
+# cross-compiled ARCH (rv32imc/rv64imc included) makes this independent of
+# which RISC-V toolchain provides CROSS, the same way it already made ARM/
+# Xtensa independent of exactly which MicroPython version MPY_DIR points
+# at. Native x64/x86 (glibc) never needed this -- small/bounded memcpy/
+# memset there get inlined by gcc without an external symbol.
+ifneq ($(filter armv6m armv7m armv7emsp armv7emdp xtensa xtensawin rv32imc rv64imc,$(ARCH)),)
 MPY_LD_FLAGS += -l$(realpath $(shell $(CROSS)gcc $(CFLAGS) --print-file-name=libc.a))
 endif
 
