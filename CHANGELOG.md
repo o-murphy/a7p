@@ -78,6 +78,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Changed
 
+- CI: every `ballistics-lab/micropython-native-ci` action reference (both
+  `mp-natmod.yml` and `mp-usermod.yml`) is now pinned to the `v0.2.0` tag
+  instead of a mix of the `v0.1.0` tag (`fetch-/clone-micropython`,
+  `build-natmod-arch`) and the `claude/usermod-shared-action-kwulzv`
+  development branch (everything added this cycle). `build-natmod-arch`
+  also drops its `-arch` suffix (`build-natmod`) now that a tag past that
+  rename exists. No behavior change: `v0.2.0` is exactly what that branch
+  contained, squash-merged.
 - CI: `usermod-qemu-armv7m`, `usermod-esp32`, and `usermod-rp2040` now check
   out MicroPython via `micropython-native-ci`'s `fetch-micropython` instead
   of a plain `actions/checkout` -- matching what every other job in this
