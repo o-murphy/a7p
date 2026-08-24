@@ -734,11 +734,14 @@ jobs:
         with:
           mpy_tag: ${{ env.MPY_REF }}
 
-      - name: Install toolchain + QEMU
+      - name: Install QEMU
+        # gcc-arm-none-eabi/libnewlib-arm-none-eabi now live inside
+        # build-usermod-qemu-armv7m below -- QEMU itself (and pyserial,
+        # this job's own test-harness dependency) stays here, since
+        # neither is a build dependency.
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y --no-install-recommends \
-            gcc-arm-none-eabi libnewlib-arm-none-eabi qemu-system-arm
+          sudo apt-get install -y --no-install-recommends qemu-system-arm
           pip install pyserial
 
       - name: Fetch nanopb
@@ -755,14 +758,15 @@ jobs:
           cat "$RUNNER_TEMP/a7p_manifest.py"
           echo "A7P_FROZEN_MANIFEST=$RUNNER_TEMP/a7p_manifest.py" >> "$GITHUB_ENV"
 
-      - name: Build mpy-cross
-        run: make -C "$MPY_DIR/mpy-cross" -j"$(nproc)"
-
-      - name: Build firmware (MPS2_AN385 / Cortex-M3)
-        run: |
-          make -C "$MPY_DIR/ports/qemu" BOARD=MPS2_AN385 \
-            USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod" \
-            FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
+      - name: Build usermod (qemu, MPS2_AN385)
+        # build_dir: build-MPS2_AN385, matching the port's own default the
+        # plain `make` invocation this replaces already landed at -- keeps
+        # Run tests/Upload build below unchanged.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-qemu-armv7m@claude/usermod-shared-action-kwulzv
+        with:
+          user_c_modules: ${{ github.workspace }}/micropython/usermod
+          frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
+          build_dir: build-MPS2_AN385
 
       - name: Run tests via QEMU
         # No env: MPY_DIR override needed any more -- fetch-micropython

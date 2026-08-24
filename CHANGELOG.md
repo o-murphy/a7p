@@ -158,6 +158,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tests/Upload build steps already expect it (`$MPY_DIR/ports/rp2/build-RPI_PICO`),
   same as the plain `make` invocation this replaces, which never passed
   `BUILD=` either.
+- CI: `usermod-qemu-armv7m`'s toolchain-install/mpy-cross/port-build steps
+  are now `build-usermod-qemu-armv7m` from the same
+  [`ballistics-lab/micropython-native-ci`](https://github.com/ballistics-lab/micropython-native-ci)
+  repo. `qemu-system-arm`/`pyserial` stay caller-side: neither is a build
+  dependency (QEMU only runs the resulting firmware), same split
+  `build-usermod-rp2040` uses for the rp2040py emulator. `build_dir:
+  build-MPS2_AN385` keeps the resulting path exactly where Run
+  tests/Upload build already expect it.
 
 ## [1.2.4] - 2026-07-16
 
