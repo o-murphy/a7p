@@ -284,7 +284,7 @@ jobs:
 
       - name: Checkout MicroPython ${{ env.MPY_REF }}
         # clone-micropython rather than a plain checkout: it also exports
-        # MPY_DIR, which build-usermod-unix-arch below requires. path: mpy,
+        # MPY_DIR, which build-usermod-unix below requires. path: mpy,
         # same as before -- this repo's own module tree already occupies
         # "micropython" (the action's own default clone dir) at the
         # workspace root.
@@ -419,7 +419,7 @@ jobs:
         # override (the port's own default, relative to
         # $MPY_DIR/ports/webassembly) -- keeps the Run tests/Upload build
         # steps below unchanged.
-        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-webassembly-arch@claude/usermod-shared-action-kwulzv
+        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-webassembly@claude/usermod-shared-action-kwulzv
         with:
           variant: ${{ matrix.variant }}
           user_c_modules: ${{ github.workspace }}/micropython/usermod
@@ -436,7 +436,7 @@ jobs:
         # Force32/apt/libffi dispatch per arch, previously the "Install unix
         # build deps" step plus the FORCE32 shell logic above, now lives
         # inside the action.
-        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-unix-arch@claude/usermod-shared-action-kwulzv
+        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-unix@claude/usermod-shared-action-kwulzv
         with:
           arch: ${{ matrix.arch_label }}
           user_c_modules: ${{ github.workspace }}/micropython/usermod
@@ -465,7 +465,7 @@ jobs:
         # FROZEN_MANIFEST (windows)". No build_dir override: this repo
         # never set BUILD= either, so the action's own build-standard
         # default lands exactly where Run tests (windows) below expects.
-        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-windows-arch@claude/usermod-shared-action-kwulzv
+        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-windows@claude/usermod-shared-action-kwulzv
         with:
           user_c_modules: $(pwd)/micropython/usermod
           frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
@@ -622,7 +622,7 @@ jobs:
 
       - name: Checkout MicroPython ${{ env.MPY_REF }}
         # clone-micropython, same as the usermod job above: exports MPY_DIR,
-        # which build-usermod-unix-arch below requires.
+        # which build-usermod-unix below requires.
         uses: ballistics-lab/micropython-native-ci/.github/actions/clone-micropython@claude/usermod-shared-action-kwulzv
         with:
           mpy_tag: ${{ env.MPY_REF }}
@@ -644,7 +644,7 @@ jobs:
         # Base sequence exactly matches tools/ci.sh's ci_unix_build_helper --
         # submodules before mpy-cross/deplibs/build, all with the same
         # CROSS_COMPILE/VARIANT/MICROPY_STANDALONE options. Kept as its own
-        # step: the build-usermod-unix-arch action below assumes a
+        # step: the build-usermod-unix action below assumes a
         # tarball-vendored MPY_DIR (fetch-micropython's own case) where this
         # is a no-op, but this job's MPY_DIR is a plain git clone
         # (clone-micropython), where lib/libffi is still an empty submodule
@@ -665,7 +665,7 @@ jobs:
         # what this row now builds, same as every other unix row in this
         # workflow. See this job's own header comment for why it switched
         # off upstream's VARIANT=coverage.
-        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-unix-arch@claude/usermod-shared-action-kwulzv
+        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-unix@claude/usermod-shared-action-kwulzv
         with:
           arch: ${{ matrix.arch_label }}
           user_c_modules: ${{ github.workspace }}/micropython/usermod
