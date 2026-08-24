@@ -832,18 +832,6 @@ jobs:
         with:
           mpy_tag: ${{ env.MPY_REF }}
 
-      - name: Install esp-idf
-        # --recursive: a usermod builds against IDF's own components, unlike a
-        # natmod, which only wants the compiler install.sh downloads.
-        # `install.sh esp32` limits that download to the one target rather
-        # than every chip IDF supports.
-        env:
-          IDF_VER: v5.5.1
-        run: |
-          git clone --depth 1 --recursive --branch "$IDF_VER" \
-            https://github.com/espressif/esp-idf.git
-          ./esp-idf/install.sh esp32
-
       - name: Fetch nanopb
         # Same fetch, same reason as every other job here: satisfies
         # usermod/a7p/micropython.mk's own guard so its fragile embedded
@@ -862,21 +850,17 @@ jobs:
           cat "$RUNNER_TEMP/a7p_manifest.py"
           echo "A7P_FROZEN_MANIFEST=$RUNNER_TEMP/a7p_manifest.py" >> "$GITHUB_ENV"
 
-      - name: Build mpy-cross
-        # Before export.sh is sourced: mpy-cross is a host tool and has no
-        # business being built inside IDF's own python/toolchain environment.
-        run: make -C "$MPY_DIR/mpy-cross" -j"$(nproc)"
-
-      - name: Build ESP32 firmware
-        # USER_C_MODULES points at micropython.cmake itself, not at a
-        # directory: CMake's USER_C_MODULES takes a file, unlike the
-        # Make-based ports' directory-to-glob.
-        run: |
-          source esp-idf/export.sh
-          make -C "$MPY_DIR/ports/esp32" \
-            BOARD=ESP32_GENERIC \
-            USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod/micropython.cmake" \
-            FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST"
+      - name: Build usermod (esp32, ESP32_GENERIC)
+        # No build_dir input: the action always uses the port's own
+        # build-$(BOARD) default -- an explicit BUILD= override, even set
+        # to that exact value, broke esp32's internal CMake-driven
+        # mpy-cross sub-build on bclibc's own first run of this action
+        # (see its own header for the full story). Matches the path
+        # Upload build below already expects.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/build-usermod-esp32@claude/usermod-shared-action-kwulzv
+        with:
+          user_c_modules: ${{ github.workspace }}/micropython/usermod/micropython.cmake
+          frozen_manifest: ${{ env.A7P_FROZEN_MANIFEST }}
 
       - name: Upload build (esp32)
         uses: actions/upload-artifact@v7
