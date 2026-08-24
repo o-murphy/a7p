@@ -159,13 +159,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   same as the plain `make` invocation this replaces, which never passed
   `BUILD=` either.
 - CI: `usermod-qemu-armv7m`'s toolchain-install/mpy-cross/port-build steps
-  are now `build-usermod-qemu-armv7m` from the same
+  are now `build-usermod-armv7m` from the same
   [`ballistics-lab/micropython-native-ci`](https://github.com/ballistics-lab/micropython-native-ci)
-  repo. `qemu-system-arm`/`pyserial` stay caller-side: neither is a build
-  dependency (QEMU only runs the resulting firmware), same split
-  `build-usermod-rp2040` uses for the rp2040py emulator. `build_dir:
-  build-MPS2_AN385` keeps the resulting path exactly where Run
-  tests/Upload build already expect it.
+  repo (named after the target architecture, not the QEMU test mechanism
+  -- see that action's own header). `qemu-system-arm`/`pyserial` stay
+  caller-side: neither is a build dependency (QEMU only runs the
+  resulting firmware), same split `build-usermod-rp2040` uses for the
+  rp2040py emulator. `build_dir: build-MPS2_AN385` keeps the resulting
+  path exactly where Run tests/Upload build already expect it.
+- CI: `usermod-esp32`'s ESP-IDF-install/mpy-cross/port-build steps are now
+  `build-usermod-esp32` from the same
+  [`ballistics-lab/micropython-native-ci`](https://github.com/ballistics-lab/micropython-native-ci)
+  repo. `source esp-idf/export.sh` and the port build stay in the
+  action's same step (export.sh's env doesn't survive a composite action
+  step boundary). No `BUILD=` override: a real CI failure on
+  `ballistics-lab/micropython-bclibc`'s own first run showed that passing
+  it explicitly -- even set to the port's own default value -- makes
+  esp32's internal CMake-driven `mpy-cross` sub-build pick up
+  `FROZEN_MANIFEST` through `MAKEFLAGS` and fail with `undefined
+  reference to mp_qstr_frozen_const_pool`; the action always uses
+  `build-$(BOARD)` now, exactly what Upload build already expects. This
+  job also gains a "Dump IDF build logs on failure" diagnostic for free.
 
 ## [1.2.4] - 2026-07-16
 
