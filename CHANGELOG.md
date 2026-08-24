@@ -79,14 +79,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Changed
 
 - CI: `usermod-qemu-armv7m`, `usermod-esp32`, and `usermod-rp2040` now check
-  out MicroPython via `micropython-native-ci`'s `fetch-micropython` (the
-  first two) or `clone-micropython` (`rp2040`, which needs
-  `lib/pico-sdk`'s own nested submodules a release tarball can't provide)
-  instead of a plain `actions/checkout` -- matching what every other job
-  in this workflow already does, and what bclibc/wasm3 already do for the
-  same three ports. Each job's own now-unnecessary manual submodule-init
-  step (a `make ... submodules` or raw `git submodule` invocation, needed
-  only because MicroPython came from a git checkout) is gone with it.
+  out MicroPython via `micropython-native-ci`'s `fetch-micropython` instead
+  of a plain `actions/checkout` -- matching what every other job in this
+  workflow already does, and what bclibc/wasm3 already do for the same
+  three ports. Each job's own now-unnecessary manual submodule-init step
+  (a `make ... submodules` or raw `git submodule` invocation, needed only
+  because MicroPython came from a git checkout) is gone with it.
+  `usermod-rp2040` originally switched to `clone-micropython` +
+  `pico_sdk_submodules: "true"` instead (see below for why plain
+  `fetch-micropython` turned out to be enough there too).
 - CI: the `usermod-cross` (`armhf`/`mipsel`) job now builds `VARIANT=standard`
   instead of upstream's own `VARIANT=coverage`, matching every other unix row
   in `mp-usermod.yml` (`x64`/`x86`/`aarch64` all already build standard).
@@ -133,6 +134,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ever incidental to "Install emsdk" having previously run as the step
   right before it. No behavior change: `VARIANT=pyscript`, `emsdk latest`,
   and the combined FROZEN_MANIFEST step stay exactly what they were.
+- CI: `usermod-rp2040`'s checkout simplified again, this time to plain
+  `fetch-micropython` — the `clone-micropython` + explicit submodule list
+  + `pico_sdk_submodules: "true"` from the entry above was itself never
+  required. The "Cannot find source file:
+  .../lib/mbedtls/library/aes.c" failure that originally justified it was
+  against an *incomplete* `clone-micropython` `submodules:` value (missing
+  `lib/mbedtls`), not evidence a git clone was ever needed — the release
+  tarball already vendors every `lib/` this port's `CMakeLists.txt` needs.
+  `pico_sdk_submodules` was never load-bearing either:
+  `ports/rp2/CMakeLists.txt` redirects
+  `PICO_TINYUSB_PATH`/`PICO_LWIP_PATH`/`PICO_BTSTACK_PATH`/
+  `PICO_CYW43_DRIVER_PATH` at `${MICROPY_DIR}/lib/<name>` (MicroPython's
+  own top-level submodules) rather than pico-sdk's own nested vendored
+  copies, so pico-sdk's internal submodule tree is never actually touched.
+  Proven, green, on `o-murphy/micropython-wasm3`'s rp2 row and
+  `ballistics-lab/micropython-bclibc`'s own rp2040 job first.
 
 ## [1.2.4] - 2026-07-16
 

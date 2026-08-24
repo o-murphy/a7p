@@ -918,35 +918,41 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Checkout MicroPython ${{ env.MPY_REF }}
-        # clone-micropython, not a plain checkout: `make -C ports/rp2
-        # submodules` alone only passes GIT_SUBMODULES="lib/pico-sdk"
-        # (Makefile:79), missing lib/mbedtls -- listed unconditionally in
-        # ports/rp2/CMakeLists.txt's own GIT_SUBMODULES even with no
-        # wifi/BT, and omitting it fails configure outright ("Cannot find
-        # source file: .../lib/mbedtls/library/aes.c"). The submodule set
-        # and pico_sdk_submodules (pico-sdk's own submodules, tinyusb among
-        # them, are a second level down and need their own init) below are
-        # micropython-bclibc's, which is green with them. path: mpy, same
-        # as every other job here -- this repo's own module tree already
-        # occupies "micropython" (clone-micropython's default) at the
-        # workspace root.
-        uses: ballistics-lab/micropython-native-ci/.github/actions/clone-micropython@claude/usermod-shared-action-kwulzv
+        # Not clone-micropython + an explicit submodule list +
+        # pico_sdk_submodules any more: the earlier "Cannot find source
+        # file: .../lib/mbedtls/library/aes.c" failure that justified that
+        # was against an *incomplete* clone-micropython submodules: value
+        # (missing lib/mbedtls), not evidence a git clone was ever
+        # required -- the release tarball already vendors every lib/ this
+        # port's CMakeLists.txt needs. pico_sdk_submodules was never
+        # load-bearing either: ports/rp2/CMakeLists.txt redirects
+        # PICO_TINYUSB_PATH/PICO_LWIP_PATH/PICO_BTSTACK_PATH/
+        # PICO_CYW43_DRIVER_PATH at ${MICROPY_DIR}/lib/<name> (MicroPython's
+        # own top-level submodules, already vendored) rather than
+        # pico-sdk's own nested vendored copies, so pico-sdk's internal
+        # submodule tree is never actually touched. Proven, green, on
+        # o-murphy/micropython-wasm3's rp2 row and
+        # ballistics-lab/micropython-bclibc's own rp2040 job, both on the
+        # same BOARD=RPI_PICO with plain fetch-micropython.
+        uses: ballistics-lab/micropython-native-ci/.github/actions/fetch-micropython@v0.1.0
         with:
           mpy_tag: ${{ env.MPY_REF }}
-          submodules: lib/pico-sdk lib/micropython-lib lib/tinyusb lib/mbedtls
-          pico_sdk_submodules: "true"
-          path: mpy
 
       - name: Install toolchain
+        # libstdc++-arm-none-eabi-newlib: pico-sdk compiles one .cpp of its
+        # own, which fails with "cstdlib: No such file or directory"
+        # without it -- a real CI failure on o-murphy/micropython-wasm3's
+        # own rp2 row (see build-usermod-rp2040's own header, once this job
+        # is wired to it).
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y cmake gcc-arm-none-eabi libnewlib-arm-none-eabi
+          sudo apt-get install -y cmake gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
 
       - name: Fetch nanopb
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build mpy-cross
-        run: make -C mpy/mpy-cross -j"$(nproc)"
+        run: make -C "$MPY_DIR/mpy-cross" -j"$(nproc)"
 
       - name: Write combined FROZEN_MANIFEST
         # rp2's default manifest is boards/manifest.py, like esp32's and
@@ -965,7 +971,7 @@ jobs:
         # USER_C_MODULES points at micropython.cmake itself: CMake's
         # USER_C_MODULES takes a file, not a directory to glob.
         run: |
-          make -C mpy/ports/rp2 \
+          make -C "$MPY_DIR/ports/rp2" \
             BOARD=RPI_PICO \
             USER_C_MODULES="$GITHUB_WORKSPACE/micropython/usermod/micropython.cmake" \
             FROZEN_MANIFEST="$A7P_FROZEN_MANIFEST" -j"$(nproc)"
@@ -977,11 +983,11 @@ jobs:
       - name: Run test_a7p_core.py on the emulated RP2040
         run: |
           python3 micropython/ci/run_rp2040py.py \
-            mpy/ports/rp2/build-RPI_PICO/firmware.uf2
+            "$MPY_DIR/ports/rp2/build-RPI_PICO/firmware.uf2"
 
       - name: Upload build (rp2040)
         uses: actions/upload-artifact@v7
         with:
           name: a7p-usermod-rp2040
-          path: mpy/ports/rp2/build-RPI_PICO/firmware.uf2
+          path: ${{ env.MPY_DIR }}/ports/rp2/build-RPI_PICO/firmware.uf2
           if-no-files-found: error
