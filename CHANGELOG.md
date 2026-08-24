@@ -121,6 +121,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   matching shared libraries at run time — so the static link cost an extra
   toolchain set and a libffi-from-source pass while buying nothing. `armhf`
   and `mipsel` keep it, where it is what lets the binary start at all.
+- CI: the `usermod` `webassembly` row's emsdk-install/mpy-cross/port-build
+  steps are now `build-usermod-webassembly-arch` from
+  [`ballistics-lab/micropython-native-ci`](https://github.com/ballistics-lab/micropython-native-ci),
+  same as the unix/Windows rows above. The row's own "Fetch port submodules"
+  step (needed because `micropython/` here comes from `clone-micropython`,
+  a shallow clone with no submodules, not a release tarball) stays
+  caller-side and now runs without first sourcing `emsdk/emsdk_env.sh` —
+  that target is `py/mkrules.mk`'s generic `submodules` rule, a plain `git
+  submodule update --init`, and never touched `emcc`; the sourcing was only
+  ever incidental to "Install emsdk" having previously run as the step
+  right before it. No behavior change: `VARIANT=pyscript`, `emsdk latest`,
+  and the combined FROZEN_MANIFEST step stay exactly what they were.
 
 ## [1.2.4] - 2026-07-16
 
