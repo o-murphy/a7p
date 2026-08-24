@@ -99,9 +99,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI: `mp-usermod.yml`'s unix rows (`x64`/`x86`/`aarch64`/`armhf`/`mipsel`)
   and Windows rows (`x86`/`x64`/`arm64`) no longer carry their own
   apt/cross-compile/deplibs/MSYS2 recipe inline — both now call
-  `build-usermod-unix-arch`/`build-usermod-windows-arch` from
+  `build-usermod-unix`/`build-usermod-windows` from
   [`ballistics-lab/micropython-native-ci`](https://github.com/ballistics-lab/micropython-native-ci),
-  the same repo `mp-natmod.yml` already used for `build-natmod-arch`.
+  the same repo `mp-natmod.yml` already used for `build-natmod`.
   `micropython/` is checked out via that repo's `clone-micropython` action
   now too, for the same reason `mp-natmod.yml` already did — the shared
   actions need `MPY_DIR` exported, which a plain `actions/checkout` never
@@ -122,7 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   toolchain set and a libffi-from-source pass while buying nothing. `armhf`
   and `mipsel` keep it, where it is what lets the binary start at all.
 - CI: the `usermod` `webassembly` row's emsdk-install/mpy-cross/port-build
-  steps are now `build-usermod-webassembly-arch` from
+  steps are now `build-usermod-webassembly` from
   [`ballistics-lab/micropython-native-ci`](https://github.com/ballistics-lab/micropython-native-ci),
   same as the unix/Windows rows above. The row's own "Fetch port submodules"
   step (needed because `micropython/` here comes from `clone-micropython`,
