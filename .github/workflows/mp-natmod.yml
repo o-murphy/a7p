@@ -222,7 +222,7 @@ jobs:
             CFLAGS_EXTRA="${{ matrix.host_float }}" \
             LDFLAGS_EXTRA="-static" -j"$(nproc)"
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: a7p-natmod-${{ matrix.arch }}
           path: micropython/natmod/build/${{ matrix.arch }}/
