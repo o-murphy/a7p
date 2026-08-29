@@ -1,6 +1,6 @@
-# Experimental M5 draft -- not yet wired into CI. See cibuildmp's own
-# docs/BACKLOG.md M5, and ballistics-lab/micropython-bclibc's own
-# cibuildmp.toml for the sibling adopter this one mirrors.
+# Wired into CI as of the cibuildmp repin (tracker [0038]'s own "the repin"
+# item) -- see cibuildmp's own ballistics-lab/micropython-bclibc sibling
+# config for the twin this one mirrors.
 #
 # Lives here (micropython/), not at the a7p repo root: a7p is a polyglot
 # monorepo (dart/, go/, js/, py/, clojure/, proto/, schema/, src/ alongside
@@ -12,13 +12,60 @@
 # pre-build-command guards the nanopb fetch itself (nanopb/pb.h existence
 # check) rather than relying on `make fetch-nanopb`'s own unconditional
 # `rm -rf` + reclone -- cibuildmp runs pre-build-command once per target
-# (D9: one job, all targets, sequential), and a bare `make fetch-nanopb`
-# would re-clone nanopb from scratch on every one of the ten arches.
+# (record 0009: one job, all targets, sequential), and a bare
+# `make fetch-nanopb` would re-clone nanopb from scratch on every one of the
+# ten arches. natmod-only (`NATMOD_OVERRIDE_OPTION_KEYS`): usermod's own
+# orchestrator has no pre-build-command mechanism at all, so every usermod
+# job in mp-usermod.yml still runs `make -C micropython/natmod fetch-nanopb`
+# itself as a plain step before calling the cibuildmp action -- same as
+# natmod's own guard, just caller-side instead of config-side.
+#
+# No more [natmod]/[usermod] tables, `archs = [...]` or a separate
+# `micropython = "..."` key -- record 0052 retired every per-platform table
+# and folded the tag into the identifier itself: `build`/`skip` glob against
+# the real per-platform identifier directly (record 0051/0052, see
+# cibuildmp's own README "Identifiers and selectors"). Every job in both
+# mp-natmod.yml and mp-usermod.yml passes its own per-target `build` glob on
+# top of this default (one job per arch/port), so this default only matters
+# for a bare local `cibuildmp micropython/` run.
+#
+# manifest/user-c-modules are usermod's own generic keys (natmod's schema
+# has neither, so they're harmless to it -- same as examples/template's own
+# cibuildmp.toml). cibuildmp now combines this file with each port's own
+# default manifest itself (`usermod/manifests.py`, verified byte-for-byte
+# against what this repo used to hand-write in mp-usermod.yml's own
+# "Write combined FROZEN_MANIFEST" steps) -- those steps, and every
+# MSYS2/toolchain-install step usermod jobs used to carry, are gone from
+# mp-usermod.yml now that the six ports below all build inside cibuildmp's
+# own Docker images. `user-c-modules = "usermod"` is the directory
+# (`usermod/a7p/micropython.mk` for Make ports; cibuildmp appends
+# `/micropython.cmake` itself for esp32/rp2, resolving to the existing
+# `usermod/micropython.cmake` aggregator) -- unchanged from what
+# mp-usermod.yml always passed by hand.
+manifest = "usermod/manifest.py"
+user-c-modules = "usermod"
 
-micropython = "v1.28.0"
+# natmod: every arch dynruntime.mk supports, one MicroPython tag.
+#
+# usermod: exactly the six ports/board-or-arch cells mp-usermod.yml already
+# builds -- unix x64/x86/aarch64 (manylinux, glibc; a7p tests functionality,
+# not PEP 600 distributability, so musllinux/the emulated-everywhere cells
+# are out of scope on purpose, not skipped from a wider default), unix
+# armhf/mipsel (usermod-cross), windows all three arches (now cross-built in
+# Docker on a Linux runner -- no more MSYS2/windows-latest at build time, see
+# mp-usermod.yml's own header), webassembly (pyscript variant, the only one
+# build_webassembly() produces), qemu MPS2_AN385 (Cortex-M3, matching
+# natmod's own armv7m toolchain), esp32 ESP32_GENERIC, rp2 RPI_PICO.
+build = """
+mpy*-v1.28.0-*
+v1.28.0-manylinux_2_28_x86_64 v1.28.0-manylinux_2_28_i686 v1.28.0-manylinux_2_28_aarch64
+v1.28.0-manylinux_2_31_armv7l v1.28.0-manylinux_2_39_mipsel
+v1.28.0-win32 v1.28.0-win_amd64 v1.28.0-win_arm64
+v1.28.0-wasm32
+v1.28.0-qemu-MPS2_AN385
+v1.28.0-esp32-ESP32_GENERIC
+v1.28.0-rp2-RPI_PICO
+"""
 
-[natmod]
-archs = ["x64", "x86", "armv6m", "armv7m", "armv7emsp", "armv7emdp",
-         "rv32imc", "rv64imc", "xtensa", "xtensawin"]
 module-dir = "natmod"
 pre-build-command = "test -f nanopb/pb.h || make fetch-nanopb"
