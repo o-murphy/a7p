@@ -188,6 +188,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reference to mp_qstr_frozen_const_pool`; the action always uses
   `build-$(BOARD)` now, exactly what Upload build already expects. This
   job also gains a "Dump IDF build logs on failure" diagnostic for free.
+- CI: every `ballistics-lab/cibuildmp` reference (`mp-natmod.yml`'s own
+  `cibuildmp`/`clone-micropython` steps and every `clone-/fetch-micropython`
+  and `build-usermod-*` step in `mp-usermod.yml`) is repinned off the stale
+  `v0.3.0` tag, which predates cibuildmp's own config-schema rewrite
+  (records 0051/0052): the `[natmod]` table is now rejected outright, and
+  `micropython =`/`archs =` no longer exist as config keys at all —
+  `build`/`skip` glob against the real `mpy{abi}-{tag}-{arch}` identifier
+  instead. `micropython/cibuildmp.toml` drops its `[natmod]` table
+  accordingly (`build = "mpy*-v1.28.0-*"` at the top level replaces
+  `micropython = "v1.28.0"` + `[natmod] archs = [...]`), and
+  `mp-natmod.yml`'s per-arch matrix leg now passes its own `build:` action
+  input (`mpy*-${{ env.MPY_REF }}-${{ matrix.arch }}`) instead of the now-
+  meaningless `CIBMP_MICROPYTHON`/`CIBMP_ARCHS` env vars. Also drops the
+  per-job `gcc-multilib` install for `x86`: natmod is Docker-only as of
+  cibuildmp record 0050, so every arch (`x86` included) now builds inside
+  cibuildmp's own published natmod image instead of the bare runner. No tag
+  past `v0.3.0` exists yet, so every reference is pinned to cibuildmp's own
+  current commit SHA in the interim, the same precedent its own tracker
+  [0038] already used once before a tag existed — repin to a real tag once
+  one is cut. (Superseded for `mp-usermod.yml` by the next entry below: it
+  no longer calls the `build-usermod-*` composite actions at all.)
+- CI: `mp-usermod.yml` rewritten to build through cibuildmp's own usermod
+  platform support (its `feat/usermod` work, part of the same commit
+  `mp-natmod.yml` now pins) instead of the low-level `build-usermod-unix`/
+  `-windows`/`-webassembly`/`-esp32`/`-rp2040`/`-armv7m` composite actions.
+  Every hand-written "Write combined FROZEN_MANIFEST" step and every
+  per-port toolchain-install step (MSYS2, apt cross-toolchains, ESP-IDF)
+  is gone — `micropython/cibuildmp.toml` gains `manifest =
+  "usermod/manifest.py"` and `user-c-modules = "usermod"`, and cibuildmp
+  resolves each target (Docker image, manifest combination, toolchain) from
+  those two keys the same way `mp-natmod.yml` already does for natmod.
+  `windows` is the one structural change beyond a like-for-like swap: all
+  three arches now cross-build in one Docker image on `ubuntu-latest` (no
+  Windows runner at build time at all), so building and running it are two
+  separate jobs now (`usermod-windows-build` → `usermod-windows-test`,
+  `windows-latest`/`windows-11-arm`, unchanged) instead of one. `unix`'s
+  `x86` row also drops its `MICROPY_FORCE_32BIT=1` override in CI —
+  cibuildmp's own `manylinux_2_28_i686` image is genuinely native `i686`,
+  not an `-m32` build inside an `x86_64` one; `micropython/README.md`'s own
+  per-port table keeps documenting the flag as what a bare-host local build
+  (no cibuildmp/Docker) still needs for `x86`, since that stays true
+  regardless of what CI does. Every job reads its own build
+  straight from cibuildmp's real `ports/<port>/build-<identifier>/` tree
+  (pinned to a known path via `CIBMP_CACHE_PATH`, not cibuildmp's own
+  `mpyhouse/<identifier>/` copy, which only keeps one file per identifier
+  and would drop `webassembly`'s required `.wasm` sibling) rather than a
+  workflow-managed `clone-/fetch-micropython` checkout, which this file no
+  longer needs at all.
 
 ## [1.2.4] - 2026-07-16
 

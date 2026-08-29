@@ -64,16 +64,14 @@ jobs:
       - name: Checkout a7p
         uses: actions/checkout@v7
 
-      # x86 is the one arch cibuildmp cannot self-provision (its own
-      # docs/BACKLOG.md M2): it is the host gcc's own -m32 mode, not a
-      # cross-compile, so no downloadable tarball can supply the missing
-      # 32-bit glibc headers/libs the way it does for every other arch here.
-      # The old build-natmod composite action installed this internally;
-      # cibuildmp does not, so it moves here explicitly.
-      - if: matrix.arch == 'x86'
-        run: sudo apt-get update -q && sudo apt-get install -y gcc-multilib
+      # No more host-side x86 gcc-multilib step: natmod is Docker-only as
+      # of cibuildmp record 0050 -- every arch, x86 included, now builds
+      # inside cibuildmp's own published natmod image (the i386/multilib
+      # headers/libs that used to need installing here live in
+      # docker/natmod.Dockerfile instead), and the runner only needs a
+      # working Docker daemon, already present on ubuntu-latest.
 
-      - uses: ballistics-lab/cibuildmp/.github/actions/clone-micropython@v0.3.0
+      - uses: ballistics-lab/cibuildmp/.github/actions/clone-micropython@9f30109cc178d5f0b5192850f3a78ae6edfe8b48
         with:
           mpy_tag: ${{ env.MPY_REF }}
           # a7p's own micropython/ subtree already occupies that name at the
@@ -81,22 +79,25 @@ jobs:
           # would collide with it (git clone refuses a non-empty target).
           # Kept only for $MPY_DIR, used by the unix-port test step below --
           # cibuildmp resolves and caches its own MicroPython checkout
-          # independently (see micropython/cibuildmp.toml's own
-          # `micropython = "v1.28.0"`), so the two are redundant by design,
-          # not by accident: this step's job is $MPY_DIR, not provisioning
+          # independently (see micropython/cibuildmp.toml's own `build`
+          # selector), so the two are redundant by design, not by
+          # accident: this step's job is $MPY_DIR, not provisioning
           # cibuildmp's build.
           path: mpy
 
-      - uses: ballistics-lab/cibuildmp@v0.3.0
+      - uses: ballistics-lab/cibuildmp@v0.4.0
         with:
           package-dir: micropython
-        env:
-          # CIBMP_ARCHS, not a matrix-baked identifier: cibuildmp resolves
-          # the current .mpy ABI from the checked-out MicroPython itself, so
-          # this stays correct even if MPY_REF moves to a tag with a
-          # different ABI, with nothing here to keep in sync by hand.
-          CIBMP_MICROPYTHON: ${{ env.MPY_REF }}
-          CIBMP_ARCHS: ${{ matrix.arch }}
+          # `build`, not the old CIBMP_MICROPYTHON/CIBMP_ARCHS env pair
+          # (record 0052 retired both -- there is no more separate
+          # `micropython =`/`archs =` config surface, only a `build`/`skip`
+          # glob over the real `mpy{abi}-{tag}-{arch}` identifier). `mpy*`
+          # leaves the ABI open rather than hardcoding it, so this keeps
+          # matching if MPY_REF ever moves to a tag on a different ABI --
+          # (tag, arch) alone is already unique per row in
+          # resources/build-platforms.toml, so this glob can only ever
+          # resolve to the one identifier this job's own matrix leg wants.
+          build: mpy*-${{ env.MPY_REF }}-${{ matrix.arch }}
 
       - name: Build unix port + run tests (x64 only)
         if: matrix.arch == 'x64'
@@ -179,7 +180,7 @@ jobs:
       - name: Checkout a7p
         uses: actions/checkout@v7
 
-      - uses: ballistics-lab/cibuildmp/.github/actions/clone-micropython@v0.3.0
+      - uses: ballistics-lab/cibuildmp/.github/actions/clone-micropython@9f30109cc178d5f0b5192850f3a78ae6edfe8b48
         with:
           mpy_tag: ${{ env.MPY_REF }}
           # a7p's own micropython/ subtree already occupies that name at the
