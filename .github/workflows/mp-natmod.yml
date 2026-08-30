@@ -85,7 +85,7 @@ jobs:
           # cibuildmp's build.
           path: mpy
 
-      - uses: ballistics-lab/cibuildmp@v0.4.0
+      - uses: ballistics-lab/cibuildmp@v0.4.1
         with:
           package-dir: micropython
           # `build`, not the old CIBMP_MICROPYTHON/CIBMP_ARCHS env pair
