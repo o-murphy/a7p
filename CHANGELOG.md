@@ -303,6 +303,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `git clone --depth=1` rather than the composite action: no cibuildmp
     step runs in that job at all, and its own `make submodules` needs a
     real git tree.
+- CI: `natmod/Makefile`'s `dist` target now removes both spellings of
+  `py/dynruntime.mk`'s own intermediate `.mpy`. It was renamed between the
+  two tags this Makefile has to work against — `$(BUILD)/$(MOD).native.mpy`
+  up to `v1.28.0`, plain `$(BUILD)/$(MOD).mpy` from `v1.29.0` — so cleaning
+  up only the old name left the new one beside the `a7p.mpy` `dist` had just
+  moved in, and cibuildmp's `collect_output()` globs `build/<arch>*/*.mpy`.
+  All ten natmod arches failed with `ambiguous output -- found 2 .mpy files`
+  on the first run against the new pin. Both names stay listed: `MPY_DIR` is
+  caller-supplied, so a local build against an older checkout still has to
+  leave that directory clean.
 
 ## [1.2.4] - 2026-07-16
 

@@ -148,8 +148,22 @@ endif
 # change.
 $(SRC_O): $(SRC_DIR)/a7p_layout.h $(SRC_DIR)/a7p_validate.h $(SRC_DIR)/a7p_validate_err.h
 
+# The `rm -f` names dynruntime.mk's own intermediate twice, because it was
+# renamed between the two tags this Makefile has to work against:
+# `$(BUILD)/$(MOD).native.mpy` up to v1.28.0, plain `$(BUILD)/$(MOD).mpy`
+# from v1.29.0 (diffed between the two tags, not inferred from the bump).
+# Removing only the old name left the new one sitting beside the a7p.mpy
+# just moved in, and cibuildmp's collect_output() globs
+# `build/<arch>*/*.mpy` -- so all ten arches failed with "ambiguous output
+# -- found 2 .mpy files" the moment the pin moved. Neither name can ever
+# collide with `a7p.mpy` itself: MOD is `$(MOD_BASE)_$(ARCH)`, and ARCH is
+# never empty here.
+#
+# Both stay listed rather than the new one replacing the old: MPY_DIR is a
+# caller-supplied checkout, so a local build against a pre-v1.29.0 tree is
+# still a real thing this target has to leave clean.
 .PHONY: dist
 dist: all
 	mv $(MOD).mpy $(BUILD)/a7p.mpy
-	rm -f $(BUILD)/$(MOD).native.mpy
+	rm -f $(BUILD)/$(MOD).native.mpy $(BUILD)/$(MOD).mpy
 	@echo "--> $(BUILD)/a7p.mpy"
