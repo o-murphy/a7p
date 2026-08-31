@@ -249,9 +249,21 @@ jobs:
         # The artifact holds cibuildmp's identifier-qualified filename
         # (`a7p-mpy6.3-v1.28.0-armv7emsp.mpy`); `import a7p` wants exactly
         # `a7p.mpy` on MICROPYPATH, same as the x64 job above.
+        #
+        # `find`, not a fixed-depth glob: the upload above passes a path
+        # whose *directory* component is a wildcard
+        # (`mpyhouse/mpy*-<tag>-<arch>/*`), and upload-artifact takes the
+        # non-glob prefix of that pattern (`micropython/mpyhouse`) as the
+        # archive root -- so the identifier directory is preserved inside
+        # the artifact and the file lands at
+        # `mpy-artifact/mpy6.3-v1.28.0-armv7emsp/a7p-*.mpy`, not at its
+        # root. A flat `mpy-artifact/a7p-*.mpy` matched nothing and failed
+        # this step for both legs.
         run: |
           mkdir -p "$GITHUB_WORKSPACE/mpy-import"
-          cp mpy-artifact/a7p-*.mpy "$GITHUB_WORKSPACE/mpy-import/a7p.mpy"
+          test "$(find mpy-artifact -name 'a7p-*.mpy' | wc -l)" -eq 1
+          mpy=$(find mpy-artifact -name 'a7p-*.mpy')
+          cp "$mpy" "$GITHUB_WORKSPACE/mpy-import/a7p.mpy"
 
       - name: Run tests
         # `file` and the two probes first, so the log carries the evidence

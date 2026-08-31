@@ -354,10 +354,16 @@ jobs:
 
       - name: Assemble release assets + package.json
         run: |
+          # find, not artifacts/*/a7p-*.mpy: each artifact keeps the
+          # identifier directory cibuildmp collected into
+          # (artifacts/a7p-natmod-x64/mpy6.3-v1.28.0-x64/a7p-*.mpy), because
+          # mp-natmod.yml's upload path globs a directory component and
+          # upload-artifact roots the archive at that pattern's non-glob
+          # prefix. A fixed-depth glob matched nothing.
           python3 scripts/ci/build_micropython_release_assets.py \
             --tag "${{ env.RELEASE_TAG }}" \
             --out-dir release_assets \
-            artifacts/*/a7p-*.mpy
+            $(find artifacts -name 'a7p-*.mpy')
 
       - uses: actions/upload-artifact@v7
         with:
