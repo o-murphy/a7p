@@ -45,7 +45,15 @@ concurrency:
 env:
   # Pinned MicroPython release, not master, so this doesn't flake on
   # upstream churn -- bump deliberately, re-running the whole matrix.
-  MPY_REF: v1.28.0
+  MPY_REF: v1.29.0
+  # Pin cibuildmp's own cache root so the checkout it fetches for the build
+  # is addressable by path afterwards (<cache>/micropython/<tag>) -- the
+  # x64 test step below builds ports/unix straight out of it instead of
+  # cloning a second copy. Same shape mp-usermod.yml already uses, and
+  # workflow-level rather than job-level: cibuildmp's own record 0069
+  # documents two live CI rejections of a job-level `env:` value combining
+  # a runner-scoped expression with a second one in the same scalar.
+  CIBMP_CACHE_PATH: ${{ github.workspace }}/cibmp-cache
 
 jobs:
   natmod:
@@ -71,21 +79,7 @@ jobs:
       # docker/natmod.Dockerfile instead), and the runner only needs a
       # working Docker daemon, already present on ubuntu-latest.
 
-      - uses: ballistics-lab/cibuildmp/.github/actions/clone-micropython@9f30109cc178d5f0b5192850f3a78ae6edfe8b48
-        with:
-          mpy_tag: ${{ env.MPY_REF }}
-          # a7p's own micropython/ subtree already occupies that name at the
-          # workspace root -- clone-micropython's default destination dir
-          # would collide with it (git clone refuses a non-empty target).
-          # Kept only for $MPY_DIR, used by the unix-port test step below --
-          # cibuildmp resolves and caches its own MicroPython checkout
-          # independently (see micropython/cibuildmp.toml's own `build`
-          # selector), so the two are redundant by design, not by
-          # accident: this step's job is $MPY_DIR, not provisioning
-          # cibuildmp's build.
-          path: mpy
-
-      - uses: ballistics-lab/cibuildmp@v0.4.1
+      - uses: ballistics-lab/cibuildmp@v0.5.0
         with:
           package-dir: micropython
           # `build`, not the old CIBMP_MICROPYTHON/CIBMP_ARCHS env pair
@@ -101,15 +95,35 @@ jobs:
 
       - name: Build unix port + run tests (x64 only)
         if: matrix.arch == 'x64'
-        # submodules/deplibs/build in that order -- matches tools/ci.sh's
-        # ci_unix_build_helper exactly (deplibs is a no-op here since
-        # MICROPY_STANDALONE isn't set for this plain build, but calling
-        # it anyway keeps this the same sequence as every port that does
-        # need it, rather than a narrower one this project wrote by hand).
+        # $MPY_DIR is cibuildmp's own checkout, fetched by the build step
+        # above -- this job clones nothing of its own. cibuildmp resolves
+        # the MicroPython source from the selector alone and caches it at
+        # <CIBMP_CACHE_PATH>/micropython/<tag>; a second clone here only
+        # ever downloaded the same tree twice.
+        #
+        # No `make submodules`, deliberately, and its absence is not a
+        # narrowing of tools/ci.sh's own ci_unix_build_helper sequence:
+        # for a real release tag cibuildmp fetches the release tarball
+        # (sources.py's `_fetch_into`), which vendors every lib/
+        # submodule already -- and, having no .git, is a tree that target
+        # could not run in anyway (py/mkrules.mk's `submodules` shells
+        # out to `git submodule update --init`). `deplibs` stays: it is a
+        # no-op for this plain non-MICROPY_STANDALONE build (`deplibs:
+        # $(DEPLIBS)`, empty here) and touches git in no case.
+        #
+        # The .mpy under test is cibuildmp's collected copy -- the same
+        # file this job uploads -- not natmod/build/x64/, which is
+        # cibuildmp's own scratch space. Collected filenames are
+        # identifier-qualified (`a7p-mpy6.3-v1.29.0-x64.mpy`), so it is
+        # re-linked as a7p.mpy first: `import a7p` resolves exactly that
+        # name along MICROPYPATH.
         env:
-          MICROPYPATH: micropython/natmod/build/x64
+          MICROPYPATH: ${{ github.workspace }}/mpy-import
+          MPY_DIR: ${{ env.CIBMP_CACHE_PATH }}/micropython/${{ env.MPY_REF }}
         run: |
-          make -C "$MPY_DIR/ports/unix" submodules
+          mkdir -p "$GITHUB_WORKSPACE/mpy-import"
+          cp micropython/mpyhouse/mpy*-"$MPY_REF"-x64/a7p-*.mpy \
+            "$GITHUB_WORKSPACE/mpy-import/a7p.mpy"
           make -C "$MPY_DIR/ports/unix" deplibs
           make -C "$MPY_DIR/ports/unix" -j"$(nproc)"
           "$MPY_DIR/ports/unix/build-standard/micropython" micropython/tests/test_a7p.py
@@ -119,7 +133,14 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: a7p-natmod-${{ matrix.arch }}
-          path: micropython/natmod/build/${{ matrix.arch }}/*.mpy
+          # cibuildmp's collected output for this identifier, not
+          # natmod/build/<arch>/ -- collect_output() globs that directory
+          # and copies the .mpy out of it into mpyhouse/, so uploading it
+          # shipped the scratch copy rather than the artifact. `mpy*-`
+          # leaves the ABI open exactly as this job's own `build:` input
+          # does: (tag, arch) is already unique, so the glob can only match
+          # the one identifier this leg built.
+          path: micropython/mpyhouse/mpy*-${{ env.MPY_REF }}-${{ matrix.arch }}/*
           if-no-files-found: error
 
   # ── On real ARM silicon: armv7emsp / armv7emdp on a 32-bit ARM Linux host ─
@@ -180,13 +201,20 @@ jobs:
       - name: Checkout a7p
         uses: actions/checkout@v7
 
-      - uses: ballistics-lab/cibuildmp/.github/actions/clone-micropython@9f30109cc178d5f0b5192850f3a78ae6edfe8b48
-        with:
-          mpy_tag: ${{ env.MPY_REF }}
-          # a7p's own micropython/ subtree already occupies that name at the
-          # workspace root -- clone-micropython's default destination dir
-          # would collide with it (git clone refuses a non-empty target).
-          path: mpy
+      - name: Clone MicroPython
+        # Same plain clone as the `natmod` job above, and for the same
+        # reason (cibuildmp record 0073: `.github/actions/*` is a legacy
+        # fallback, not a usage path). Unconditional here, unlike there:
+        # this job runs no cibuildmp step at all, and every step below --
+        # mpy-cross, the armhf host build, the tests -- reads $MPY_DIR.
+        #
+        # Cloned into mpy/, not micropython/: a7p's own micropython/ subtree
+        # already occupies that name at the workspace root, and `git clone`
+        # refuses a non-empty target.
+        run: |
+          git clone --depth=1 --branch "$MPY_REF" \
+            https://github.com/micropython/micropython.git mpy
+          echo "MPY_DIR=$GITHUB_WORKSPACE/mpy" >> "$GITHUB_ENV"
 
       - name: Install the armhf cross toolchain
         run: |
@@ -226,7 +254,27 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: a7p-natmod-${{ matrix.arch }}
-          path: micropython/natmod/build/${{ matrix.arch }}/
+          path: mpy-artifact
+
+      - name: Re-link the collected .mpy as a7p.mpy
+        # The artifact holds cibuildmp's identifier-qualified filename
+        # (`a7p-mpy6.3-v1.29.0-armv7emsp.mpy`); `import a7p` wants exactly
+        # `a7p.mpy` on MICROPYPATH, same as the x64 job above.
+        #
+        # `find`, not a fixed-depth glob: the upload above passes a path
+        # whose *directory* component is a wildcard
+        # (`mpyhouse/mpy*-<tag>-<arch>/*`), and upload-artifact takes the
+        # non-glob prefix of that pattern (`micropython/mpyhouse`) as the
+        # archive root -- so the identifier directory is preserved inside
+        # the artifact and the file lands at
+        # `mpy-artifact/mpy6.3-v1.29.0-armv7emsp/a7p-*.mpy`, not at its
+        # root. A flat `mpy-artifact/a7p-*.mpy` matched nothing and failed
+        # this step for both legs.
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/mpy-import"
+          test "$(find mpy-artifact -name 'a7p-*.mpy' | wc -l)" -eq 1
+          mpy=$(find mpy-artifact -name 'a7p-*.mpy')
+          cp "$mpy" "$GITHUB_WORKSPACE/mpy-import/a7p.mpy"
 
       - name: Run tests
         # `file` and the two probes first, so the log carries the evidence
@@ -234,7 +282,7 @@ jobs:
         # 32-bit ARM binary, the arch it advertises to the .mpy loader, and
         # the float width it was built with.
         env:
-          MICROPYPATH: micropython/natmod/build/${{ matrix.arch }}
+          MICROPYPATH: ${{ github.workspace }}/mpy-import
         run: |
           HOST="$GITHUB_WORKSPACE/mpy-host-${{ matrix.arch }}/micropython"
           file "$HOST"
