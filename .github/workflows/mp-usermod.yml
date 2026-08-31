@@ -203,13 +203,6 @@ jobs:
       - name: Checkout a7p
         uses: actions/checkout@v7
 
-      # cibuildmp installs no emulation itself (cibuildwheel's own rule);
-      # the job that wants it sets it up. Every leg here only ever builds
-      # what its own runner is already native to, so this is defensive
-      # rather than load-bearing -- same as cibuildmp's own build-examples.yml
-      # applies it uniformly across every usermod job, native legs included.
-      - uses: docker/setup-qemu-action@v4
-
       - name: Fetch nanopb
         # usermod's own orchestrator has no per-target pre-build-command
         # (natmod's own cibuildmp.toml key doesn't reach usermod builds at
@@ -291,8 +284,6 @@ jobs:
     steps:
       - name: Checkout a7p
         uses: actions/checkout@v7
-
-      - uses: docker/setup-qemu-action@v4
 
       - name: Fetch nanopb
         run: make -C micropython/natmod fetch-nanopb
