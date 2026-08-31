@@ -356,7 +356,7 @@ jobs:
         run: |
           # find, not artifacts/*/a7p-*.mpy: each artifact keeps the
           # identifier directory cibuildmp collected into
-          # (artifacts/a7p-natmod-x64/mpy6.3-v1.28.0-x64/a7p-*.mpy), because
+          # (artifacts/a7p-natmod-x64/mpy6.3-v1.29.0-x64/a7p-*.mpy), because
           # mp-natmod.yml's upload path globs a directory component and
           # upload-artifact roots the archive at that pattern's non-glob
           # prefix. A fixed-depth glob matched nothing.

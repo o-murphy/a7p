@@ -106,9 +106,12 @@ CFLAGS_EXTRA += -DPB_BUFFER_ONLY=1 -DPB_WITHOUT_64BIT=1 -fno-short-enums
 
 # Link libgcc/libm for compiler helper routines (e.g. soft integer division on
 # targets without hardware divide). nanopb itself needs no libc beyond
-# memcpy/memset/memmove -- recent mpy_ld.py (unreleased as of MicroPython
-# v1.28.0) resolves those internally regardless of what's linked; see the
-# libc.a block below for versions that don't.
+# memcpy/memset/memmove -- mpy_ld.py resolves those internally regardless of
+# what's linked as of v1.29.0, the tag CI now pins: it special-cases the
+# three by name, while v1.28.0's own copy does not mention them at all
+# (diffed between the two tags, not inferred from the version bump). The
+# libc.a block below stays anyway -- it is what covers every older MPY_DIR a
+# local build can still be pointed at.
 LINK_RUNTIME = 1
 
 ifeq ($(wildcard $(MPY_DIR)/py/dynruntime.mk),)

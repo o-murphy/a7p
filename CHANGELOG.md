@@ -57,7 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `micropython/tools/nmip.py` (bootstrap for the tagged-`urls` format,
   until the upstream `mip` support for it ships).
 - CI: the `usermod` matrix now also covers `unix` on `x64`/`x86`, and two new
-  jobs cover `esp32` (`BOARD=ESP32_GENERIC`, ESP-IDF v5.5.1, **build-only** —
+  jobs cover `esp32` (`BOARD=ESP32_GENERIC`, ESP-IDF v5.5.2, **build-only** —
   there is no esp32 emulator to run a firmware image on) and `rp2040`
   (`BOARD=RPI_PICO`, built **and run** under the
   [rp2040py](https://github.com/o-murphy/rp2040py) emulator via
@@ -196,8 +196,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `micropython =`/`archs =` no longer exist as config keys at all —
   `build`/`skip` glob against the real `mpy{abi}-{tag}-{arch}` identifier
   instead. `micropython/cibuildmp.toml` drops its `[natmod]` table
-  accordingly (`build = "mpy*-v1.28.0-*"` at the top level replaces
-  `micropython = "v1.28.0"` + `[natmod] archs = [...]`), and
+  accordingly (`build = "mpy*-v1.29.0-*"` at the top level replaces
+  `micropython = "v1.29.0"` + `[natmod] archs = [...]`), and
   `mp-natmod.yml`'s per-arch matrix leg now passes its own `build:` action
   input (`mpy*-${{ env.MPY_REF }}-${{ matrix.arch }}`) instead of the now-
   meaningless `CIBMP_MICROPYTHON`/`CIBMP_ARCHS` env vars. Also drops the
@@ -251,17 +251,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   directory it was built in. Each upload is now one path — the identifier's
   whole collected directory. Collected filenames are identifier-qualified,
   so `usermod-windows-test` carries `identifier` in its own matrix
-  (`micropython-v1.28.0-win32.exe`), both natmod test jobs re-link the
+  (`micropython-v1.29.0-win32.exe`), both natmod test jobs re-link the
   collected `.mpy` as `a7p.mpy` before putting it on `MICROPYPATH`
   (`import a7p` resolves that exact name — verified live, including that
   `MICROPYPATH` replaces `sys.path` wholesale, `.frozen` included, so the
-  `.mpy` is what actually loads), and `release.yml` globs
-  `artifacts/*/a7p-*.mpy` (`build_micropython_release_assets.py` derives
+  `.mpy` is what actually loads), and `release.yml` finds each
+  collected `.mpy` with `find` (`build_micropython_release_assets.py` derives
   each asset's real name from the `.mpy` header, not its filename —
   re-checked against a real collected file). The one step still reading the
   build tree is `webassembly`'s: cibuildmp collects a single file per
   identifier, and an emscripten `micropython.mjs` needs the
   `micropython.wasm` sibling that collection drops.
+- CI: the pinned MicroPython release moves from `v1.28.0` to `v1.29.0`
+  (`MPY_REF` in both workflows, every `identifier:` matrix value, and
+  `micropython/cibuildmp.toml`'s own `build` globs). No cibuildmp change is
+  needed for it: `v1.29.0` already has rows in that project's
+  `resources/build-platforms.toml` as of the `v0.4.2` this repo pins, its
+  Docker image groups are keyed by toolchain/platform tag rather than by
+  MicroPython tag, and the natmod axis is unchanged across the bump (the
+  same ten `dynruntime.mk` arches on the same `mpy6.3` ABI, so collected
+  filenames only change their tag component). Two things do move with it:
+  `esp32` resolves ESP-IDF `v5.5.2` instead of `v5.5.1`, and `v1.29.0`'s
+  `tools/mpy_ld.py` now resolves `memcpy`/`memset`/`memmove` internally --
+  `natmod/Makefile` keeps linking `libc.a` for the cross-compiled arches
+  anyway, since that is what covers an older `MPY_DIR` a local build can
+  still be pointed at.
+- CI: `mp-natmod.yml`'s `natmod-arm-linux` job re-links the collected `.mpy`
+  by `find` rather than a flat `mpy-artifact/a7p-*.mpy` glob, which matched
+  nothing and failed both legs. `upload-artifact` roots its archive at the
+  non-glob prefix of the path it is given, so a path whose *directory*
+  component is a wildcard (`mpyhouse/mpy*-<tag>-<arch>/*`) keeps the
+  identifier directory inside the artifact. Same fix in `release.yml`, where
+  the equivalent fixed-depth glob would have failed the next release rather
+  than CI.
+- CI: `mp-natmod.yml` no longer uses `cibuildmp`'s `clone-micropython`
+  composite action — the last thing in this repo still reaching into that
+  `.github/actions/*` layer, which never invokes the `cibuildmp` CLI at all
+  and is a permanent legacy fallback rather than a second supported
+  integration path (cibuildmp record 0073).
+  - The `natmod` job now clones nothing at all. cibuildmp resolves the
+    MicroPython source from the `build` selector by itself and caches it at
+    `<CIBMP_CACHE_PATH>/micropython/<tag>`, so the x64 test step builds
+    `ports/unix` straight out of that checkout (`CIBMP_CACHE_PATH` is
+    pinned in workflow-level `env:` to make the path addressable). Every
+    one of the ten matrix legs used to clone MicroPython; nine never opened
+    it. `make submodules` is dropped along with the clone: for a release
+    tag cibuildmp fetches the release tarball, which vendors every `lib/`
+    submodule and has no `.git` for that target to run in. `deplibs` stays
+    — a no-op for this non-`MICROPY_STANDALONE` build, and git-free.
+  - `natmod-arm-linux` keeps a checkout of its own, now a plain
+    `git clone --depth=1` rather than the composite action: no cibuildmp
+    step runs in that job at all, and its own `make submodules` needs a
+    real git tree.
 
 ## [1.2.4] - 2026-07-16
 
