@@ -79,7 +79,7 @@ jobs:
       # docker/natmod.Dockerfile instead), and the runner only needs a
       # working Docker daemon, already present on ubuntu-latest.
 
-      - uses: ballistics-lab/cibuildmp@v0.4.2
+      - uses: ballistics-lab/cibuildmp@fix/companions
         with:
           package-dir: micropython
           # `build`, not the old CIBMP_MICROPYTHON/CIBMP_ARCHS env pair

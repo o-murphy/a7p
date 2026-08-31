@@ -220,7 +220,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (${{ matrix.identifier }})
-        uses: ballistics-lab/cibuildmp@v0.4.2
+        uses: ballistics-lab/cibuildmp@fix/companions
         with:
           package-dir: micropython
           build: ${{ matrix.identifier }}
@@ -239,9 +239,19 @@ jobs:
         #
         # unix runs the same full suite (load/dump included), same as
         # mp-natmod.yml's x64 unix build.
+        #
+        # Both branches run out of `mpyhouse/` -- the collected artifact
+        # this job then uploads -- never the port's own build directory.
+        # The wasm branch used to read the `.mjs` straight out of
+        # cibuildmp's cache, where `micropython.wasm` sits beside it, so
+        # this job stayed green while the artifact it uploaded was missing
+        # that file entirely and could not load at all (cibuildmp record
+        # 0079; 55,234 bytes uploaded where a working pair is ~281,000).
+        # Testing the thing that ships is the whole point of the path
+        # below.
         run: |
           if [ "${{ matrix.port }}" = "webassembly" ]; then
-            node micropython/tests/run_wasm_tests.mjs "$CIBMP_CACHE_PATH/micropython/$MPY_REF/ports/webassembly/build-${{ matrix.identifier }}/micropython.mjs"
+            node micropython/tests/run_wasm_tests.mjs "micropython/mpyhouse/${{ matrix.identifier }}/micropython-${{ matrix.identifier }}.mjs"
           else
             BIN="micropython/mpyhouse/${{ matrix.identifier }}/micropython-${{ matrix.identifier }}"
             "$BIN" -c "import _a7p; print(_a7p._decode)"
@@ -288,7 +298,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (${{ matrix.identifier }})
-        uses: ballistics-lab/cibuildmp@v0.4.2
+        uses: ballistics-lab/cibuildmp@fix/companions
         with:
           package-dir: micropython
           build: ${{ matrix.identifier }}
@@ -448,7 +458,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (${{ matrix.identifier }})
-        uses: ballistics-lab/cibuildmp@v0.4.2
+        uses: ballistics-lab/cibuildmp@fix/companions
         with:
           package-dir: micropython
           build: ${{ matrix.identifier }}
@@ -513,7 +523,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (v1.29.0-qemu-MPS2_AN385)
-        uses: ballistics-lab/cibuildmp@v0.4.2
+        uses: ballistics-lab/cibuildmp@fix/companions
         with:
           package-dir: micropython
           build: v1.29.0-qemu-MPS2_AN385
@@ -572,7 +582,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (v1.29.0-esp32-ESP32_GENERIC)
-        uses: ballistics-lab/cibuildmp@v0.4.2
+        uses: ballistics-lab/cibuildmp@fix/companions
         with:
           package-dir: micropython
           build: v1.29.0-esp32-ESP32_GENERIC
@@ -621,7 +631,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (v1.29.0-rp2-RPI_PICO)
-        uses: ballistics-lab/cibuildmp@v0.4.2
+        uses: ballistics-lab/cibuildmp@fix/companions
         with:
           package-dir: micropython
           build: v1.29.0-rp2-RPI_PICO
