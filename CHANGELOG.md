@@ -236,6 +236,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and would drop `webassembly`'s required `.wasm` sibling) rather than a
   workflow-managed `clone-/fetch-micropython` checkout, which this file no
   longer needs at all.
+- CI: every `ballistics-lab/cibuildmp` reference in `mp-natmod.yml`/
+  `mp-usermod.yml` is repinned to `v0.4.2`. `clone-micropython` moves off a
+  raw SHA that was never on the default branch (`refs/pull/8/head`, a PR
+  head) onto that tag's own commit.
+- CI: **both workflows now run and upload `micropython/mpyhouse/<identifier>/`
+  — cibuildmp's own collected output — instead of reaching into
+  `ports/<port>/build-<identifier>/` (usermod) or `natmod/build/<arch>/`
+  (natmod) inside its cache.** Those are cibuildmp's scratch directories, so
+  every job was testing one file and uploading another: for a dynamically
+  linked `unix` cell the collected copy is the binary *plus* the `lib/` its
+  `patchelf --set-rpath '$ORIGIN/lib'` points at (cibuildmp's own record
+  0070), and an artifact without that sidecar cannot run outside the
+  directory it was built in. Each upload is now one path — the identifier's
+  whole collected directory. Collected filenames are identifier-qualified,
+  so `usermod-windows-test` carries `identifier` in its own matrix
+  (`micropython-v1.28.0-win32.exe`), both natmod test jobs re-link the
+  collected `.mpy` as `a7p.mpy` before putting it on `MICROPYPATH`
+  (`import a7p` resolves that exact name — verified live, including that
+  `MICROPYPATH` replaces `sys.path` wholesale, `.frozen` included, so the
+  `.mpy` is what actually loads), and `release.yml` globs
+  `artifacts/*/a7p-*.mpy` (`build_micropython_release_assets.py` derives
+  each asset's real name from the `.mpy` header, not its filename —
+  re-checked against a real collected file). The one step still reading the
+  build tree is `webassembly`'s: cibuildmp collects a single file per
+  identifier, and an emscripten `micropython.mjs` needs the
+  `micropython.wasm` sibling that collection drops.
 
 ## [1.2.4] - 2026-07-16
 

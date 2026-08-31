@@ -71,7 +71,7 @@ jobs:
       # docker/natmod.Dockerfile instead), and the runner only needs a
       # working Docker daemon, already present on ubuntu-latest.
 
-      - uses: ballistics-lab/cibuildmp/.github/actions/clone-micropython@9f30109cc178d5f0b5192850f3a78ae6edfe8b48
+      - uses: ballistics-lab/cibuildmp/.github/actions/clone-micropython@495d43a4d5b215a10809f24de2e7164087335e6d # v0.4.2
         with:
           mpy_tag: ${{ env.MPY_REF }}
           # a7p's own micropython/ subtree already occupies that name at the
@@ -85,7 +85,7 @@ jobs:
           # cibuildmp's build.
           path: mpy
 
-      - uses: ballistics-lab/cibuildmp@v0.4.1
+      - uses: ballistics-lab/cibuildmp@v0.4.2
         with:
           package-dir: micropython
           # `build`, not the old CIBMP_MICROPYTHON/CIBMP_ARCHS env pair
@@ -106,9 +106,19 @@ jobs:
         # MICROPY_STANDALONE isn't set for this plain build, but calling
         # it anyway keeps this the same sequence as every port that does
         # need it, rather than a narrower one this project wrote by hand).
+        #
+        # The .mpy under test is cibuildmp's collected copy -- the same
+        # file this job uploads -- not natmod/build/x64/, which is
+        # cibuildmp's own scratch space. Collected filenames are
+        # identifier-qualified (`a7p-mpy6.3-v1.28.0-x64.mpy`), so it is
+        # re-linked as a7p.mpy first: `import a7p` resolves exactly that
+        # name along MICROPYPATH.
         env:
-          MICROPYPATH: micropython/natmod/build/x64
+          MICROPYPATH: ${{ github.workspace }}/mpy-import
         run: |
+          mkdir -p "$GITHUB_WORKSPACE/mpy-import"
+          cp micropython/mpyhouse/mpy*-"$MPY_REF"-x64/a7p-*.mpy \
+            "$GITHUB_WORKSPACE/mpy-import/a7p.mpy"
           make -C "$MPY_DIR/ports/unix" submodules
           make -C "$MPY_DIR/ports/unix" deplibs
           make -C "$MPY_DIR/ports/unix" -j"$(nproc)"
@@ -119,7 +129,14 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: a7p-natmod-${{ matrix.arch }}
-          path: micropython/natmod/build/${{ matrix.arch }}/*.mpy
+          # cibuildmp's collected output for this identifier, not
+          # natmod/build/<arch>/ -- collect_output() globs that directory
+          # and copies the .mpy out of it into mpyhouse/, so uploading it
+          # shipped the scratch copy rather than the artifact. `mpy*-`
+          # leaves the ABI open exactly as this job's own `build:` input
+          # does: (tag, arch) is already unique, so the glob can only match
+          # the one identifier this leg built.
+          path: micropython/mpyhouse/mpy*-${{ env.MPY_REF }}-${{ matrix.arch }}/*
           if-no-files-found: error
 
   # ── On real ARM silicon: armv7emsp / armv7emdp on a 32-bit ARM Linux host ─
@@ -180,7 +197,7 @@ jobs:
       - name: Checkout a7p
         uses: actions/checkout@v7
 
-      - uses: ballistics-lab/cibuildmp/.github/actions/clone-micropython@9f30109cc178d5f0b5192850f3a78ae6edfe8b48
+      - uses: ballistics-lab/cibuildmp/.github/actions/clone-micropython@495d43a4d5b215a10809f24de2e7164087335e6d # v0.4.2
         with:
           mpy_tag: ${{ env.MPY_REF }}
           # a7p's own micropython/ subtree already occupies that name at the
@@ -226,7 +243,15 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: a7p-natmod-${{ matrix.arch }}
-          path: micropython/natmod/build/${{ matrix.arch }}/
+          path: mpy-artifact
+
+      - name: Re-link the collected .mpy as a7p.mpy
+        # The artifact holds cibuildmp's identifier-qualified filename
+        # (`a7p-mpy6.3-v1.28.0-armv7emsp.mpy`); `import a7p` wants exactly
+        # `a7p.mpy` on MICROPYPATH, same as the x64 job above.
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/mpy-import"
+          cp mpy-artifact/a7p-*.mpy "$GITHUB_WORKSPACE/mpy-import/a7p.mpy"
 
       - name: Run tests
         # `file` and the two probes first, so the log carries the evidence
@@ -234,7 +259,7 @@ jobs:
         # 32-bit ARM binary, the arch it advertises to the .mpy loader, and
         # the float width it was built with.
         env:
-          MICROPYPATH: micropython/natmod/build/${{ matrix.arch }}
+          MICROPYPATH: ${{ github.workspace }}/mpy-import
         run: |
           HOST="$GITHUB_WORKSPACE/mpy-host-${{ matrix.arch }}/micropython"
           file "$HOST"

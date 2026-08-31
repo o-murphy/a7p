@@ -23,13 +23,23 @@ name: usermod
 # all), so building and *running* it are two different jobs -- see
 # usermod-windows-build/usermod-windows-test below.
 #
-# cibuildmp resolves and caches its own MicroPython checkout independently
-# of anything this workflow does (CIBMP_CACHE_PATH below pins that cache to
-# a known, workspace-relative path so later steps can find a target's own
-# build tree to run/upload -- `cibuildmp`'s own `mpyhouse/<identifier>/`
-# copy is not used for that: it holds one file per identifier, which loses
-# `webassembly`'s required `.wasm` sibling next to `micropython.mjs`, so
-# every job here reads straight from cibuildmp's real build tree instead).
+# Every job runs and uploads `micropython/mpyhouse/<identifier>/` --
+# cibuildmp's own collected output. Not `ports/<port>/build-<identifier>/`
+# inside its cache, which is cibuildmp's scratch space: running and
+# shipping from there tests one file and hands the user another, which is
+# exactly the shape of cibuildmp's own record 0070 (a repaired `unix`
+# binary that worked in its build directory and failed from its collected
+# one, because the `lib/` its rpath points at had not been collected with
+# it). Collected filenames are identifier-qualified
+# (`micropython-<identifier>`, `firmware-<identifier>.uf2`), so paths below
+# name the identifier twice: once for the directory, once in the filename.
+#
+# `webassembly`'s run step is the one exception, and it is a gap in
+# cibuildmp rather than a choice here: it collects one file per identifier,
+# so `mpyhouse/` gets `micropython-<id>.mjs` without the
+# `micropython.wasm` that file loads by name at runtime. That step still
+# reads the build tree (hence CIBMP_CACHE_PATH below); its artifact is the
+# collected directory like every other row's.
 #
 # Scope policy: this workflow only builds usermod where natmod ISN'T
 # possible (no matching dynruntime.mk ARCH, or the port disables native
@@ -205,7 +215,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (${{ matrix.identifier }})
-        uses: ballistics-lab/cibuildmp@v0.4.1
+        uses: ballistics-lab/cibuildmp@v0.4.2
         with:
           package-dir: micropython
           build: ${{ matrix.identifier }}
@@ -228,7 +238,7 @@ jobs:
           if [ "${{ matrix.port }}" = "webassembly" ]; then
             node micropython/tests/run_wasm_tests.mjs "$CIBMP_CACHE_PATH/micropython/$MPY_REF/ports/webassembly/build-${{ matrix.identifier }}/micropython.mjs"
           else
-            BIN="$CIBMP_CACHE_PATH/micropython/$MPY_REF/ports/unix/build-${{ matrix.identifier }}/micropython"
+            BIN="micropython/mpyhouse/${{ matrix.identifier }}/micropython-${{ matrix.identifier }}"
             "$BIN" -c "import _a7p; print(_a7p._decode)"
             "$BIN" -c "import a7p; print(a7p.PAYLOAD_SIZE)"
             "$BIN" micropython/tests/test_a7p.py
@@ -239,11 +249,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: a7p-usermod-${{ matrix.port }}-${{ matrix.arch_label }}
-          path: |
-            ${{ env.CIBMP_CACHE_PATH }}/micropython/${{ env.MPY_REF }}/ports/webassembly/build-${{ matrix.identifier }}/micropython.mjs
-            ${{ env.CIBMP_CACHE_PATH }}/micropython/${{ env.MPY_REF }}/ports/webassembly/build-${{ matrix.identifier }}/micropython.wasm
-            ${{ env.CIBMP_CACHE_PATH }}/micropython/${{ env.MPY_REF }}/ports/unix/build-${{ matrix.identifier }}/micropython
-          if-no-files-found: warn
+          path: micropython/mpyhouse/${{ matrix.identifier }}/
+          if-no-files-found: error
 
   # ── usermod: windows, build (Linux, cross-compiled) ─────────────────────────
   #
@@ -276,7 +283,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (${{ matrix.identifier }})
-        uses: ballistics-lab/cibuildmp@v0.4.1
+        uses: ballistics-lab/cibuildmp@v0.4.2
         with:
           package-dir: micropython
           build: ${{ matrix.identifier }}
@@ -285,7 +292,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: a7p-usermod-windows-${{ matrix.arch_label }}
-          path: ${{ env.CIBMP_CACHE_PATH }}/micropython/${{ env.MPY_REF }}/ports/windows/build-${{ matrix.identifier }}/micropython.exe
+          path: micropython/mpyhouse/${{ matrix.identifier }}/
           if-no-files-found: error
 
   # ── usermod: windows, run (real Windows hosts) ──────────────────────────────
@@ -302,12 +309,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # `identifier` here too, not just in usermod-windows-build: the
+        # artifact carries cibuildmp's collected filename, which is
+        # identifier-qualified (`micropython-v1.28.0-win32.exe`), not the
+        # port's own bare `micropython.exe`.
         include:
           - arch_label: x86
+            identifier: v1.28.0-win32
             runs_on: windows-latest
           - arch_label: x64
+            identifier: v1.28.0-win_amd64
             runs_on: windows-latest
           - arch_label: arm64
+            identifier: v1.28.0-win_arm64
             runs_on: windows-11-arm
     steps:
       - name: Checkout a7p
@@ -326,10 +340,11 @@ jobs:
         # (_a7p._md5(), src/md5.c) instead of hashlib, so the full suite
         # runs here same as everywhere else.
         run: |
-          .\build\micropython.exe -c "import _a7p; print(_a7p._decode)"
-          .\build\micropython.exe -c "import a7p; print(a7p.PAYLOAD_SIZE)"
-          .\build\micropython.exe micropython\tests\test_a7p.py
-          .\build\micropython.exe micropython\tests\test_validate.py
+          $exe = ".\build\micropython-${{ matrix.identifier }}.exe"
+          & $exe -c "import _a7p; print(_a7p._decode)"
+          & $exe -c "import a7p; print(a7p.PAYLOAD_SIZE)"
+          & $exe micropython\tests\test_a7p.py
+          & $exe micropython\tests\test_validate.py
 
   # ── usermod: unix-armhf (real AArch32), unix-mipsel (cross, via QEMU) ───────
   #
@@ -428,7 +443,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (${{ matrix.identifier }})
-        uses: ballistics-lab/cibuildmp@v0.4.1
+        uses: ballistics-lab/cibuildmp@v0.4.2
         with:
           package-dir: micropython
           build: ${{ matrix.identifier }}
@@ -441,7 +456,7 @@ jobs:
         # runner executes the 32-bit binary itself. `file` is printed first
         # so the log records which of the two actually happened.
         run: |
-          BIN="$CIBMP_CACHE_PATH/micropython/$MPY_REF/ports/unix/build-${{ matrix.identifier }}/micropython"
+          BIN="micropython/mpyhouse/${{ matrix.identifier }}/micropython-${{ matrix.identifier }}"
           file "$BIN"
           "$BIN" -c "import _a7p; print(_a7p._decode)"
           "$BIN" -c "import a7p; print(a7p.PAYLOAD_SIZE)"
@@ -452,7 +467,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: a7p-usermod-unix-${{ matrix.arch_label }}
-          path: ${{ env.CIBMP_CACHE_PATH }}/micropython/${{ env.MPY_REF }}/ports/unix/build-${{ matrix.identifier }}/micropython
+          path: micropython/mpyhouse/${{ matrix.identifier }}/
           if-no-files-found: error
 
   # ── usermod: armv7m on bare-metal QEMU (Cortex-M3) ──────────────────────────
@@ -493,7 +508,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (v1.28.0-qemu-MPS2_AN385)
-        uses: ballistics-lab/cibuildmp@v0.4.1
+        uses: ballistics-lab/cibuildmp@v0.4.2
         with:
           package-dir: micropython
           build: v1.28.0-qemu-MPS2_AN385
@@ -511,13 +526,13 @@ jobs:
           MPY_DIR: ${{ env.CIBMP_CACHE_PATH }}/micropython/${{ env.MPY_REF }}
         run: |
           python3 micropython/ci/run_qemu.py \
-            "$CIBMP_CACHE_PATH/micropython/$MPY_REF/ports/qemu/build-v1.28.0-qemu-MPS2_AN385/firmware.elf"
+            "micropython/mpyhouse/v1.28.0-qemu-MPS2_AN385/firmware-v1.28.0-qemu-MPS2_AN385.elf"
 
       - name: Upload build (qemu-armv7m)
         uses: actions/upload-artifact@v7
         with:
           name: a7p-usermod-qemu-armv7m
-          path: ${{ env.CIBMP_CACHE_PATH }}/micropython/${{ env.MPY_REF }}/ports/qemu/build-v1.28.0-qemu-MPS2_AN385/firmware.elf
+          path: micropython/mpyhouse/v1.28.0-qemu-MPS2_AN385/
           if-no-files-found: error
 
   # ── usermod: ESP32, build-only ──────────────────────────────────────────────
@@ -550,7 +565,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (v1.28.0-esp32-ESP32_GENERIC)
-        uses: ballistics-lab/cibuildmp@v0.4.1
+        uses: ballistics-lab/cibuildmp@v0.4.2
         with:
           package-dir: micropython
           build: v1.28.0-esp32-ESP32_GENERIC
@@ -559,9 +574,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: a7p-usermod-esp32
-          path: |
-            ${{ env.CIBMP_CACHE_PATH }}/micropython/${{ env.MPY_REF }}/ports/esp32/build-ESP32_GENERIC/micropython.bin
-            ${{ env.CIBMP_CACHE_PATH }}/micropython/${{ env.MPY_REF }}/ports/esp32/build-ESP32_GENERIC/firmware.bin
+          path: micropython/mpyhouse/v1.28.0-esp32-ESP32_GENERIC/
           if-no-files-found: error
 
   # ── usermod: RP2040, build + run under the rp2040py emulator ────────────────
@@ -601,7 +614,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (v1.28.0-rp2-RPI_PICO)
-        uses: ballistics-lab/cibuildmp@v0.4.1
+        uses: ballistics-lab/cibuildmp@v0.4.2
         with:
           package-dir: micropython
           build: v1.28.0-rp2-RPI_PICO
@@ -613,11 +626,11 @@ jobs:
       - name: Run test_a7p_core.py on the emulated RP2040
         run: |
           python3 micropython/ci/run_rp2040py.py \
-            "$CIBMP_CACHE_PATH/micropython/$MPY_REF/ports/rp2/build-RPI_PICO/firmware.uf2"
+            "micropython/mpyhouse/v1.28.0-rp2-RPI_PICO/firmware-v1.28.0-rp2-RPI_PICO.uf2"
 
       - name: Upload build (rp2040)
         uses: actions/upload-artifact@v7
         with:
           name: a7p-usermod-rp2040
-          path: ${{ env.CIBMP_CACHE_PATH }}/micropython/${{ env.MPY_REF }}/ports/rp2/build-RPI_PICO/firmware.uf2
+          path: micropython/mpyhouse/v1.28.0-rp2-RPI_PICO/
           if-no-files-found: error
