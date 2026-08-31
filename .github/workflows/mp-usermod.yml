@@ -34,12 +34,14 @@ name: usermod
 # (`micropython-<identifier>`, `firmware-<identifier>.uf2`), so paths below
 # name the identifier twice: once for the directory, once in the filename.
 #
-# `webassembly`'s run step is the one exception, and it is a gap in
-# cibuildmp rather than a choice here: it collects one file per identifier,
-# so `mpyhouse/` gets `micropython-<id>.mjs` without the
-# `micropython.wasm` that file loads by name at runtime. That step still
-# reads the build tree (hence CIBMP_CACHE_PATH below); its artifact is the
-# collected directory like every other row's.
+# `webassembly` used to be the one exception here -- cibuildmp's own
+# collector grabbed only `micropython-<id>.mjs`, missing the
+# `micropython.wasm` that file loads by name at runtime, so its run step
+# read the build tree directly instead of the collected `mpyhouse/`
+# (cibuildmp record 0079). Fixed upstream of this pin: v0.5.0 collects the
+# `.wasm` companion alongside the `.mjs`, so this row now reads out of
+# `mpyhouse/` like every other one below -- see that job's own "Run tests"
+# step for the current, accurate account.
 #
 # Scope policy: this workflow only builds usermod where natmod ISN'T
 # possible (no matching dynruntime.mk ARCH, or the port disables native
