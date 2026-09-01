@@ -314,7 +314,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   caller-supplied, so a local build against an older checkout still has to
   leave that directory clean.
 - CI: every `ballistics-lab/cibuildmp` reference in `mp-natmod.yml`/
-  `mp-usermod.yml` is repinned from `v0.5.0` to `v0.6.1`.
+  `mp-usermod.yml` is repinned from `v0.5.0` to `v0.6.1`. That pin renames
+  the `unix`/`mipsel` image from `manylinux_2_39_mipsel` to
+  `manylinux_2_41_mipsel` (a glibc bump, per cibuildmp's own
+  `resources/build-platforms.toml`); `micropython/cibuildmp.toml`'s `build`
+  glob, `mp-usermod.yml`'s `usermod-cross` matrix `identifier`, and
+  `micropython/README.md`'s per-port table follow it. Every other
+  identifier this repo pins (`armv7l`, `x86_64`/`i686`/`aarch64`, `win*`,
+  `wasm32`, `qemu-MPS2_AN385`, `esp32-ESP32_GENERIC`, `rp2-RPI_PICO`) is
+  unchanged between the two tags.
 
 ## [1.2.4] - 2026-07-16
 

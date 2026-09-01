@@ -410,7 +410,7 @@ jobs:
             identifier: v1.29.0-manylinux_2_31_armv7l
             runs_on: ubuntu-24.04-arm
           - arch_label: mipsel
-            identifier: v1.29.0-manylinux_2_39_mipsel
+            identifier: v1.29.0-manylinux_2_41_mipsel
             runs_on: ubuntu-latest
     steps:
       - name: Checkout a7p
