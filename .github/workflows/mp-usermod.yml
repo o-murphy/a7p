@@ -215,7 +215,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (${{ matrix.identifier }})
-        uses: ballistics-lab/cibuildmp@v0.5.0
+        uses: ballistics-lab/cibuildmp@v0.6.1
         with:
           package-dir: micropython
           build: ${{ matrix.identifier }}
@@ -291,7 +291,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (${{ matrix.identifier }})
-        uses: ballistics-lab/cibuildmp@v0.5.0
+        uses: ballistics-lab/cibuildmp@v0.6.1
         with:
           package-dir: micropython
           build: ${{ matrix.identifier }}
@@ -451,7 +451,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (${{ matrix.identifier }})
-        uses: ballistics-lab/cibuildmp@v0.5.0
+        uses: ballistics-lab/cibuildmp@v0.6.1
         with:
           package-dir: micropython
           build: ${{ matrix.identifier }}
@@ -516,7 +516,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (v1.29.0-qemu-MPS2_AN385)
-        uses: ballistics-lab/cibuildmp@v0.5.0
+        uses: ballistics-lab/cibuildmp@v0.6.1
         with:
           package-dir: micropython
           build: v1.29.0-qemu-MPS2_AN385
@@ -575,7 +575,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (v1.29.0-esp32-ESP32_GENERIC)
-        uses: ballistics-lab/cibuildmp@v0.5.0
+        uses: ballistics-lab/cibuildmp@v0.6.1
         with:
           package-dir: micropython
           build: v1.29.0-esp32-ESP32_GENERIC
@@ -624,7 +624,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (v1.29.0-rp2-RPI_PICO)
-        uses: ballistics-lab/cibuildmp@v0.5.0
+        uses: ballistics-lab/cibuildmp@v0.6.1
         with:
           package-dir: micropython
           build: v1.29.0-rp2-RPI_PICO

@@ -313,6 +313,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on the first run against the new pin. Both names stay listed: `MPY_DIR` is
   caller-supplied, so a local build against an older checkout still has to
   leave that directory clean.
+- CI: every `ballistics-lab/cibuildmp` reference in `mp-natmod.yml`/
+  `mp-usermod.yml` is repinned from `v0.5.0` to `v0.6.1`.
 
 ## [1.2.4] - 2026-07-16
 
