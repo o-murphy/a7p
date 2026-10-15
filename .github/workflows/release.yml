@@ -236,13 +236,14 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-          registry-url: https://registry.npmjs.org/
+          # No registry-url: it makes setup-node write an .npmrc with
+          # `_authToken=${NODE_AUTH_TOKEN}`, which setup-node@v7 no longer
+          # backs with a placeholder value -- yarn 1 then aborts on the
+          # unset env var. npm defaults to registry.npmjs.org and uses OIDC
+          # trusted publishing (id-token: write) with no token at all.
 
       - run: yarn install --frozen-lockfile
       - run: yarn build
-
-      - name: Use OIDC auth
-        run: npm config delete //registry.npmjs.org/:_authToken
 
       - name: Publish to npm
         run: |
