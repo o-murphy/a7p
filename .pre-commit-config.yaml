@@ -9,7 +9,7 @@ repos:
       - id: uv-lock
         name: uv lock check
         entry: uv
-        args: ["lock", "--project", "py", "--c"]
+        args: ["lock", "--project", "py", "--check"]
         language: system
         pass_filenames: false
         files: '^py/(pyproject\.toml|uv\.lock)$'
@@ -172,7 +172,7 @@ repos:
           bash -c 'cd dart;
           out=$(dart pub publish --dry-run 2>&1); rc=$?; echo "$out";
           if [ $rc -eq 65 ] && echo "$out" | grep -q "^Package has 1 warning" &&
-          echo "$out" | grep -q "checked-in files are modified in git"; then exit 0; fi;
+          echo "$out" | grep -Eq "checked-in files? (is|are) modified in git"; then exit 0; fi;
           exit $rc'
         language: system
         pass_filenames: false

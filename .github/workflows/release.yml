@@ -53,6 +53,12 @@ jobs:
   # staying duplicated in per-package workflows; without this leg a release
   # could ship without ever running those checks.
   test-pre-commit:
+    # pre-commit.yml declares `contents: write` (PR auto-fix push); a called
+    # workflow can't exceed its caller's permissions, and the repo default
+    # token is read-only -- without this the whole run is rejected at
+    # startup ("workflow file issue") before any job runs.
+    permissions:
+      contents: write
     uses: ./.github/workflows/pre-commit.yml
 
   # Single guard job downstream jobs depend on, instead of each repeating
