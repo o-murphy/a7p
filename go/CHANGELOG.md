@@ -18,6 +18,11 @@ to preserve (unlike `js`/`dart`).
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
 ## [Unreleased]
 
+### Changed
+
+- Dependencies: `santhosh-tekuri/jsonschema/v6` 6.0.3,
+  `google.golang.org/protobuf` 1.36.12; regenerated `profedit.pb.go`.
+
 ## [1.2.4] - 2026-07-16
 
 ### Changed

@@ -12,6 +12,11 @@ regenerate.
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
 ## [Unreleased]
 
+### Changed
+
+- `pubspec.lock` is no longer tracked (library package; ignored via
+  `dart/.gitignore`). No API changes.
+
 ## [1.2.4] - 2026-07-16
 
 ### Changed

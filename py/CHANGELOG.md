@@ -16,6 +16,25 @@ to preserve (unlike `js`/`dart`).
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
 ## [Unreleased]
 
+### Added
+
+- Python 3.14 and 3.15 trove classifiers (3.15 tested).
+
+### Changed
+
+- `A7PFactory(...)` no longer uses shared mutable instances (`Meta()`,
+  `Barrel()`, …) as parameter defaults; omitted arguments are now created
+  fresh on each call (`None` defaults).
+- `A7PFactory(...)` raises `TypeError` instead of `ValueError` when
+  `distances` is neither a `DistanceTable` nor a tuple.
+- Lint/format cleanups across the package (`OSError` instead of the
+  `IOError` alias, f-strings, sorted `__all__`/imports). No behavior change.
+
+### Removed
+
+- Unused `cel-python` and `google-re2` dependencies (and their per-version
+  `google-re2` pins).
+
 ## [1.2.4] - 2026-07-16
 
 ### Removed

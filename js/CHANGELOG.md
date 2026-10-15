@@ -12,6 +12,10 @@ regenerate.
 <!-- BEGIN AUTO-GENERATED FROM ROOT CHANGELOG.md -->
 ## [Unreleased]
 
+### Changed
+
+- Dev toolchain: TypeScript 7, plus routine dependency bumps.
+
 ## [1.2.4] - 2026-07-16
 
 ### Changed
