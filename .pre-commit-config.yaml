@@ -7,9 +7,9 @@ repos:
     hooks:
       # py/
       - id: uv-lock
-        name: uv lock upgrade
+        name: uv lock check
         entry: uv
-        args: ["lock", "--project", "py", "--upgrade"]
+        args: ["lock", "--project", "py", "--c"]
         language: system
         pass_filenames: false
         files: '^py/(pyproject\.toml|uv\.lock)$'
@@ -27,9 +27,17 @@ repos:
         entry: uv
         args:
           [
-            "--project", "py", "run", "ruff", "check", "--fix",
-            "--config", "py/pyproject.toml",
-            "py/src", "py/tests", "py/pyproject.toml",
+            "--project",
+            "py",
+            "run",
+            "ruff",
+            "check",
+            "--fix",
+            "--config",
+            "py/pyproject.toml",
+            "py/src",
+            "py/tests",
+            "py/pyproject.toml",
           ]
         language: system
         pass_filenames: false
@@ -40,9 +48,16 @@ repos:
         entry: uv
         args:
           [
-            "--project", "py", "run", "ruff", "format",
-            "--config", "py/pyproject.toml",
-            "py/src", "py/tests", "py/pyproject.toml",
+            "--project",
+            "py",
+            "run",
+            "ruff",
+            "format",
+            "--config",
+            "py/pyproject.toml",
+            "py/src",
+            "py/tests",
+            "py/pyproject.toml",
           ]
         language: system
         pass_filenames: false
@@ -51,7 +66,15 @@ repos:
       - id: uv-mypy
         name: mypy (py)
         entry: uv
-        args: ["--project", "py", "run", "mypy", "--config-file", "py/pyproject.toml"]
+        args:
+          [
+            "--project",
+            "py",
+            "run",
+            "mypy",
+            "--config-file",
+            "py/pyproject.toml",
+          ]
         language: system
         pass_filenames: false
         files: '^py/.*\.py$'
@@ -59,7 +82,16 @@ repos:
       - id: uv-pytest
         name: pytest (py)
         entry: uv
-        args: ["--project", "py", "run", "pytest", "-c", "py/pyproject.toml", "py/tests"]
+        args:
+          [
+            "--project",
+            "py",
+            "run",
+            "pytest",
+            "-c",
+            "py/pyproject.toml",
+            "py/tests",
+          ]
         language: system
         pass_filenames: false
         files: '^py/.*\.py$'
@@ -132,7 +164,16 @@ repos:
 
       - id: dart-publish-dry-run
         name: dart pub publish --dry-run (dart)
-        entry: bash -c 'cd dart && dart pub publish --dry-run'
+        # pub exits 65 on *any* warning, including "checked-in files are
+        # modified in git" -- which is always true mid-commit (the files
+        # being committed are staged), so a release commit touching
+        # pubspec.yaml could never pass. Tolerate that one warning only.
+        entry: >-
+          bash -c 'cd dart;
+          out=$(dart pub publish --dry-run 2>&1); rc=$?; echo "$out";
+          if [ $rc -eq 65 ] && echo "$out" | grep -q "^Package has 1 warning" &&
+          echo "$out" | grep -q "checked-in files are modified in git"; then exit 0; fi;
+          exit $rc'
         language: system
         pass_filenames: false
         files: '^dart/(.*\.dart|pubspec\.yaml)$'
