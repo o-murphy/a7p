@@ -51,18 +51,18 @@
     semver "^6.3.1"
 
 "@babel/core@^8.0.0":
-  version "8.0.10"
-  resolved "https://registry.yarnpkg.com/@babel/core/-/core-8.0.10.tgz#b02ced26bcc8f87e564143d7ca964993f9d4fad7"
-  integrity sha512-T6dEcoMJ3L1hyLuNfRXcVlqQrN79kU/SB5bDygVgQNIOUgStdyEGzigtRA9K+9Coh7SZUSt543oWRBxvqYdyuQ==
+  version "8.1.0"
+  resolved "https://registry.yarnpkg.com/@babel/core/-/core-8.1.0.tgz#4c24a01fbd42e9afed8c7ad4148a4b317c437d80"
+  integrity sha512-3jqm7xh3kJCmIeOK8sk6/EvOWdSzvOqvjt0tJEDOHHmzWjcQSvIh2/tq1I9RA741tl0QZdMzPJWCulWE+Dy5ww==
   dependencies:
     "@babel/code-frame" "^8.0.6"
-    "@babel/generator" "^8.0.10"
+    "@babel/generator" "^8.1.0"
     "@babel/helper-compilation-targets" "^8.0.7"
-    "@babel/helpers" "^8.0.10"
-    "@babel/parser" "^8.0.10"
+    "@babel/helpers" "^8.1.0"
+    "@babel/parser" "^8.1.0"
     "@babel/template" "^8.0.0"
-    "@babel/traverse" "^8.0.10"
-    "@babel/types" "^8.0.10"
+    "@babel/traverse" "^8.1.0"
+    "@babel/types" "^8.1.0"
     "@types/gensync" "^1.0.5"
     convert-source-map "^2.0.0"
     empathic "^2.0.1"
@@ -83,7 +83,7 @@
     "@jridgewell/trace-mapping" "^0.3.28"
     jsesc "^3.0.2"
 
-"@babel/generator@^8.0.10", "@babel/generator@^8.1.0":
+"@babel/generator@^8.1.0":
   version "8.1.0"
   resolved "https://registry.yarnpkg.com/@babel/generator/-/generator-8.1.0.tgz#91565261e879dd9b0680ac521174be3f3cb74e22"
   integrity sha512-7fiBJ61wDV3AHbg7n/EfLBv3RU+lsdRP8QNJnydkKWA7e48FnnvKQWbVHsJQCBE7JHTj4xlzZL9fvQYsBUip2A==
@@ -341,7 +341,7 @@
     "@babel/template" "^7.29.7"
     "@babel/types" "^7.29.7"
 
-"@babel/helpers@^8.0.10":
+"@babel/helpers@^8.1.0":
   version "8.1.0"
   resolved "https://registry.yarnpkg.com/@babel/helpers/-/helpers-8.1.0.tgz#362c87c2debab2e495ab200b13d35d397b9942e2"
   integrity sha512-949bjw10dhaRdtQeCpfVShFA4jIcto97BkqmWnRjpzyQuHVZ7EDriaoCn/4D8h1NqSKlmI20xPU0vHf3jQbQRg==
@@ -356,7 +356,7 @@
   dependencies:
     "@babel/types" "^7.29.7"
 
-"@babel/parser@^8.0.0", "@babel/parser@^8.0.10", "@babel/parser@^8.1.0":
+"@babel/parser@^8.0.0", "@babel/parser@^8.1.0":
   version "8.1.0"
   resolved "https://registry.yarnpkg.com/@babel/parser/-/parser-8.1.0.tgz#872b51d371a0ffc4053fbdea64213daf3fd7ab97"
   integrity sha512-fpqZYAC+Tthr19JbEKxXhCGutvfm/+roMe+ULrgUKI+GVyzkQiTMTSheORcWIAzW8T3Oo3W5UavWSvAWmsp7fA==
@@ -1060,7 +1060,7 @@
     "@babel/types" "^7.29.7"
     debug "^4.3.1"
 
-"@babel/traverse@^8.0.0", "@babel/traverse@^8.0.10", "@babel/traverse@^8.0.5", "@babel/traverse@^8.0.6", "@babel/traverse@^8.0.7":
+"@babel/traverse@^8.0.0", "@babel/traverse@^8.0.5", "@babel/traverse@^8.0.6", "@babel/traverse@^8.0.7", "@babel/traverse@^8.1.0":
   version "8.1.0"
   resolved "https://registry.yarnpkg.com/@babel/traverse/-/traverse-8.1.0.tgz#2c7032891dd5adc40f50a6df1b631a511f21e614"
   integrity sha512-oQ0QI6MR4cm6bOR/Ua5HLPxvO7vborT7Le5HNt9GmZUKpNsaPl2yj4gsQ440lXaZjc4vmUbSeVgEcK4cHuCL2A==
@@ -1081,7 +1081,7 @@
     "@babel/helper-string-parser" "^7.29.7"
     "@babel/helper-validator-identifier" "^7.29.7"
 
-"@babel/types@^8.0.0", "@babel/types@^8.0.10", "@babel/types@^8.0.5", "@babel/types@^8.1.0":
+"@babel/types@^8.0.0", "@babel/types@^8.0.5", "@babel/types@^8.1.0":
   version "8.1.0"
   resolved "https://registry.yarnpkg.com/@babel/types/-/types-8.1.0.tgz#6410d1a08666a08109de39b01d8795f2aae414e2"
   integrity sha512-8V8aSTDx012YPmDQF30vrokyxVFdRAU2YBS2VzrnfLAGkP8floVnjckwgFcD0Jrvf6GWMSRdCrYVsk3tyMwZRg==
@@ -1095,9 +1095,9 @@
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
 "@bufbuild/protobuf@^2.0.0", "@bufbuild/protobuf@^2.12.0", "@bufbuild/protobuf@^2.14.1":
-  version "2.16.0"
-  resolved "https://registry.yarnpkg.com/@bufbuild/protobuf/-/protobuf-2.16.0.tgz#130eff69a232f29fb4e2b3f8ebbb0b3e0adf5a36"
-  integrity sha512-FWa0sPlqYGJgpTs6OxBRcL/AW4JT0OIO+W1ajerluoTVh8CV0B7XM1qsNCRgnkSCkRCgOICKHRQlY17jrsm0+Q==
+  version "2.17.0"
+  resolved "https://registry.yarnpkg.com/@bufbuild/protobuf/-/protobuf-2.17.0.tgz#231e87fc12d859bf95166890e9cebd64ac362810"
+  integrity sha512-hcPkSz6D7MiTU/5VBBhK+kxaYDoOdQ6yJRFJ3kS8Nydp+VZXfg1vrpABKPNod8bXMufsVCmiUJVIKFzCzta4uw==
 
 "@emnapi/core@1.10.0":
   version "1.10.0"
@@ -3569,9 +3569,9 @@ ts-proto-descriptors@2.1.0:
     "@bufbuild/protobuf" "^2.0.0"
 
 ts-proto@^2.11.8:
-  version "2.18.3"
-  resolved "https://registry.yarnpkg.com/ts-proto/-/ts-proto-2.18.3.tgz#74ed2352a532bd96317dd7bd7d0ccbfc6a748898"
-  integrity sha512-Dgfmhf8ltdQZwWPGX0f+XdIprdbAA7iRFsjj4PCflDXP8WTtKZGCjm92/pUlRcHuQy8WGtwbvNh8sthwtdvzBw==
+  version "2.18.4"
+  resolved "https://registry.yarnpkg.com/ts-proto/-/ts-proto-2.18.4.tgz#2114346a98e5891803df8829f6210ac53f9c17e8"
+  integrity sha512-dj2e/X08jbKWIugOIox2FOzeL0/0Q3LP59LjNtMUk0Xa4XwZkzBWw1TRWzBRyUsIei20O2sGYcnx+11QoRpCAA==
   dependencies:
     "@bufbuild/protobuf" "^2.14.1"
     case-anything "^2.1.13"
