@@ -215,7 +215,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (${{ matrix.identifier }})
-        uses: ballistics-lab/cibuildmp@v0.7.5
+        uses: ballistics-lab/cibuildmp@v0.7.6
         with:
           package-dir: micropython
           build: ${{ matrix.identifier }}
@@ -291,7 +291,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (${{ matrix.identifier }})
-        uses: ballistics-lab/cibuildmp@v0.7.5
+        uses: ballistics-lab/cibuildmp@v0.7.6
         with:
           package-dir: micropython
           build: ${{ matrix.identifier }}
@@ -428,7 +428,11 @@ jobs:
         # here for qemu to do on that leg at all.
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y --no-install-recommends qemu-user-static
+          # On ubuntu-latest (26.04) `qemu-user-static` is only a virtual
+          # package with no installation candidate. `qemu-user-binfmt`
+          # provides it, depends on `qemu-user` (qemu-mipsel-static), and
+          # performs the same update-binfmts registration.
+          sudo apt-get install -y --no-install-recommends qemu-user-binfmt
 
       - name: Install armhf multiarch userspace
         if: matrix.arch_label == 'armhf'
@@ -451,7 +455,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (${{ matrix.identifier }})
-        uses: ballistics-lab/cibuildmp@v0.7.5
+        uses: ballistics-lab/cibuildmp@v0.7.6
         with:
           package-dir: micropython
           build: ${{ matrix.identifier }}
@@ -516,7 +520,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (v1.29.0-qemu-MPS2_AN385)
-        uses: ballistics-lab/cibuildmp@v0.7.5
+        uses: ballistics-lab/cibuildmp@v0.7.6
         with:
           package-dir: micropython
           build: v1.29.0-qemu-MPS2_AN385
@@ -575,7 +579,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (v1.29.0-esp32-ESP32_GENERIC)
-        uses: ballistics-lab/cibuildmp@v0.7.5
+        uses: ballistics-lab/cibuildmp@v0.7.6
         with:
           package-dir: micropython
           build: v1.29.0-esp32-ESP32_GENERIC
@@ -624,7 +628,7 @@ jobs:
         run: make -C micropython/natmod fetch-nanopb
 
       - name: Build usermod (v1.29.0-rp2-RPI_PICO)
-        uses: ballistics-lab/cibuildmp@v0.7.5
+        uses: ballistics-lab/cibuildmp@v0.7.6
         with:
           package-dir: micropython
           build: v1.29.0-rp2-RPI_PICO
