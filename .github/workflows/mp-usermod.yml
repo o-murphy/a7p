@@ -428,7 +428,11 @@ jobs:
         # here for qemu to do on that leg at all.
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y --no-install-recommends qemu-user-static
+          # On ubuntu-latest (26.04) `qemu-user-static` is only a virtual
+          # package with no installation candidate. `qemu-user-binfmt`
+          # provides it, depends on `qemu-user` (qemu-mipsel-static), and
+          # performs the same update-binfmts registration.
+          sudo apt-get install -y --no-install-recommends qemu-user-binfmt
 
       - name: Install armhf multiarch userspace
         if: matrix.arch_label == 'armhf'
